@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raw Planet Experience — The Red Room</title>
+<meta name="description" content="Make a beat, spin a set or sink into sound with Alex in three private New York studios. No experience needed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shrikhand&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,800;1,7..72,400;1,7..72,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --red:#B8231B;
+  --red-deep:#8E1913;
+  --oxblood:#4F0D0C;
+  --walnut:#3A2116;
+  --walnut-dark:#24140C;
+  --gold:#D49A35;
+  --gold-light:#EBB95A;
+  --gold-dark:#9C6A1C;
+  --tungsten:#F6E3C4;
+  --tungsten-dim:#D9C2A0;
+  --ink:#1E110B;
+  --display:"Shrikhand", "Cooper Black", Georgia, serif;
+  --body:"Literata", Georgia, serif;
+  --measure:62ch;
+  --gutter:clamp(16px, 4vw, 56px);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{
+  margin:0;background:var(--walnut);color:var(--tungsten);
+  font-family:var(--body);font-size:1.0625rem;line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+img{display:block;max-width:100%}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--gold-light);outline-offset:3px;border-radius:2px}
+.wrap{max-width:1280px;margin:0 auto;padding:0 var(--gutter)}
+h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.02;margin:0;letter-spacing:.005em}
+h2{font-size:clamp(2.4rem,5.4vw,4.4rem)}
+h3{font-size:clamp(1.5rem,2.4vw,2rem)}
+p{margin:0 0 1em;max-width:var(--measure)}
+.lede{font-size:clamp(1.15rem,1.6vw,1.35rem);line-height:1.55}
+
+/* ---------- the slat: acoustic wood panels from the studio walls ---------- */
+.slats{
+  background:
+    linear-gradient(180deg, rgba(255,230,170,.18), transparent 18%, transparent 80%, rgba(30,10,0,.35)),
+    repeating-linear-gradient(90deg,
+      var(--gold-dark) 0 2px,
+      var(--gold) 2px 7px,
+      var(--gold-light) 7px 11px,
+      var(--gold) 11px 18px,
+      #B37A25 18px 21px,
+      var(--ink) 21px 24px);
+}
+.slat-band{height:44px;border-top:3px solid var(--ink);border-bottom:3px solid var(--ink)}
+
+/* ---------- header ---------- */
+.top{
+  position:sticky;top:0;z-index:20;
+  background:rgba(36,20,12,.92);backdrop-filter:blur(8px);
+  border-bottom:1px solid rgba(212,154,53,.25);
+}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:20px;height:68px}
+.brand{font-family:var(--display);font-size:1.35rem;text-decoration:none;color:var(--tungsten);white-space:nowrap}
+.brand span{color:var(--gold)}
+.nav{display:flex;gap:26px;align-items:center}
+.nav a{text-decoration:none;font-size:.98rem;color:var(--tungsten-dim)}
+.nav a:hover{color:var(--tungsten)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.5em;
+  font-family:var(--body);font-weight:800;font-size:1rem;line-height:1;
+  padding:15px 24px;border-radius:999px;border:0;cursor:pointer;text-decoration:none;
+  background:var(--gold);color:var(--ink);
+  box-shadow:inset 0 -3px 0 rgba(0,0,0,.22);
+  transition:background .15s, transform .1s;
+}
+.btn:hover{background:var(--gold-light)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--tungsten);box-shadow:inset 0 0 0 2px rgba(246,227,196,.5)}
+.btn.ghost:hover{box-shadow:inset 0 0 0 2px var(--tungsten)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.nav .btn{padding:11px 18px;font-size:.95rem;white-space:nowrap}
+@media (max-width:420px){.brand{font-size:1.1rem}.nav .btn{padding:10px 14px;font-size:.88rem}}
+@media (max-width:600px){.c5 .tag{display:none}}
+@media (max-width:860px){.nav a:not(.btn){display:none}}
+
+/* ---------- hero ---------- */
+.hero{position:relative;background:var(--walnut);overflow:hidden}
+.hero-grid{
+  display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:clamp(28px,4vw,64px);
+  align-items:center;padding-top:clamp(40px,7vw,96px);padding-bottom:clamp(48px,7vw,104px);
+}
+.hero h1{font-size:clamp(2.7rem,6.2vw,5.6rem);color:var(--tungsten)}
+.hero h1 .line2{display:block;color:var(--gold)}
+.hero .lede{margin-top:28px;color:var(--tungsten-dim)}
+.hero-actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:32px}
+.hero-proof{margin-top:30px;font-size:.95rem;color:var(--tungsten-dim);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.stars{color:var(--gold);letter-spacing:2px}
+
+.collage{
+  position:relative;display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));grid-template-rows:repeat(6,minmax(0,1fr));
+  gap:10px;aspect-ratio:1/1.02;
+}
+.collage figure{margin:0;overflow:hidden;border-radius:6px;background:var(--oxblood);box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.collage img{width:100%;height:100%;object-fit:cover}
+.c1{grid-column:1/5;grid-row:1/4}
+.c2{grid-column:5/7;grid-row:1/3}
+.c3{grid-column:5/7;grid-row:3/7}
+.c4{grid-column:1/3;grid-row:4/7}
+.c5{grid-column:3/5;grid-row:4/7;position:relative}
+.c5.slats{border-radius:6px;display:flex;align-items:flex-end}
+.c5 .tag{
+  margin:12px;background:var(--ink);color:var(--tungsten);font-size:.85rem;line-height:1.35;
+  padding:10px 12px;border-radius:4px;max-width:20ch;
+}
+/* one orchestrated load moment: the collage pins up like photos on the studio wall */
+@media (prefers-reduced-motion: no-preference){
+  .collage > *{opacity:0;transform:translateY(14px) rotate(var(--r,0deg));animation:pin .7s cubic-bezier(.2,.7,.2,1) forwards}
+  .c1{--r:-1deg;animation-delay:.05s}.c2{--r:1.5deg;animation-delay:.18s}.c3{--r:-.8deg;animation-delay:.3s}
+  .c4{--r:1deg;animation-delay:.42s}.c5{--r:0deg;animation-delay:.54s}
+  @keyframes pin{to{opacity:1;transform:translateY(0) rotate(0)}}
+}
+@media (max-width:900px){
+  .hero-grid{grid-template-columns:minmax(0,1fr)}
+  .collage{aspect-ratio:1/0.95}
+}
+
+/* ---------- rooms ---------- */
+.rooms{background:var(--red);padding:clamp(64px,9vw,128px) 0}
+.rooms-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:end;margin-bottom:56px}
+.rooms-head p{color:#FBE6D2;margin:0}
+.room-list{display:grid;gap:28px}
+.room{
+  display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);
+  background:var(--oxblood);border-radius:10px;overflow:hidden;min-height:400px;
+}
+.room:nth-child(even){grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}
+.room:nth-child(even) .room-media{order:2}
+.room-media{position:relative;min-height:280px;background:var(--walnut-dark)}
+.room-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.room-body{padding:clamp(28px,4vw,52px);display:flex;flex-direction:column;justify-content:center}
+.room-body h3{color:var(--gold-light);margin-bottom:6px}
+.room-where{font-style:italic;color:var(--tungsten-dim);margin-bottom:18px}
+.room-facts{display:flex;flex-wrap:wrap;gap:8px 22px;margin:4px 0 26px;padding:14px 0;border-top:1px solid rgba(246,227,196,.18);border-bottom:1px solid rgba(246,227,196,.18);font-size:.98rem}
+.room-facts b{font-weight:800;color:var(--tungsten)}
+.room .btn{align-self:flex-start}
+.placeholder-tag{
+  display:inline-block;font-family:var(--body);font-size:.78rem;font-weight:600;font-style:normal;
+  background:rgba(246,227,196,.12);color:var(--tungsten-dim);border:1px dashed rgba(246,227,196,.45);
+  padding:2px 8px;border-radius:99px;vertical-align:middle;margin-left:6px;white-space:nowrap
+}
+/* designed placeholders for rooms we don't have photos of yet */
+.ph{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden}
+.ph-dj{background:radial-gradient(circle at 50% 50%, #2b1610 0 30%, var(--walnut-dark) 70%)}
+.platter{
+  width:min(68%,300px);aspect-ratio:1;border-radius:50%;position:relative;
+  background:
+    radial-gradient(circle, var(--gold) 0 9%, var(--ink) 9.5% 11%, var(--red) 11.5% 26%, transparent 26.5%),
+    repeating-radial-gradient(circle, #1a0d08 0 2px, #2a1710 2px 4px);
+  box-shadow:0 0 0 10px #140a06, 0 30px 60px rgba(0,0,0,.6);
+}
+@media (prefers-reduced-motion: no-preference){
+  .room:hover .platter, .room:focus-within .platter{animation:spin 1.8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+}
+.tonearm{position:absolute;right:12%;top:14%;width:6px;height:42%;background:var(--tungsten-dim);border-radius:3px;transform-origin:top center;transform:rotate(24deg)}
+.tonearm::before{content:"";position:absolute;top:-10px;left:-9px;width:24px;height:24px;border-radius:50%;background:var(--tungsten-dim)}
+.ph-med{background:radial-gradient(circle at 50% 55%, #6d1a14 0, var(--oxblood) 45%, var(--walnut-dark) 100%)}
+.rings{width:min(76%,340px);aspect-ratio:1;border-radius:50%;
+  background:repeating-radial-gradient(circle, rgba(235,185,90,.0) 0 14px, rgba(235,185,90,.35) 14px 15px);
+  -webkit-mask:radial-gradient(circle, #000 55%, transparent 72%);mask:radial-gradient(circle, #000 55%, transparent 72%);
+}
+.bowl{position:absolute;width:min(30%,130px);aspect-ratio:2/1;border-radius:0 0 999px 999px;background:linear-gradient(180deg,var(--gold-light),var(--gold-dark));top:52%;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.ph-caption{position:absolute;left:16px;bottom:16px;font-size:.85rem;color:var(--tungsten-dim);background:rgba(20,10,6,.75);padding:6px 10px;border-radius:4px}
+@media (max-width:820px){
+  .rooms-head{grid-template-columns:minmax(0,1fr)}
+  .room,.room:nth-child(even){grid-template-columns:minmax(0,1fr)}
+  .room:nth-child(even) .room-media{order:0}
+  .room-media{min-height:260px}
+}
+
+/* ---------- meet alex ---------- */
+.alex{background:var(--walnut);padding:clamp(64px,9vw,128px) 0}
+.alex-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:clamp(32px,5vw,80px);align-items:center}
+.alex-photo{position:relative}
+.alex-photo img{border-radius:8px;width:100%;aspect-ratio:4/3.3;object-fit:cover}
+.alex-photo .slats{position:absolute;width:38%;height:62%;right:-18px;bottom:-18px;z-index:-1;border-radius:6px}
+.alex-photo{z-index:0;isolation:isolate}
+.alex h2{color:var(--gold)}
+.alex .lede{margin-top:22px}
+.credits{margin:26px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:10px}
+.credits li{border:1px solid rgba(212,154,53,.5);color:var(--tungsten);padding:6px 14px;border-radius:99px;font-size:.95rem}
+.signoff{font-style:italic;color:var(--tungsten-dim);margin-top:24px}
+@media (max-width:860px){.alex-grid{grid-template-columns:minmax(0,1fr)}.alex-photo .slats{right:-8px;bottom:-12px}}
+
+/* ---------- session sequence ---------- */
+.session{background:var(--oxblood);padding:clamp(64px,9vw,128px) 0}
+.session h2{color:var(--tungsten);max-width:16ch}
+.session-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr);gap:clamp(32px,5vw,72px);margin-top:48px;align-items:start}
+.steps{list-style:none;margin:0;padding:0;counter-reset:step}
+.steps li{counter-increment:step;display:grid;grid-template-columns:72px minmax(0,1fr);gap:18px;padding:22px 0;border-top:1px solid rgba(246,227,196,.16)}
+.steps li:last-child{border-bottom:1px solid rgba(246,227,196,.16)}
+.steps li::before{content:counter(step);font-family:var(--display);font-size:2.6rem;line-height:1;color:var(--gold)}
+.steps h3{font-size:1.45rem;color:var(--tungsten);margin-bottom:6px}
+.steps p{margin:0;color:var(--tungsten-dim)}
+.session-photos{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;position:sticky;top:96px}
+.session-photos img{border-radius:6px;width:100%;height:100%;object-fit:cover}
+.session-photos .tall{grid-row:span 2;aspect-ratio:2/3}
+.session-photos .sq{aspect-ratio:1/1}
+@media (max-width:860px){.session-grid{grid-template-columns:minmax(0,1fr)}.session-photos{position:static}}
+
+/* ---------- reviews ---------- */
+.reviews{background:var(--red);padding:clamp(64px,9vw,128px) 0;position:relative}
+.reviews-top{display:flex;justify-content:space-between;align-items:end;gap:24px;flex-wrap:wrap;margin-bottom:44px}
+.score{display:flex;align-items:baseline;gap:14px}
+.score b{font-family:var(--display);font-weight:400;font-size:clamp(3.4rem,7vw,5.6rem);line-height:1;color:var(--tungsten)}
+.score span{color:#FBE6D2;max-width:18ch;line-height:1.35}
+.pull{
+  font-family:var(--display);font-size:clamp(1.7rem,3.4vw,2.9rem);line-height:1.12;color:var(--ink);
+  margin:0 0 48px;max-width:22ch
+}
+.quotes{columns:3 300px;column-gap:24px}
+.quote{break-inside:avoid;margin:0 0 24px;background:var(--red-deep);border-radius:8px;padding:24px 24px 20px}
+.quote p{font-size:1.02rem;margin:0 0 14px;color:#FFEBD8}
+.quote footer{font-size:.92rem;color:#F2C79C;font-style:italic}
+
+/* ---------- booking: the session sheet ---------- */
+.book{background:var(--walnut-dark);padding:clamp(64px,9vw,128px) 0}
+.book-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:end;margin-bottom:40px}
+.book-head h2{color:var(--gold)}
+.book-head p{color:var(--tungsten-dim);margin:0}
+.book-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px;align-items:start}
+
+.sheet{
+  background:#F3DDB6;color:var(--ink);border-radius:6px;padding:clamp(18px,2.6vw,32px);
+  box-shadow:0 30px 60px rgba(0,0,0,.45);
+  background-image:
+    linear-gradient(90deg, transparent 0 calc(100% - 1px), rgba(184,35,27,.0) 0),
+    linear-gradient(180deg, rgba(58,33,22,.05), transparent 30%);
+}
+.sheet-head{display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-end;padding-bottom:16px;border-bottom:3px double var(--walnut)}
+.sheet-title{font-family:var(--display);font-size:1.7rem;line-height:1;color:var(--red)}
+.sheet-meta{font-style:italic;font-size:.95rem;color:#6b4a35}
+.rooms-pick{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+.rooms-pick button{
+  font-family:var(--body);font-size:.98rem;font-weight:600;cursor:pointer;
+  border:2px solid var(--walnut);background:transparent;color:var(--walnut);
+  padding:9px 16px;border-radius:999px;
+}
+.rooms-pick button[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:#fff}
+.week-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:18px 0 10px}
+.week-nav .range{font-weight:700}
+.icon-btn{
+  width:40px;height:40px;border-radius:50%;border:2px solid var(--walnut);background:transparent;color:var(--walnut);
+  font-family:var(--body);font-size:1.2rem;font-weight:800;cursor:pointer;display:grid;place-items:center;line-height:1
+}
+.icon-btn[disabled]{opacity:.3;cursor:not-allowed}
+.track{width:100%;border-collapse:collapse;table-layout:fixed}
+.track th,.track td{border:1px solid rgba(58,33,22,.35);text-align:center;padding:0}
+.track thead th{padding:10px 4px;font-weight:600;font-size:.9rem;line-height:1.2;background:rgba(58,33,22,.06)}
+.track thead th b{display:block;font-family:var(--display);font-weight:400;font-size:1.35rem;color:var(--walnut)}
+.track tbody th{font-weight:600;font-size:.9rem;padding:0 8px;text-align:left;white-space:nowrap;width:94px;background:rgba(58,33,22,.06)}
+.track td{height:52px}
+.slot{
+  width:100%;height:100%;min-height:52px;border:0;background:transparent;cursor:pointer;
+  font-family:var(--body);font-style:italic;font-size:.95rem;color:var(--walnut);
+}
+.slot:hover{background:rgba(212,154,53,.35)}
+.slot[aria-pressed="true"]{background:var(--red);color:#fff;font-style:normal;font-weight:800}
+.slot.taken{cursor:not-allowed;color:rgba(58,33,22,.45);text-decoration:line-through;text-decoration-color:var(--red);text-decoration-thickness:2px;background:repeating-linear-gradient(135deg, transparent 0 7px, rgba(58,33,22,.06) 7px 9px)}
+.slot.past{cursor:not-allowed;color:rgba(58,33,22,.3);font-style:normal}
+.sheet-key{display:flex;flex-wrap:wrap;gap:6px 20px;margin-top:12px;font-size:.88rem;color:#6b4a35}
+.sheet-key i{font-style:italic}
+.sheet-key s{text-decoration-color:var(--red);text-decoration-thickness:2px}
+
+.summary{background:var(--oxblood);border-radius:8px;padding:26px;position:sticky;top:92px}
+.summary h3{font-size:1.6rem;color:var(--gold-light);margin-bottom:16px}
+.sum-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid rgba(246,227,196,.14);font-size:.98rem}
+.sum-row span:first-child{color:var(--tungsten-dim)}
+.sum-row span:last-child{text-align:right;font-weight:600}
+.guests{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(246,227,196,.14)}
+.stepper{display:flex;align-items:center;gap:12px}
+.stepper button{width:36px;height:36px;border-radius:50%;border:2px solid var(--tungsten-dim);background:transparent;color:var(--tungsten);font-size:1.1rem;font-weight:800;cursor:pointer;font-family:var(--body);line-height:1}
+.stepper button[disabled]{opacity:.3;cursor:not-allowed}
+.stepper output{min-width:2ch;text-align:center;font-weight:800;font-size:1.1rem}
+.total{display:flex;justify-content:space-between;align-items:baseline;padding:18px 0 6px}
+.total b{font-family:var(--display);font-weight:400;font-size:2.1rem;color:var(--tungsten)}
+.summary .btn{width:100%;margin-top:14px}
+.fine{font-size:.86rem;color:var(--tungsten-dim);margin:14px 0 0;line-height:1.5}
+.notice{margin-top:14px;padding:12px 14px;border-radius:6px;background:rgba(212,154,53,.16);border:1px solid rgba(212,154,53,.5);font-size:.92rem;line-height:1.45}
+@media (max-width:980px){
+  .book-head{grid-template-columns:minmax(0,1fr)}
+  .book-grid{grid-template-columns:minmax(0,1fr)}
+  .summary{position:static}
+}
+@media (max-width:520px){
+  .track tbody th{width:64px;padding:0 4px;font-size:.8rem;white-space:normal;line-height:1.2}
+  .track thead th{font-size:.78rem}
+  .slot{font-size:.85rem}
+}
+
+/* ---------- gifts & groups ---------- */
+.extras{padding:0}
+.extras-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.extra{padding:clamp(48px,7vw,96px) var(--gutter)}
+.extra.gift{background:var(--gold);color:var(--ink)}
+.extra.group{background:var(--red-deep);color:var(--tungsten)}
+.extra h2{font-size:clamp(2rem,4vw,3.3rem);margin-bottom:18px}
+.extra.gift h2{color:var(--oxblood)}
+.extra.gift .btn{background:var(--ink);color:var(--gold-light)}
+.extra.gift .btn:hover{background:var(--walnut)}
+.extra-inner{max-width:520px}
+@media (max-width:820px){.extras-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- faq ---------- */
+.faq{background:var(--walnut);padding:clamp(64px,9vw,128px) 0}
+.faq-grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:clamp(32px,5vw,80px)}
+.faq h2{color:var(--tungsten)}
+.faq details{border-top:1px solid rgba(246,227,196,.2)}
+.faq details:last-child{border-bottom:1px solid rgba(246,227,196,.2)}
+.faq summary{cursor:pointer;list-style:none;padding:20px 40px 20px 0;font-weight:600;font-size:1.12rem;position:relative}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";position:absolute;right:4px;top:50%;transform:translateY(-50%);font-family:var(--display);font-size:1.6rem;color:var(--gold);transition:transform .2s}
+.faq details[open] summary::after{transform:translateY(-50%) rotate(45deg)}
+.faq details p{color:var(--tungsten-dim);padding-bottom:12px}
+@media (max-width:860px){.faq-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- footer ---------- */
+.foot{background:var(--walnut-dark);padding:56px 0 40px;color:var(--tungsten-dim);font-size:.95rem}
+.foot-grid{display:grid;grid-template-columns:minmax(0,1.4fr) repeat(3,minmax(0,1fr));gap:32px}
+.foot .brand{font-size:1.8rem;display:block;margin-bottom:12px}
+.foot h4{font-family:var(--body);font-weight:800;color:var(--tungsten);margin:0 0 10px;font-size:1rem}
+.foot ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.foot a{text-decoration:none}
+.foot a:hover{color:var(--tungsten)}
+.foot-bottom{margin-top:44px;padding-top:20px;border-top:1px solid rgba(246,227,196,.14);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:.88rem}
+@media (max-width:820px){.foot-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.foot-grid > :first-child{grid-column:1/-1}}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#">Raw Planet <span>Experience</span></a>
+    <nav class="nav" aria-label="Main">
+      <a href="#rooms">The rooms</a>
+      <a href="#alex">About Alex</a>
+      <a href="#reviews">Reviews</a>
+      <a href="#faq">Questions</a>
+      <a class="btn" href="#book">Book a session</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <h1>Come make some noise <span class="line2">in the red room.</span></h1>
+      <p class="lede">Three private studios in New York, one host who loves showing people around. Build a beat, learn to mix on real decks, or lie back and let sound wash over you. You don't need to know a thing about music to walk in.</p>
+      <div class="hero-actions">
+        <a class="btn" href="#book">Pick a time</a>
+        <a class="btn ghost" href="#rooms">See the three rooms</a>
+      </div>
+      <p class="hero-proof"><span class="stars" aria-hidden="true">★★★★★</span> 4.98 from 107 guests on Airbnb</p>
+    </div>
+    <div class="collage" aria-label="Photos from real sessions in the production studio">
+      <figure class="c1"><img src="../../assets/airbnb/prod-02.jpg" alt="Alex at the mixing desk with three guests gathered around"></figure>
+      <figure class="c2"><img src="../../assets/airbnb/prod-05.jpg" alt="A guest in headphones recording vocals in the booth"></figure>
+      <figure class="c3"><img src="../../assets/airbnb/prod-12.jpg" alt="A guest playing bass guitar on the studio couch"></figure>
+      <figure class="c4"><img src="../../assets/airbnb/prod-13.jpg" alt="Close-up of hands programming a drum machine"></figure>
+      <div class="c5 slats" aria-hidden="true"><span class="tag">The walls are the real thing: wood slats that make the room sound warm.</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="slats slat-band" aria-hidden="true"></div>
+
+<section class="rooms" id="rooms">
+  <div class="wrap">
+    <div class="rooms-head">
+      <h2>Three rooms, each built for one thing</h2>
+      <p class="lede">Every experience has its own studio, so the room is set up and waiting for exactly what you came to do. Book any of them for just your crew.</p>
+    </div>
+    <div class="room-list">
+      <article class="room">
+        <div class="room-media"><img src="../../assets/airbnb/prod-15.jpg" alt="A guest at the keyboard while Alex leans in to show him the controls"></div>
+        <div class="room-body">
+          <h3>The beat room</h3>
+          <p class="room-where">East Village, Manhattan</p>
+          <p>A historic studio where Jay Critch, Ron Suno, Ruben Blades and Making Movies have cut records. I'll show you around, then we build a beat from nothing, record your voice over it, and you go home with the track.</p>
+          <div class="room-facts"><span><b>About 2 hours</b></span><span><b>$150</b> per guest</span><span>Ages 10 and up</span></div>
+          <button class="btn" type="button" data-book="production">Book the beat room</button>
+        </div>
+      </article>
+      <article class="room">
+        <div class="room-media">
+          <div class="ph ph-dj" aria-hidden="true"><div class="platter"></div><div class="tonearm"></div></div>
+          <span class="ph-caption">Studio photos coming soon</span>
+        </div>
+        <div class="room-body">
+          <h3>The booth</h3>
+          <p class="room-where">Location to be announced <span class="placeholder-tag">placeholder</span></p>
+          <p>Get your hands on the decks. You'll learn how to line up two songs so they play as one, ride the faders, and play a short set of your own by the end. Bring a playlist if you have one; I'll bring the records.</p>
+          <div class="room-facts"><span><b>About 2 hours</b> <span class="placeholder-tag">placeholder</span></span><span><b>$150</b> per guest <span class="placeholder-tag">placeholder</span></span></div>
+          <button class="btn" type="button" data-book="dj">Book the booth</button>
+        </div>
+      </article>
+      <article class="room">
+        <div class="room-media">
+          <div class="ph ph-med" aria-hidden="true"><div class="rings"></div><div class="bowl"></div></div>
+          <span class="ph-caption">Studio photos coming soon</span>
+        </div>
+        <div class="room-body">
+          <h3>The quiet room</h3>
+          <p class="room-where">Location to be announced <span class="placeholder-tag">placeholder</span></p>
+          <p>The newest room, and the slowest. Lie down, close your eyes and let a live mix of tones, textures and low rhythm do the work. Nothing to learn and nothing to perform.</p>
+          <div class="room-facts"><span><b>About 2 hours</b> <span class="placeholder-tag">placeholder</span></span><span><b>$85</b> per guest <span class="placeholder-tag">placeholder</span></span></div>
+          <button class="btn" type="button" data-book="meditation">Book the quiet room</button>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="alex" id="alex">
+  <div class="wrap alex-grid">
+    <div class="alex-photo">
+      <img src="../../assets/airbnb/prod-07.jpg" alt="Alex smiling at the studio desk in a black hat">
+      <div class="slats" aria-hidden="true"></div>
+    </div>
+    <div>
+      <h2>Hi, I'm Alex. I'll get the door.</h2>
+      <p class="lede">I'm a New York DJ, producer and audio engineer, originally from Colombia, and I've spent more than ten years behind desks like this one.</p>
+      <p>My own records lean techno, but my sessions have run from hip hop to salsa, and that's the point: whatever you listen to, we can make it here. Most people who come through have never touched a drum machine. My job is to make that the least intimidating two hours of your week.</p>
+      <ul class="credits" aria-label="Artists Alex has worked with">
+        <li>Jay Critch</li><li>Ron Suno</li><li>Ruben Blades</li><li>Making Movies</li>
+      </ul>
+      <p class="signoff">Sessions in English or Spanish. Hablo español.</p>
+    </div>
+  </div>
+</section>
+
+<section class="session">
+  <div class="wrap">
+    <h2>What two hours in the beat room looks like</h2>
+    <div class="session-grid">
+      <ol class="steps">
+        <li><div><h3>Ring the buzzer</h3><p>I'll come down, bring you up the stairs and get you settled on the couch.</p></div></li>
+        <li><div><h3>Take the tour</h3><p>The desk, the vintage gear, the vocal booth, and a few stories about who's sat where you're sitting.</p></div></li>
+        <li><div><h3>Build the beat</h3><p>Drums first, then bass and chords. You make the calls; I handle the buttons you haven't met yet.</p></div></li>
+        <li><div><h3>Step up to the mic</h3><p>Sing, rap, talk, laugh. Whatever goes in the booth goes on the track.</p></div></li>
+        <li><div><h3>Leave with your song</h3><p>We do a quick mix together and I send you the finished track to keep.</p></div></li>
+      </ol>
+      <div class="session-photos">
+        <img class="tall" src="../../assets/airbnb/prod-03.jpg" alt="Wide view of the studio with Alex and guests around the desk">
+        <img class="sq" src="../../assets/airbnb/prod-06.jpg" alt="Two guests watching over Alex's shoulder at the desk">
+        <img class="sq" src="../../assets/airbnb/prod-08.jpg" alt="Guests relaxing on the leather couch between takes">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="slats slat-band" aria-hidden="true"></div>
+
+<section class="reviews" id="reviews">
+  <div class="wrap">
+    <div class="reviews-top">
+      <h2 style="color:var(--tungsten);max-width:13ch">From people who've been in the room</h2>
+      <div class="score"><b>4.98</b><span>average from 107 guest ratings on Airbnb</span></div>
+    </div>
+    <p class="pull">“Rare to find an experience that blends music, learning, and good vibes so seamlessly.”</p>
+    <div class="quotes">
+      <blockquote class="quote"><p>“This was the BEST NYC experience we've ever had! Cristian has that unique ability to make you feel comfortable right away (which is important when you are in a creative space!). He was knowledgeable, accommodating and FUN! … the best NYC souvenir we could dream of- a recorded track that we created!”</p><footer>Krysten, Lewisville NC</footer></blockquote>
+      <blockquote class="quote"><p>“Alex was so great and a total professional. We live in the city and did this as a birthday celebration and we would definitely do it again!”</p><footer>Joseph, New York NY</footer></blockquote>
+      <blockquote class="quote"><p>“We came as a group of colleagues who knew nothing about music production and left with a little song we created … our host made what might have been an intimidating experience fun, creative, and approachable! I'll listen to music a little differently after this.”</p><footer>Juniper, Berkeley CA</footer></blockquote>
+      <blockquote class="quote"><p>“My fiancé and I had a wonderful time making a song of our own.”</p><footer>Shania, New York NY</footer></blockquote>
+      <blockquote class="quote"><p>“Genuinely one of the best experiences ive had. Top 3 for sure. Cristian was an amazing host”</p><footer>Jason, Edmonton, Canada</footer></blockquote>
+      <blockquote class="quote"><p>“Our group really enjoyed this session with Alex! He was awesome and we came away with a really fun track.”</p><footer>Jessica, Danville CA</footer></blockquote>
+    </div>
+  </div>
+</section>
+
+<section class="book" id="book">
+  <div class="wrap">
+    <div class="book-head">
+      <h2>Pencil yourself in</h2>
+      <p class="lede">Pick a room, then a spot on the sheet. Sessions run every day from 10 in the morning to 10 at night. Free cancellation up to a day before.</p>
+    </div>
+    <div class="book-grid">
+      <div class="sheet">
+        <div class="sheet-head">
+          <div class="sheet-title">Session sheet</div>
+          <div class="sheet-meta" id="sheetMeta">Times are New York time</div>
+        </div>
+        <div class="rooms-pick" role="group" aria-label="Choose a room">
+          <button type="button" data-room="production" aria-pressed="true">Beat room</button>
+          <button type="button" data-room="dj" aria-pressed="false">The booth</button>
+          <button type="button" data-room="meditation" aria-pressed="false">Quiet room</button>
+        </div>
+        <div class="week-nav">
+          <button class="icon-btn" type="button" id="prevWeek" aria-label="Earlier dates">‹</button>
+          <span class="range" id="range" aria-live="polite"></span>
+          <button class="icon-btn" type="button" id="nextWeek" aria-label="Later dates">›</button>
+        </div>
+        <table class="track" id="track"><caption class="sr-only">Available session times</caption></table>
+        <div class="sheet-key"><span><i>open</i> = you can book it</span><span><s>taken</s> = someone beat you to it</span></div>
+      </div>
+
+      <aside class="summary" aria-live="polite">
+        <h3>Your session</h3>
+        <div class="sum-row"><span>Room</span><span id="sRoom">Beat room</span></div>
+        <div class="sum-row"><span>Day</span><span id="sDay">Choose on the sheet</span></div>
+        <div class="sum-row"><span>Time</span><span id="sTime">Choose on the sheet</span></div>
+        <div class="guests">
+          <span>Guests</span>
+          <div class="stepper">
+            <button type="button" id="minus" aria-label="One fewer guest">−</button>
+            <output id="count" aria-live="polite">2</output>
+            <button type="button" id="plus" aria-label="One more guest">+</button>
+          </div>
+        </div>
+        <div class="total"><span id="sEach">$150 × 2</span><b id="sTotal">$300</b></div>
+        <button class="btn" type="button" id="pay" disabled>Continue to payment</button>
+        <p class="fine">You'll pay securely with Stripe on the next step. Cancel at least a day before your start time for a full refund.</p>
+        <div class="notice" id="notice" hidden>Mockup only. On the live site this button opens Stripe checkout and the slot is held for you.</div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="extras">
+  <div class="extras-grid">
+    <div class="extra gift slats-free">
+      <div class="extra-inner">
+        <h2>Give someone a session</h2>
+        <p>A gift card covers any room, any day. They pick the time; you get the credit for the best birthday present of the year.</p>
+        <a class="btn" href="#">Buy a gift card</a>
+      </div>
+    </div>
+    <div class="extra group">
+      <div class="extra-inner">
+        <h2>Bringing the whole crew?</h2>
+        <p>Team outings, bachelorette weekends, a band that wants a day in a real room. Tell me how many of you there are and what you're celebrating and I'll put something together.</p>
+        <a class="btn ghost" href="#">Ask about a private session</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="slats slat-band" aria-hidden="true"></div>
+
+<section class="faq" id="faq">
+  <div class="wrap faq-grid">
+    <div>
+      <h2>Before you come up</h2>
+      <p class="lede" style="margin-top:20px;color:var(--tungsten-dim)">Still wondering? Text me and I'll answer between sessions.</p>
+    </div>
+    <div>
+      <details><summary>I've never made music. Is that a problem?</summary><p>Not at all. Most guests are total beginners, and the sessions are built for that. If you can nod your head to a song, you're qualified.</p></details>
+      <details><summary>Do I need to bring anything?</summary><p>Just yourself. Every room has all the gear you'll need. If you have songs you love, bring a list; we can use them as a starting point.</p></details>
+      <details><summary>How many people can come?</summary><p>Sessions work best for small groups. For bigger groups or a private booking, use the private session link above and I'll sort it out.</p></details>
+      <details><summary>Do I get to keep what we make?</summary><p>Yes. In the beat room you leave with your finished track. I'll send it over after the session.</p></details>
+      <details><summary>What if I need to cancel?</summary><p>Cancel at least one day before your start time and you'll get a full refund.</p></details>
+      <details><summary>How do I find the studio?</summary><p>You'll get the exact address and directions with your booking confirmation. When you arrive, press the buzzer and I'll come down to get you.</p></details>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div><a class="brand" href="#">Raw Planet <span>Experience</span></a><p>Music sessions in three private New York studios, hosted by Alex.</p></div>
+      <div><h4>Rooms</h4><ul><li><a href="#rooms">Beat room</a></li><li><a href="#rooms">The booth</a></li><li><a href="#rooms">Quiet room</a></li></ul></div>
+      <div><h4>Plan</h4><ul><li><a href="#book">Book a session</a></li><li><a href="#">Gift cards</a></li><li><a href="#">Private groups</a></li></ul></div>
+      <div><h4>Follow</h4><ul><li><a href="#">Instagram</a></li><li><a href="#">SoundCloud</a></li><li><a href="#">Email Alex</a></li></ul></div>
+    </div>
+    <div class="foot-bottom"><span>© 2026 Raw Planet Experience</span><span>New York, NY</span></div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  const ROOMS = {
+    production:{name:"Beat room", price:150},
+    dj:{name:"The booth", price:150},
+    meditation:{name:"Quiet room", price:85}
+  };
+  const SLOTS = [[10,"10–12"],[12,"12–2"],[14,"2–4"],[16,"4–6"],[18,"6–8"],[20,"8–10"]];
+  const label = h => (h%12||12) + (h<12?" am":" pm");
+  const slotLong = h => `${label(h)} – ${label(h+2)}`;
+
+  const state = {room:"production", start:startOfDay(new Date()), sel:null, guests:2};
+  const $ = id => document.getElementById(id);
+
+  function startOfDay(d){const x=new Date(d);x.setHours(0,0,0,0);return x}
+  function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+  function daysShown(){return window.matchMedia("(max-width:640px)").matches ? 3 : 7}
+  // deterministic fake availability
+  function taken(room,date,h){
+    const s = room.length*31 + date.getFullYear()*7 + date.getMonth()*53 + date.getDate()*97 + h*13;
+    const r = Math.abs(Math.sin(s)*10000)%1;
+    const weekendBoost = (date.getDay()===0||date.getDay()===6) && h>=14 ? .25 : 0;
+    return r < .28 + weekendBoost;
+  }
+  const fmtDay = d => d.toLocaleDateString("en-US",{weekday:"short"});
+  const fmtLong = d => d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+
+  function render(){
+    const n = daysShown(), today = startOfDay(new Date()), now = new Date();
+    const days = Array.from({length:n},(_,i)=>addDays(state.start,i));
+    $("range").textContent = `${days[0].toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${days[n-1].toLocaleDateString("en-US",{month:"short",day:"numeric"})}`;
+    $("prevWeek").disabled = state.start <= today;
+    let html = `<caption class="sr-only">Available times for the ${ROOMS[state.room].name}</caption><thead><tr><th scope="col"><span class="sr-only">Time</span></th>`;
+    days.forEach(d=>{html += `<th scope="col">${fmtDay(d)}<b>${d.getDate()}</b></th>`});
+    html += `</tr></thead><tbody>`;
+    SLOTS.forEach(([h,short])=>{
+      html += `<tr><th scope="row">${short}</th>`;
+      days.forEach(d=>{
+        const start = new Date(d); start.setHours(h);
+        const key = `${d.toDateString()}|${h}`;
+        const isPast = start < now;
+        const isTaken = !isPast && taken(state.room,d,h);
+        const isSel = state.sel && state.sel.key===key;
+        const desc = `${fmtLong(d)}, ${slotLong(h)}`;
+        if(isPast) html += `<td><button class="slot past" disabled aria-label="${desc}, already passed">·</button></td>`;
+        else if(isTaken) html += `<td><button class="slot taken" disabled aria-label="${desc}, taken">taken</button></td>`;
+        else html += `<td><button class="slot" type="button" data-key="${key}" data-h="${h}" data-d="${d.toISOString()}" aria-pressed="${isSel}" aria-label="${desc}, open">${isSel?"yours":"open"}</button></td>`;
+      });
+      html += `</tr>`;
+    });
+    html += `</tbody>`;
+    $("track").innerHTML = html;
+    summary();
+  }
+  function summary(){
+    const r = ROOMS[state.room];
+    $("sRoom").textContent = r.name;
+    $("sDay").textContent = state.sel ? fmtLong(new Date(state.sel.d)) : "Choose on the sheet";
+    $("sTime").textContent = state.sel ? slotLong(state.sel.h) : "Choose on the sheet";
+    $("count").textContent = state.guests;
+    $("minus").disabled = state.guests<=1;
+    $("plus").disabled = state.guests>=8;
+    $("sEach").textContent = `$${r.price} × ${state.guests} ${state.guests===1?"guest":"guests"}`;
+    $("sTotal").textContent = `$${(r.price*state.guests).toLocaleString()}`;
+    $("pay").disabled = !state.sel;
+    $("notice").hidden = true;
+  }
+  function setRoom(room){
+    state.room = room; state.sel = null;
+    document.querySelectorAll(".rooms-pick button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.room===room));
+    render();
+  }
+  $("track").addEventListener("click",e=>{
+    const b = e.target.closest(".slot[data-key]"); if(!b) return;
+    state.sel = {key:b.dataset.key, h:+b.dataset.h, d:b.dataset.d};
+    render();
+    const again = document.querySelector(`.slot[data-key="${CSS.escape(state.sel.key)}"]`); again && again.focus();
+  });
+  document.querySelectorAll(".rooms-pick button").forEach(b=>b.addEventListener("click",()=>setRoom(b.dataset.room)));
+  document.querySelectorAll("[data-book]").forEach(b=>b.addEventListener("click",()=>{
+    setRoom(b.dataset.book);
+    document.getElementById("book").scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto":"smooth"});
+  }));
+  $("prevWeek").addEventListener("click",()=>{const t=startOfDay(new Date());const p=addDays(state.start,-daysShown());state.start=p<t?t:p;render()});
+  $("nextWeek").addEventListener("click",()=>{state.start=addDays(state.start,daysShown());render()});
+  $("minus").addEventListener("click",()=>{state.guests=Math.max(1,state.guests-1);summary()});
+  $("plus").addEventListener("click",()=>{state.guests=Math.min(8,state.guests+1);summary()});
+  $("pay").addEventListener("click",()=>{$("notice").hidden=false});
+  let lastN = daysShown();
+  window.addEventListener("resize",()=>{const n=daysShown(); if(n!==lastN){lastN=n;render()}});
+  render();
+})();
+</script>
+</body>
+</html>

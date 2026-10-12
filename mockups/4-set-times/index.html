@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raw Planet — Set Times</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;800;900&family=Hanken+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --concrete: #D8D8D2;
+    --concrete-deep: #C6C6BF;
+    --paper: #F5F5F1;
+    --ink: #2433E0;
+    --ink-deep: #141C86;
+    --signal: #FF2E88;
+    --display: "Big Shoulders Display", "Arial Narrow", sans-serif;
+    --body: "Hanken Grotesk", system-ui, sans-serif;
+    --gutter: clamp(16px, 4vw, 48px);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--concrete);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  img { display: block; max-width: 100%; }
+  a { color: inherit; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--signal); outline-offset: 3px; }
+  .wrap { padding-inline: var(--gutter); max-width: 1480px; margin-inline: auto; }
+
+  /* ---------- Top bar ---------- */
+  .bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    padding-block: 18px; border-bottom: 2px solid var(--ink);
+  }
+  .mark {
+    font-family: var(--display); font-weight: 900; font-size: 30px; line-height: .82;
+    text-transform: uppercase; text-decoration: none; letter-spacing: .01em;
+  }
+  .mark span { display: block; }
+  .bar nav { display: flex; gap: 28px; align-items: center; }
+  .bar nav a { text-decoration: none; font-weight: 600; font-size: 15px; }
+  .bar nav a:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .bar .book-link {
+    background: var(--ink); color: var(--paper); padding: 10px 18px; border-radius: 999px;
+  }
+  .bar .book-link:hover { text-decoration: none; background: var(--ink-deep); }
+
+  /* ---------- Hero: lineup board ---------- */
+  .hero { padding-block: clamp(28px, 5vw, 64px) 0; }
+  .hero-head {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end;
+  }
+  .hero h1 {
+    font-family: var(--display); font-weight: 900; text-transform: uppercase;
+    font-size: clamp(54px, 14.5vw, 232px); line-height: .86; margin: 0; letter-spacing: -.005em;
+  }
+  .hero h1 .outline { color: transparent; -webkit-text-stroke: 2px var(--ink); }
+  .hero-intro { max-width: 330px; font-size: 18px; margin: 0 0 8px; }
+  .hero-intro strong { font-weight: 700; }
+
+  .scrub {
+    margin-top: clamp(28px, 4vw, 48px);
+    display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;
+    scrollbar-width: thin; scrollbar-color: var(--ink) transparent;
+  }
+  .day {
+    flex: 0 0 auto; width: 74px; padding: 10px 0 8px; border: 2px solid var(--ink);
+    background: transparent; cursor: pointer; text-align: center; border-radius: 0;
+  }
+  .day .dow { display: block; font-size: 13px; font-weight: 600; }
+  .day .num { display: block; font-family: var(--display); font-weight: 800; font-size: 38px; line-height: 1; }
+  .day:hover { background: var(--paper); }
+  .day[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+  .board { margin-top: 18px; border-top: 6px solid var(--ink); }
+  .board-cols, .room-row {
+    display: grid; grid-template-columns: minmax(220px, 1.35fr) repeat(6, minmax(0, 1fr));
+  }
+  .board-cols { border-bottom: 2px solid var(--ink); font-weight: 600; font-size: 14px; }
+  .board-cols div { padding: 10px 12px; }
+  .board-cols div + div { border-left: 1px solid rgba(36,51,224,.35); }
+  .room-row { border-bottom: 2px solid var(--ink); min-height: 132px; }
+  .room-name { padding: 16px 16px 14px 0; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
+  .room-name b {
+    font-family: var(--display); font-weight: 900; font-size: clamp(38px, 3.6vw, 56px);
+    line-height: .86; text-transform: uppercase; display: block;
+  }
+  .room-name small { font-size: 14px; font-weight: 500; }
+  .slot {
+    border: 0; border-left: 1px solid rgba(36,51,224,.35); background: transparent;
+    padding: 14px 12px; text-align: left; cursor: pointer; position: relative;
+    display: flex; flex-direction: column; justify-content: space-between; gap: 6px;
+    transition: background-color .15s ease, color .15s ease;
+  }
+  .slot .t { font-family: var(--display); font-weight: 800; font-size: clamp(26px, 2.4vw, 38px); line-height: .9; }
+  .slot .s { font-size: 13px; font-weight: 600; }
+  .slot:hover:not([disabled]) { background: var(--paper); }
+  .slot[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .slot[disabled] { cursor: not-allowed; color: rgba(36,51,224,.38); }
+  .slot[disabled] .t { text-decoration: line-through; text-decoration-thickness: 3px; }
+  .slot .now {
+    display: inline-flex; align-items: center; gap: 6px; color: var(--signal); font-weight: 700;
+  }
+  .slot .now::before {
+    content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--signal);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  .slot[aria-pressed="true"] .now { color: var(--paper); }
+  .slot[aria-pressed="true"] .now::before { background: var(--paper); }
+  @keyframes pulse { 50% { opacity: .25; } }
+
+  /* Selection drawer */
+  .drawer {
+    display: grid; grid-template-rows: 0fr; transition: grid-template-rows .35s cubic-bezier(.2,.7,.2,1);
+    background: var(--ink); color: var(--paper);
+  }
+  .drawer.open { grid-template-rows: 1fr; }
+  .drawer > div { overflow: hidden; }
+  .drawer-inner {
+    display: grid; grid-template-columns: minmax(0, 1.4fr) auto minmax(0, 1fr) auto; gap: 28px;
+    align-items: center; padding: 26px clamp(16px, 2vw, 28px);
+  }
+  .pick-sum b {
+    display: block; font-family: var(--display); font-weight: 900; text-transform: uppercase;
+    font-size: clamp(34px, 3.4vw, 52px); line-height: .9;
+  }
+  .pick-sum span { font-size: 15px; opacity: .85; }
+  .guests { display: flex; align-items: center; gap: 4px; }
+  .guests label { font-size: 14px; margin-right: 10px; font-weight: 600; }
+  .step {
+    width: 44px; height: 44px; border: 2px solid var(--paper); background: transparent; color: var(--paper);
+    font-size: 22px; font-weight: 700; cursor: pointer; line-height: 1;
+  }
+  .step:hover { background: var(--paper); color: var(--ink); }
+  .count { font-family: var(--display); font-weight: 800; font-size: 40px; width: 52px; text-align: center; }
+  .total { font-size: 15px; }
+  .total b { display: block; font-family: var(--display); font-weight: 800; font-size: 44px; line-height: 1; }
+  .pay {
+    background: var(--paper); color: var(--ink); border: 0; padding: 18px 26px; font-weight: 700;
+    font-size: 17px; cursor: pointer; border-radius: 999px; white-space: nowrap;
+  }
+  .pay:hover { background: var(--signal); color: var(--paper); }
+  .fine {
+    grid-column: 1 / -1; font-size: 14px; opacity: .8; margin: -10px 0 0;
+    border-top: 1px solid rgba(245,245,241,.3); padding-top: 14px;
+  }
+  .board-note { font-size: 14px; padding: 14px 0 0; display: flex; gap: 22px; flex-wrap: wrap; }
+  .board-note .key-now { color: var(--signal); font-weight: 700; }
+  .board-note s { text-decoration-thickness: 2px; }
+
+  /* ---------- Manifesto strip ---------- */
+  .strip {
+    margin-top: clamp(64px, 9vw, 120px); background: var(--ink); color: var(--concrete);
+    padding-block: clamp(40px, 6vw, 80px);
+  }
+  .strip p.big {
+    font-family: var(--display); font-weight: 900; text-transform: uppercase; margin: 0;
+    font-size: clamp(56px, 10vw, 168px); line-height: .82;
+  }
+  .strip p.big span { color: var(--paper); }
+  .strip .sub { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; margin-top: 40px; }
+  .strip .sub p { margin: 0; max-width: 38ch; font-size: 17px; color: var(--paper); }
+  .strip .sub b { display: block; font-family: var(--display); font-size: 28px; font-weight: 800; text-transform: uppercase; color: var(--concrete); line-height: 1; margin-bottom: 6px; }
+
+  /* ---------- Rooms ---------- */
+  section.block { padding-block: clamp(64px, 9vw, 120px) 0; }
+  .sec-title {
+    font-family: var(--display); font-weight: 900; text-transform: uppercase; margin: 0 0 28px;
+    font-size: clamp(54px, 7.5vw, 116px); line-height: .82;
+  }
+  .rooms { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 6px solid var(--ink); }
+  .room { padding: 22px 22px 28px 0; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .room + .room { border-left: 2px solid var(--ink); padding-left: 22px; }
+  .room h3 {
+    font-family: var(--display); font-weight: 900; text-transform: uppercase; margin: 0;
+    font-size: clamp(44px, 4.4vw, 72px); line-height: .84;
+  }
+  .room .where { font-weight: 600; font-size: 15px; margin: 0; }
+  .room p { margin: 0; max-width: 46ch; }
+  .room ul { margin: 0; padding: 0; list-style: none; font-size: 15px; border-top: 1px solid var(--ink); }
+  .room li { padding: 8px 0; border-bottom: 1px solid rgba(36,51,224,.3); display: flex; justify-content: space-between; gap: 12px; }
+  .room .go {
+    margin-top: auto; align-self: flex-start; background: transparent; border: 2px solid var(--ink);
+    padding: 12px 20px; font-weight: 700; cursor: pointer; border-radius: 999px;
+  }
+  .room .go:hover { background: var(--ink); color: var(--paper); }
+
+  .duo { position: relative; background: var(--ink); overflow: hidden; aspect-ratio: 4 / 3; }
+  .duo img {
+    width: 100%; height: 100%; object-fit: cover;
+    filter: grayscale(1) contrast(1.25) brightness(1.08); mix-blend-mode: screen;
+  }
+  .ph {
+    aspect-ratio: 4 / 3; background: var(--ink); position: relative; overflow: hidden;
+    display: grid; place-items: center;
+  }
+  .ph svg { width: 78%; height: 78%; }
+  .tag {
+    display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 9px;
+    border: 1.5px dashed currentColor; border-radius: 999px; vertical-align: middle; white-space: nowrap;
+  }
+  .ph .tag { position: absolute; left: 12px; bottom: 12px; color: var(--paper); }
+
+  /* ---------- Alex ---------- */
+  .alex { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: clamp(28px, 4vw, 64px); align-items: start; }
+  .alex .duo { aspect-ratio: 3 / 2; }
+  .alex-name {
+    font-family: var(--display); font-weight: 900; text-transform: uppercase;
+    font-size: clamp(90px, 13vw, 210px); line-height: .76; margin: 0 0 24px;
+  }
+  .alex p { max-width: 54ch; margin: 0 0 16px; }
+  .credits { margin-top: 28px; border-top: 2px solid var(--ink); }
+  .credits div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid rgba(36,51,224,.3); font-size: 15px; }
+  .credits dt, .credits dd { margin: 0; }
+  .credits dd { font-weight: 700; text-align: right; }
+
+  /* ---------- Reviews ---------- */
+  .reviews { background: var(--paper); margin-top: clamp(64px, 9vw, 120px); padding-block: clamp(56px, 8vw, 110px); }
+  .score { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; margin-bottom: 40px; }
+  .score b { font-family: var(--display); font-weight: 900; font-size: clamp(110px, 16vw, 240px); line-height: .78; }
+  .score span { font-weight: 600; max-width: 22ch; }
+  .quotes { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 40px 32px; }
+  .q { margin: 0; }
+  .q blockquote { margin: 0; }
+  .q.lg { grid-column: 1 / span 8; }
+  .q.lg blockquote {
+    font-family: var(--display); font-weight: 800; text-transform: uppercase;
+    font-size: clamp(40px, 5vw, 80px); line-height: .9;
+  }
+  .q.md { grid-column: span 6; }
+  .q.md blockquote { font-size: clamp(20px, 1.7vw, 25px); line-height: 1.3; font-weight: 500; }
+  .q.sm { grid-column: span 4; }
+  .q.sm blockquote { font-size: 18px; line-height: 1.4; }
+  .q.rt { grid-column: 9 / span 4; align-self: end; }
+  .q figcaption { margin-top: 12px; font-size: 14px; font-weight: 700; }
+
+  /* ---------- Gift + private ---------- */
+  .offers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border-top: 6px solid var(--ink); }
+  .offer { padding: 26px 28px 34px 0; display: flex; flex-direction: column; gap: 14px; }
+  .offer + .offer { border-left: 2px solid var(--ink); padding-left: 28px; }
+  .offer h3 { font-family: var(--display); font-weight: 900; text-transform: uppercase; font-size: clamp(46px, 5vw, 82px); line-height: .84; margin: 0; }
+  .offer p { margin: 0; max-width: 44ch; }
+  .offer .go {
+    align-self: flex-start; background: var(--ink); color: var(--paper); border: 0;
+    padding: 14px 22px; font-weight: 700; cursor: pointer; border-radius: 999px; margin-top: 8px;
+  }
+  .offer .go:hover { background: var(--ink-deep); }
+  .amounts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .amounts button {
+    border: 2px solid var(--ink); background: transparent; padding: 8px 16px; font-weight: 700;
+    font-family: var(--display); font-size: 26px; cursor: pointer; min-width: 84px;
+  }
+  .amounts button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+  /* ---------- FAQ ---------- */
+  .faq { border-top: 6px solid var(--ink); max-width: 980px; }
+  .faq details { border-bottom: 2px solid var(--ink); }
+  .faq summary {
+    list-style: none; cursor: pointer; padding: 20px 0; display: flex; justify-content: space-between; gap: 20px;
+    font-weight: 700; font-size: clamp(19px, 1.6vw, 23px); align-items: center;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after {
+    content: "+"; font-family: var(--display); font-size: 40px; line-height: .6; font-weight: 700;
+    transition: transform .2s ease;
+  }
+  .faq details[open] summary::after { transform: rotate(45deg); }
+  .faq details p { margin: 0 0 22px; max-width: 62ch; }
+
+  /* ---------- Footer ---------- */
+  footer { margin-top: clamp(80px, 10vw, 140px); background: var(--ink); color: var(--paper); padding-block: 56px 32px; }
+  .foot-big {
+    font-family: var(--display); font-weight: 900; text-transform: uppercase;
+    font-size: clamp(64px, 15vw, 250px); line-height: .78; margin: 0; color: var(--concrete);
+  }
+  .foot-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; margin-top: 48px; font-size: 15px; }
+  .foot-cols h4 { margin: 0 0 8px; font-size: 15px; color: var(--concrete); }
+  .foot-cols p { margin: 0; }
+  .foot-cols a { display: block; text-decoration: none; padding: 2px 0; }
+  .foot-cols a:hover { text-decoration: underline; }
+  .foot-legal { margin-top: 48px; font-size: 13px; opacity: .7; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 140%);
+    background: var(--paper); color: var(--ink); border: 2px solid var(--ink); padding: 14px 20px;
+    font-weight: 600; max-width: calc(100vw - 32px); transition: transform .3s ease, visibility .3s; z-index: 10; visibility: hidden;
+  }
+  .toast.show { transform: translate(-50%, 0); visibility: visible; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 1080px) {
+    .board-cols, .room-row { grid-template-columns: minmax(170px, 1.1fr) repeat(6, minmax(0, 1fr)); }
+    .drawer-inner { grid-template-columns: minmax(0, 1fr) auto; }
+    .pay { grid-column: 1 / -1; justify-self: start; }
+    .rooms { grid-template-columns: minmax(0, 1fr); }
+    .room, .room + .room { border-left: 0; padding-left: 0; border-bottom: 2px solid var(--ink); padding-bottom: 36px; padding-top: 28px; }
+    .room { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 28px; align-items: start; }
+    .room > .duo, .room > .ph { grid-row: 1 / span 6; }
+    .alex { grid-template-columns: minmax(0, 1fr); }
+    .strip .sub { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  }
+  @media (max-width: 760px) {
+    body { font-size: 16px; }
+    .bar nav a:not(.book-link) { display: none; }
+    .hero-head { grid-template-columns: minmax(0, 1fr); }
+    .board-cols { display: none; }
+    .room-row {
+      grid-template-columns: repeat(3, minmax(0, 1fr)); min-height: 0; border-bottom: 0; margin-bottom: 18px;
+    }
+    .room-name { grid-column: 1 / -1; flex-direction: row; align-items: baseline; justify-content: space-between; padding: 14px 0 10px; border-bottom: 2px solid var(--ink); }
+    .room-name b { font-size: 40px; }
+    .slot { border-left: 0; border-bottom: 1px solid rgba(36,51,224,.35); min-height: 78px; padding: 10px 8px; }
+    .slot:nth-of-type(3n+2), .slot:nth-of-type(3n+3) { border-left: 1px solid rgba(36,51,224,.35); }
+    .slot .t { font-size: 28px; }
+    .drawer-inner { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+    .room, .room + .room { grid-template-columns: minmax(0, 1fr); padding-right: 0; }
+    .room > .duo, .room > .ph { grid-row: auto; }
+    .quotes { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+    .q.lg, .q.md, .q.sm, .q.rt { grid-column: 1 / -1; }
+    .offers { grid-template-columns: minmax(0, 1fr); }
+    .offer, .offer + .offer { border-left: 0; padding-left: 0; padding-right: 0; border-bottom: 2px solid var(--ink); }
+    .foot-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="bar">
+    <a class="mark" href="#top" aria-label="Raw Planet home"><span>Raw</span><span>Planet</span></a>
+    <nav aria-label="Main">
+      <a href="#rooms">Rooms</a>
+      <a href="#alex">Alex</a>
+      <a href="#gifts">Gifts &amp; groups</a>
+      <a href="#faq">Questions</a>
+      <a class="book-link" href="#lineup">Book a session</a>
+    </nav>
+  </header>
+</div>
+
+<main id="top">
+  <!-- ======= HERO: the lineup board ======= -->
+  <section class="hero wrap" id="lineup" aria-labelledby="lineup-title">
+    <div class="hero-head">
+      <h1 id="lineup-title"><span id="day-word">Today</span><br><span class="outline">at Raw Planet</span></h1>
+      <p class="hero-intro"><strong>Three studios in New York, open 10am to 10pm.</strong> Pick a room, pick a two-hour set, bring whoever you like. No experience needed, ever.</p>
+    </div>
+
+    <div class="scrub" role="group" aria-label="Choose a day" id="scrub"></div>
+
+    <div class="board" role="grid" aria-label="Session times">
+      <div class="board-cols" aria-hidden="true">
+        <div>Room</div><div>10:00</div><div>12:00</div><div>14:00</div><div>16:00</div><div>18:00</div><div>20:00</div>
+      </div>
+      <div id="rows"></div>
+    </div>
+
+    <div class="drawer" id="drawer" aria-live="polite">
+      <div>
+        <div class="drawer-inner">
+          <div class="pick-sum"><b id="sum-room">Make a beat</b><span id="sum-when">Mon 12 Oct, 14:00–16:00</span></div>
+          <div class="guests">
+            <label id="g-label">Guests</label>
+            <button class="step" type="button" id="minus" aria-label="Remove a guest">−</button>
+            <output class="count" id="count" aria-labelledby="g-label">2</output>
+            <button class="step" type="button" id="plus" aria-label="Add a guest">+</button>
+          </div>
+          <div class="total">Total<b id="total">$300</b></div>
+          <button class="pay" type="button" id="pay">Continue to payment</button>
+          <p class="fine">Secure checkout by Stripe. Cancel up to a day before for a full refund. Groups over 6? <a href="#gifts">Book the room privately.</a></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="board-note">
+      <span class="key-now">Next open set</span>
+      <span><s>Struck</s> means taken</span>
+      <span>Every set runs two hours</span>
+    </div>
+  </section>
+
+  <!-- ======= Manifesto strip ======= -->
+  <section class="strip" aria-label="Who this is for">
+    <div class="wrap">
+      <p class="big">Never touched<br>a deck? <span>Good.</span><br>Start here.</p>
+      <div class="sub">
+        <p><b>Zero to track</b>Most people who walk in have never opened music software. They walk out with a song they made.</p>
+        <p><b>Real rooms</b>Not a classroom. Working studios with the same gear Alex uses on his own records.</p>
+        <p><b>Your music</b>Techno is home base, but bring hip hop, salsa, pop, whatever moves you. The room follows you.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= Rooms ======= -->
+  <section class="block wrap" id="rooms" aria-labelledby="rooms-title">
+    <h2 class="sec-title" id="rooms-title">Three rooms.<br>One each.</h2>
+    <div class="rooms">
+      <article class="room">
+        <div class="duo"><img src="../../assets/airbnb/prod-13.jpg" alt="A guest's hands on a drum machine at the studio desk" loading="lazy"></div>
+        <h3>Make a beat</h3>
+        <p class="where">East Village studio</p>
+        <p>Start with a drum loop, add bass, chop a sample, then step into the booth and record over it. The room where Jay Critch and Ruben Blades have cut records becomes yours for two hours.</p>
+        <ul>
+          <li><span>Length</span><span>About 2 hours</span></li>
+          <li><span>Price</span><span>$150 per guest</span></li>
+          <li><span>Ages</span><span>10 and up</span></li>
+          <li><span>You leave with</span><span>Your track</span></li>
+        </ul>
+        <button class="go" type="button" data-room="beat">See open times</button>
+      </article>
+
+      <article class="room">
+        <div class="ph" aria-label="Placeholder graphic for the DJ studio">
+          <svg viewBox="0 0 200 150" aria-hidden="true" fill="none" stroke="#D8D8D2" stroke-width="2">
+            <circle cx="58" cy="75" r="44"/><circle cx="58" cy="75" r="30"/><circle cx="58" cy="75" r="4" fill="#D8D8D2"/>
+            <circle cx="142" cy="75" r="44"/><circle cx="142" cy="75" r="30"/><circle cx="142" cy="75" r="4" fill="#D8D8D2"/>
+            <line x1="58" y1="75" x2="88" y2="44"/><line x1="142" y1="75" x2="112" y2="44"/>
+            <rect x="86" y="118" width="28" height="8"/><line x1="100" y1="112" x2="100" y2="132" stroke-width="5"/>
+          </svg>
+          <span class="tag">Studio photo coming</span>
+        </div>
+        <h3>Learn to DJ</h3>
+        <p class="where">Studio location to confirm <span class="tag">Placeholder</span></p>
+        <p>Find the beat, match two records by ear, and ride the crossfader through your first blend. By the end you play a short set on club decks, start to finish.</p>
+        <ul>
+          <li><span>Length</span><span>About 2 hours <span class="tag">Placeholder</span></span></li>
+          <li><span>Price</span><span>$150 per guest <span class="tag">Placeholder</span></span></li>
+          <li><span>You leave with</span><span>A recording of your set</span></li>
+        </ul>
+        <button class="go" type="button" data-room="dj">See open times</button>
+      </article>
+
+      <article class="room">
+        <div class="ph" aria-label="Placeholder graphic for the sound meditation studio">
+          <svg viewBox="0 0 200 150" aria-hidden="true" fill="none" stroke="#D8D8D2" stroke-width="1.6">
+            <circle cx="100" cy="75" r="8" fill="#D8D8D2"/>
+            <circle cx="100" cy="75" r="20"/><circle cx="100" cy="75" r="34" opacity=".8"/>
+            <circle cx="100" cy="75" r="48" opacity=".6"/><circle cx="100" cy="75" r="62" opacity=".4"/>
+            <circle cx="100" cy="75" r="76" opacity=".2"/>
+          </svg>
+          <span class="tag">Studio photo coming</span>
+        </div>
+        <h3>Sound bath</h3>
+        <p class="where">Studio location to confirm <span class="tag">Placeholder</span></p>
+        <p>Lie back while Alex builds a slow wash of synths, drones and low end around the room. Nothing to learn and nothing to do. Just listen. Brand new for this season.</p>
+        <ul>
+          <li><span>Length</span><span>To confirm <span class="tag">Placeholder</span></span></li>
+          <li><span>Price</span><span>$95 per guest <span class="tag">Placeholder</span></span></li>
+          <li><span>Bring</span><span>Comfortable clothes</span></li>
+        </ul>
+        <button class="go" type="button" data-room="sound">See open times</button>
+      </article>
+    </div>
+  </section>
+
+  <!-- ======= Alex ======= -->
+  <section class="block wrap" id="alex" aria-labelledby="alex-title">
+    <div class="alex">
+      <div class="duo"><img src="../../assets/airbnb/prod-07.jpg" alt="Alex smiling at the mixing desk in the East Village studio" loading="lazy"></div>
+      <div>
+        <h2 class="alex-name" id="alex-title">Alex</h2>
+        <p>Alexander Gentil is a New York DJ, producer and audio engineer with more than ten years behind the desk. Techno is where he lives, but his credits run through hip hop and salsa too.</p>
+        <p>He started Raw Planet to open the doors he spent a decade walking through. Every session is hosted by Alex, in English or Spanish, and he pitches it to whoever is in the room, whether that's a first-timer or a working artist.</p>
+        <dl class="credits">
+          <div><dt>Worked with</dt><dd>Jay Critch, Ron Suno, Ruben Blades, Making Movies</dd></div>
+          <div><dt>Behind the desk</dt><dd>10+ years</dd></div>
+          <div><dt>Hosts in</dt><dd>English, Spanish</dd></div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= Reviews ======= -->
+  <section class="reviews" aria-labelledby="rev-title">
+    <div class="wrap">
+      <div class="score">
+        <b>4.98</b>
+        <span id="rev-title">out of 5 from 107 ratings on Airbnb</span>
+      </div>
+      <div class="quotes">
+        <figure class="q lg">
+          <blockquote>“Rare to find an experience that blends music, learning, and good vibes so seamlessly.”</blockquote>
+          <figcaption>Airbnb guest, July 2025</figcaption>
+        </figure>
+        <figure class="q sm rt">
+          <blockquote>“Genuinely one of the best experiences ive had. Top 3 for sure. Cristian was an amazing host”</blockquote>
+          <figcaption>Jason, Edmonton</figcaption>
+        </figure>
+        <figure class="q md">
+          <blockquote>“We came as a group of colleagues who knew nothing about music production and left with a little song we created. … I'll listen to music a little differently after this.”</blockquote>
+          <figcaption>Juniper, Berkeley</figcaption>
+        </figure>
+        <figure class="q md">
+          <blockquote>“The best NYC souvenir we could dream of- a recorded track that we created! If you are on the fence- just go ahead and book it!”</blockquote>
+          <figcaption>Krysten, Lewisville</figcaption>
+        </figure>
+        <figure class="q sm">
+          <blockquote>“We live in the city and did this as a birthday celebration and we would definitely do it again!”</blockquote>
+          <figcaption>Joseph, New York</figcaption>
+        </figure>
+        <figure class="q sm">
+          <blockquote>“My fiancé and I had a wonderful time making a song of our own.”</blockquote>
+          <figcaption>Shania, New York</figcaption>
+        </figure>
+        <figure class="q sm">
+          <blockquote>“Our group really enjoyed this session with Alex! He was awesome and we came away with a really fun track.”</blockquote>
+          <figcaption>Jessica, Danville</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= Gifts & groups ======= -->
+  <section class="block wrap" id="gifts" aria-labelledby="gifts-title">
+    <h2 class="sec-title" id="gifts-title">Bring the crew.<br>Or send them.</h2>
+    <div class="offers">
+      <div class="offer">
+        <h3>Gift a set</h3>
+        <p>A gift card good for any room, any day. They choose the time, we send the reminder. Works for birthdays, anniversaries and the friend who has everything.</p>
+        <div class="amounts" role="group" aria-label="Gift card amount">
+          <button type="button" aria-pressed="false">$150</button>
+          <button type="button" aria-pressed="true">$300</button>
+          <button type="button" aria-pressed="false">$600</button>
+        </div>
+        <button class="go" type="button" data-toast="Gift cards check out through Stripe in the live site.">Buy a gift card</button>
+      </div>
+      <div class="offer">
+        <h3>Take the room</h3>
+        <p>Book a whole studio for your team, your bachelorette or your band. We shape the two hours around your group, and can run back-to-back sets for bigger parties.</p>
+        <button class="go" type="button" data-toast="Private booking requests go straight to Alex in the live site.">Ask about a private booking</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= FAQ ======= -->
+  <section class="block wrap" id="faq" aria-labelledby="faq-title">
+    <h2 class="sec-title" id="faq-title">Before you come</h2>
+    <div class="faq">
+      <details>
+        <summary>I have zero music experience. Is that a problem?</summary>
+        <p>It's the most common way people arrive. Alex starts from nothing and moves at your speed. If you can tap a rhythm on a table, you can make a beat.</p>
+      </details>
+      <details>
+        <summary>Can I cancel or move my booking?</summary>
+        <p>Cancel up to a day before your start time for a full refund. To move to another time, cancel and rebook, or reply to your confirmation email.</p>
+      </details>
+      <details>
+        <summary>How many people can come?</summary>
+        <p>Book up to 6 guests online. For larger groups, ask about a private booking and we'll work out the room and the plan. <span class="tag">Placeholder</span></p>
+      </details>
+      <details>
+        <summary>Do I need to bring anything?</summary>
+        <p>No. All the gear is in the room. Bring headphones if you like your own, and a song or two you love for inspiration.</p>
+      </details>
+      <details>
+        <summary>Where exactly are the studios?</summary>
+        <p>The beat-making studio is in the East Village. The other rooms are in Manhattan. The exact address and buzzer instructions come with your confirmation.</p>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="foot-big">Raw Planet</p>
+    <div class="foot-cols">
+      <div><h4>Open</h4><p>Every day<br>10:00 – 22:00</p></div>
+      <div><h4>Rooms</h4><a href="#rooms">Make a beat</a><a href="#rooms">Learn to DJ</a><a href="#rooms">Sound bath</a></div>
+      <div><h4>More</h4><a href="#gifts">Gift cards</a><a href="#gifts">Private bookings</a><a href="#faq">Questions</a></div>
+      <div><h4>Say hi</h4><a href="#">Instagram</a><a href="#">SoundCloud</a><a href="#">hello@rawplanet.example</a></div>
+    </div>
+    <div class="foot-legal"><span>Raw Planet Experience, New York</span><span>Mockup 4 of 4: Set Times</span></div>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const ROOMS = [
+    { id: "beat",  name: "Make a beat", place: "East Village", price: 150 },
+    { id: "dj",    name: "Learn to DJ", place: "Studio TBC",   price: 150 },
+    { id: "sound", name: "Sound bath",  place: "Studio TBC",   price: 95 }
+  ];
+  const STARTS = [10, 12, 14, 16, 18, 20];
+  const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  let dayIndex = 0, pick = null, guests = 2;
+
+  const $ = id => document.getElementById(id);
+  const fmt = h => String(h).padStart(2, "0") + ":00";
+
+  // Deterministic fake availability
+  function taken(dayOffset, roomIdx, slotIdx) {
+    const d = new Date(today); d.setDate(d.getDate() + dayOffset);
+    let n = d.getFullYear() * 400 + d.getMonth() * 31 + d.getDate();
+    n = (n * 31 + roomIdx * 97 + slotIdx * 53) % 101;
+    const busy = d.getDay() === 5 || d.getDay() === 6 ? 52 : 34; // weekends book up faster
+    return n < busy;
+  }
+  function past(dayOffset, h) {
+    if (dayOffset !== 0) return false;
+    return new Date().getHours() >= h;
+  }
+
+  // Day scrubber
+  const scrub = $("scrub");
+  for (let i = 0; i < 21; i++) {
+    const d = new Date(today); d.setDate(d.getDate() + i);
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "day";
+    b.setAttribute("aria-pressed", i === 0 ? "true" : "false");
+    b.setAttribute("aria-label", `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`);
+    b.innerHTML = `<span class="dow">${i === 0 ? "Today" : DOW[d.getDay()]}</span><span class="num">${d.getDate()}</span>`;
+    b.addEventListener("click", () => {
+      dayIndex = i; pick = null;
+      scrub.querySelectorAll(".day").forEach((x, j) => x.setAttribute("aria-pressed", j === i ? "true" : "false"));
+      $("day-word").textContent = i === 0 ? "Today" : i === 1 ? "Tomorrow" : `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`;
+      render();
+    });
+    scrub.appendChild(b);
+  }
+
+  function render() {
+    const rows = $("rows"); rows.innerHTML = "";
+    let flagged = false;
+    ROOMS.forEach((room, r) => {
+      const row = document.createElement("div");
+      row.className = "room-row"; row.setAttribute("role", "row");
+      row.innerHTML = `<div class="room-name" role="rowheader"><b>${room.name}</b><small>${room.place}, $${room.price} pp</small></div>`;
+      STARTS.forEach((h, s) => {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "slot"; b.setAttribute("role", "gridcell");
+        const isPast = past(dayIndex, h), isTaken = !isPast && taken(dayIndex, r, s);
+        const off = isPast || isTaken;
+        const isPick = pick && pick.r === r && pick.s === s;
+        let status = isPast ? "Done" : isTaken ? "Taken" : "Open";
+        let nowFlag = "";
+        if (!off && dayIndex === 0 && !flagged) { nowFlag = `<span class="now">Next open</span>`; flagged = true; }
+        b.innerHTML = `<span class="t">${fmt(h)}</span><span class="s">${nowFlag || status}</span>`;
+        b.setAttribute("aria-label", `${room.name}, ${fmt(h)} to ${fmt(h + 2)}, ${status.toLowerCase()}`);
+        b.setAttribute("aria-pressed", isPick ? "true" : "false");
+        if (off) b.disabled = true;
+        b.addEventListener("click", () => { pick = { r, s }; render(); openDrawer(); });
+        row.appendChild(b);
+      });
+      rows.appendChild(row);
+    });
+    if (!pick) $("drawer").classList.remove("open");
+  }
+
+  function openDrawer() {
+    const room = ROOMS[pick.r], h = STARTS[pick.s];
+    const d = new Date(today); d.setDate(d.getDate() + dayIndex);
+    $("sum-room").textContent = room.name;
+    $("sum-when").textContent = `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}, ${fmt(h)}–${fmt(h + 2)}, ${room.place}`;
+    updateTotal();
+    $("drawer").classList.add("open");
+  }
+  function updateTotal() {
+    $("count").textContent = guests;
+    if (pick) $("total").textContent = "$" + (ROOMS[pick.r].price * guests).toLocaleString();
+  }
+  $("minus").addEventListener("click", () => { guests = Math.max(1, guests - 1); updateTotal(); });
+  $("plus").addEventListener("click", () => { guests = Math.min(6, guests + 1); updateTotal(); });
+  $("pay").addEventListener("click", () => toast("In the live site this hands off to Stripe checkout via Cal.com."));
+
+  // Room cards jump to the board and highlight that row's first open set
+  document.querySelectorAll(".room .go").forEach(btn => btn.addEventListener("click", () => {
+    const r = ROOMS.findIndex(x => x.id === btn.dataset.room);
+    $("lineup").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    const row = $("rows").children[r];
+    const first = row && row.querySelector(".slot:not([disabled])");
+    if (first) setTimeout(() => first.focus({ preventScroll: true }), 400);
+  }));
+
+  // Gift amounts
+  document.querySelectorAll(".amounts button").forEach(b => b.addEventListener("click", () => {
+    b.parentElement.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+  }));
+  document.querySelectorAll("[data-toast]").forEach(b => b.addEventListener("click", () => toast(b.dataset.toast)));
+
+  let tt;
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(tt); tt = setTimeout(() => t.classList.remove("show"), 3200);
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
