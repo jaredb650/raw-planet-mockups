@@ -1,0 +1,88 @@
+.foot {
+  --accent: var(--ochre);
+  background: var(--ink);
+  color: var(--cream);
+  padding: 104px 0 40px;
+}
+.bigRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 32px;
+  margin-bottom: 64px;
+}
+.big {
+  font: 900 clamp(4.4rem, 15vw, 13rem)/0.82 var(--display);
+  text-transform: uppercase;
+  letter-spacing: -0.015em;
+  margin: 0;
+  max-width: none;
+}
+.big a { text-decoration: none; transition: color 0.2s; }
+.big a span { color: var(--brick); transition: color 0.2s; }
+.big a:hover { color: var(--ochre); }
+.big a:hover span { color: var(--cream); }
+.bigSide {
+  max-width: 30ch;
+  color: color-mix(in srgb, var(--cream) 78%, transparent);
+  font-size: 1rem;
+  margin: 0 0 12px;
+}
+.lang {
+  display: table;
+  margin-top: 16px;
+  padding: 0.45em 0.9em;
+  border: 1.5px solid color-mix(in srgb, var(--cream) 40%, transparent);
+  border-radius: var(--r-pill);
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--cream);
+}
+.cols {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+  padding-top: 40px;
+  border-top: 1.5px solid color-mix(in srgb, var(--cream) 22%, transparent);
+  font-size: 0.98rem;
+}
+.cols > div { display: grid; align-content: start; gap: 2px; }
+.h {
+  font: 700 0.82rem/1 var(--body);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ochre);
+  margin: 0 0 12px;
+}
+.cols a {
+  color: color-mix(in srgb, var(--cream) 82%, transparent);
+  text-decoration: none;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  overflow-wrap: anywhere;
+}
+.cols a:hover { color: var(--cream); text-decoration: underline; text-underline-offset: 4px; }
+.legal {
+  margin-top: 64px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  align-items: center;
+  font-size: 0.88rem;
+  color: color-mix(in srgb, var(--cream) 60%, transparent);
+}
+.legal a { color: inherit; min-height: 32px; display: inline-flex; align-items: center; }
+.legalMark { display: inline-flex; align-items: center; gap: 10px; margin-right: auto; }
+.foot :focus-visible { outline-color: var(--cream); }
+
+@media (max-width: 900px) {
+  .bigRow { grid-template-columns: 1fr; }
+  .cols { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .foot { padding: 80px 0 32px; }
+  .cols { gap: 28px 20px; }
+  .legalMark { margin-right: 0; width: 100%; }
+  .cols > div:last-child { grid-column: 1 / -1; }
+}

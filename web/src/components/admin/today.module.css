@@ -1,0 +1,43 @@
+.sessions { list-style: none; margin: 0; padding: 0; }
+.session { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--a-line); }
+.session:last-child { border-bottom: 0; }
+.live { background: #fff6ee; box-shadow: inset 3px 0 0 var(--brick); }
+.time { display: grid; align-content: start; gap: 6px; }
+.timeMain { font: 700 20px/1.1 var(--display); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+.nowTag { justify-self: start; font: 700 12px/1 var(--body); color: var(--brick); }
+.body { min-width: 0; display: grid; gap: 4px; }
+.what { font-size: 14px; }
+.guest { font-weight: 700; font-size: 16.5px; text-decoration: none; color: var(--ink); justify-self: start; }
+.guest:hover { text-decoration: underline; text-underline-offset: 3px; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tags:empty { display: none; }
+.note { font-size: 14px; color: var(--ink-soft); }
+.quick { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.quick form { display: contents; }
+@media (max-width: 560px) {
+  .session { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 14px 16px; }
+  .time { display: flex; align-items: baseline; gap: 10px; }
+}
+
+.dayHead { display: inline-flex; align-items: baseline; gap: 8px; }
+
+/* Attention list */
+.att { list-style: none; margin: 0; padding: 0; }
+.att > li { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; padding: 11px 18px; border-bottom: 1px solid var(--a-line); }
+.att > li:last-child { border-bottom: 0; }
+.attKind { font-size: 12.5px; color: var(--ink-soft); display: block; }
+.attMain { min-width: 0; flex: 1; }
+.attTitle { font-weight: 600; text-decoration: none; color: var(--ink); }
+a.attTitle:hover { text-decoration: underline; text-underline-offset: 3px; }
+.attText { font-size: 13.5px; color: var(--ink-soft); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.attAction { flex: none; display: flex; gap: 6px; }
+.attAction form { display: contents; }
+.allClear { padding: 18px; color: var(--success); font-weight: 600; }
+
+/* Source mix bar */
+.mixBar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--a-line); margin: 4px 0 12px; }
+.mixBar span { display: block; height: 100%; }
+.mixList { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+.mixList li { display: flex; align-items: center; gap: 8px; }
+.mixList .mixName { flex: 1; }
+.mixDot { width: 10px; height: 10px; border-radius: 3px; flex: none; }

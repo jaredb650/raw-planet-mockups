@@ -1,0 +1,28 @@
+.card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  break-inside: avoid;
+}
+.body { margin: 0; }
+.body p { margin: 0; font-size: 1.06rem; line-height: 1.55; }
+.cite { display: flex; gap: 12px; align-items: center; font-size: 0.95rem; margin-top: auto; }
+.cite strong { font-weight: 700; }
+.avatar {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: var(--cream);
+  font: 800 1.2rem/1 var(--display);
+  text-transform: uppercase;
+}
+.loc { color: var(--ink-soft); }
+.loc::before { content: " · "; }
+.meta { display: block; color: var(--ink-faint); font-size: 0.85rem; }
+.reply { border-left: 3px solid var(--accent); padding-left: 14px; font-size: 0.95rem; }
+.reply p { margin: 4px 0 0; color: var(--ink-soft); }

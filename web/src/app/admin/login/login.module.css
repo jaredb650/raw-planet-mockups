@@ -1,0 +1,7 @@
+.wrap { display: grid; place-items: center; padding: 24px 16px; }
+.card { width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--a-line); border-radius: 16px; padding: 28px 26px 26px; }
+.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
+.name { font: 800 24px/1 var(--display); text-transform: uppercase; }
+.sub { font-size: 13px; color: var(--a-grey); margin-top: 2px !important; }
+.title { font: 800 30px/1 var(--display); text-transform: uppercase; margin: 0 0 6px; }
+.lede { color: var(--a-grey); margin-bottom: 20px !important; font-size: 14.5px; }

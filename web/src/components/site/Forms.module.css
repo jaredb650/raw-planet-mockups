@@ -1,0 +1,20 @@
+.form { display: grid; gap: 18px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.narrow { max-width: 260px; }
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.actions { display: flex; align-items: center; gap: 14px 20px; flex-wrap: wrap; margin-top: 4px; }
+.fine { margin: 0; font-size: 0.85rem; color: var(--ink-soft); max-width: 36ch; }
+.done { padding: 24px; border-radius: var(--r-md); background: var(--success-soft); }
+.done p:last-child { margin-bottom: 0; }
+.doneTitle { font: 800 1.9rem/1 var(--display); text-transform: uppercase; margin-bottom: 10px; }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; border: 0; padding: 0; margin: 0; }
+.choices legend { font-weight: 600; font-size: 0.95rem; margin-bottom: 8px; padding: 0; }
+.choice { position: relative; }
+.choice input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.choice span { display: inline-flex; align-items: center; min-height: 44px; padding: 0.55em 1.05em; border-radius: var(--r-pill); border: 2px solid var(--line); background: var(--surface); font-weight: 600; font-size: 0.95rem; transition: border-color 0.15s, background-color 0.15s; }
+.choice input:checked + span { border-color: var(--ink); background: var(--accent-soft); }
+.choice input:focus-visible + span { outline: 3px solid var(--ink); outline-offset: 2px; }
+@media (max-width: 600px) {
+  .row2 { grid-template-columns: 1fr; }
+  .narrow { max-width: none; }
+}

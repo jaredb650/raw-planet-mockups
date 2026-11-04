@@ -1,0 +1,70 @@
+.card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 28px;
+  padding: 28px;
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-lg);
+  position: relative;
+}
+.date {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  width: 104px;
+  padding: 14px 8px;
+  border-radius: 18px;
+  background: var(--brick);
+  color: #fff;
+  text-transform: uppercase;
+  align-self: start;
+}
+.date[data-size="lg"] { width: 132px; padding: 18px 10px; }
+.month { font: 700 0.85rem/1 var(--body); letter-spacing: 0.1em; }
+.day { font: 900 3.6rem/0.9 var(--display); margin: 6px 0 2px; }
+.date[data-size="lg"] .day { font-size: 4.6rem; }
+.dow { font: 600 0.8rem/1 var(--body); letter-spacing: 0.1em; opacity: 0.85; }
+.body { min-width: 0; }
+.when { margin: 0 0 8px; font-weight: 600; color: var(--ink-soft); font-size: 0.95rem; }
+.title { font-size: clamp(1.8rem, 3vw, 2.4rem); margin-bottom: 12px; }
+.title a { text-decoration: none; }
+.title a:hover { text-decoration: underline; text-underline-offset: 5px; }
+.summary { color: var(--ink-soft); margin-bottom: 14px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0 0 20px; padding: 0; }
+.meta li { background: var(--mist); border-radius: var(--r-pill); padding: 0.4em 0.9em; font-weight: 600; font-size: 0.88rem; }
+.meta li[data-low] { background: var(--warning-soft); color: var(--warning); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.actions :global(.btn--sm) { min-height: 44px; }
+.cal { position: relative; }
+.cal > summary { list-style: none; }
+.cal > summary::-webkit-details-marker { display: none; }
+.calMenu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-md);
+  padding: 6px;
+  box-shadow: var(--shadow-lg);
+  display: grid;
+}
+.calMenu a { padding: 10px 12px; min-height: 44px; display: flex; align-items: center; border-radius: 10px; font-weight: 600; text-decoration: none; font-size: 0.95rem; }
+.calMenu a:hover { background: var(--mist); }
+.card[data-compact] { grid-template-columns: auto 1fr; padding: 22px; gap: 20px; }
+.card[data-compact] .date { width: 84px; }
+.card[data-compact] .day { font-size: 2.8rem; }
+.card[data-compact] .title { font-size: clamp(1.5rem, 2.2vw, 1.9rem); }
+@media (max-width: 600px) {
+  .card { grid-template-columns: 1fr; gap: 18px; padding: 22px 20px; }
+  .date, .date[data-size="lg"] { display: flex; width: auto; justify-self: start; gap: 10px; align-items: baseline; padding: 10px 16px; }
+  .day, .date[data-size="lg"] .day, .card[data-compact] .day { font-size: 2rem; margin: 0; }
+  .card[data-compact] { grid-template-columns: 64px 1fr; gap: 16px; padding: 18px 16px; }
+  .card[data-compact] .date { display: grid; width: 64px; padding: 8px 4px; gap: 2px; }
+  .card[data-compact] .day { font-size: 1.9rem; }
+  .card[data-compact] .title { font-size: 1.4rem; }
+  .card[data-compact] .meta { margin-bottom: 14px; }
+}

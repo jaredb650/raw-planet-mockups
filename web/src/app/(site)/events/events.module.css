@@ -1,0 +1,35 @@
+.cover { object-fit: cover; }
+.headCtas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+.headArt { position: relative; max-width: 440px; justify-self: end; width: 100%; }
+.headImg { position: relative; aspect-ratio: 4 / 3; border-radius: var(--r-lg); overflow: hidden; background: var(--accent-soft); transform: rotate(2deg); box-shadow: var(--shadow-lg); }
+.sticker { position: absolute; left: -28px; bottom: -28px; width: 128px; height: 128px; display: grid; place-items: center; text-align: center; padding: 16px; border-radius: 50%; background: var(--ochre); color: var(--cocoa); font: 900 1.2rem/0.95 var(--display); text-transform: uppercase; transform: rotate(-10deg); box-shadow: var(--shadow-sm); }
+.upcoming { padding: 72px 0 112px; }
+.listHead { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px 40px; margin-bottom: 32px; }
+.listHead p { margin: 0; max-width: 46ch; }
+.list { display: grid; gap: 20px; }
+.empty { border: 2px dashed var(--line); border-radius: var(--r-lg); padding: 40px; }
+.emptyTitle { font: 800 2rem/1 var(--display); text-transform: uppercase; }
+.how { background: var(--mist); padding: 112px 0; }
+.howTitle { max-width: 14ch; margin-bottom: 56px; }
+.howList { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.howList li { background: var(--surface); border: 2px solid var(--ink); border-radius: var(--r-lg); padding: 32px; }
+.howList h3 { margin: 0 0 12px; }
+.howList p { margin: 0; color: var(--ink-soft); }
+.next { background: var(--ink); color: var(--cream); padding: 96px 0; }
+.nextGrid { display: grid; grid-template-columns: 1fr auto; gap: 32px 64px; align-items: end; }
+.nextGrid p { margin: 20px 0 0; color: color-mix(in srgb, var(--cream) 82%, transparent); }
+.nextBtns { display: flex; flex-wrap: wrap; gap: 12px; }
+.nextBtns :global(.btn--ghost) { color: var(--cream); border-color: var(--cream); }
+@media (max-width: 900px) {
+  .headArt { justify-self: start; margin: 8px 0 0 20px; max-width: 420px; width: calc(100% - 20px); }
+  .howList { grid-template-columns: 1fr; }
+  .nextGrid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .headArt { margin: 0 8px 20px; width: calc(100% - 16px); }
+  .sticker { width: 100px; height: 100px; font-size: 1rem; left: -10px; bottom: -22px; }
+  .upcoming { padding: 48px 0 80px; }
+  .how, .next { padding: 80px 0; }
+  .howList li { padding: 24px; }
+  .empty { padding: 24px; }
+}

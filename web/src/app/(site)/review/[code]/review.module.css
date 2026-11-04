@@ -1,0 +1,10 @@
+.page { padding: 64px 0 112px; }
+.page :global(.eyebrow) { margin-bottom: 14px; }
+.title { font-size: clamp(2.8rem, 7vw, 5.4rem); margin-bottom: 24px; }
+.page :global(.lede) { margin-bottom: 32px; }
+.card { background: var(--surface); border: 2px solid var(--ink); border-radius: var(--r-lg); padding: 36px; }
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+@media (max-width: 600px) {
+  .page { padding: 32px 0 72px; }
+  .card { padding: 24px 20px; }
+}

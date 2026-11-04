@@ -1,0 +1,124 @@
+.page { padding-bottom: 0; }
+.cover { object-fit: cover; }
+
+/* Top */
+.top { padding: 40px 0 56px; }
+.titleRow { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px 48px; flex-wrap: wrap; margin-bottom: 32px; }
+.kicker { display: flex; align-items: center; gap: 10px; font-weight: 700; margin: 0 0 14px; }
+.swatch { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); }
+.title { font-size: clamp(3rem, 7vw, 6.2rem); max-width: 13ch; }
+.titleMeta { display: grid; gap: 8px; justify-items: end; text-align: right; }
+.ratingLink { text-decoration: none; }
+.ratingLink:hover { text-decoration: underline; text-underline-offset: 4px; }
+.newBadge { font-weight: 700; font-size: 0.92rem; padding: 0.45em 0.9em; border-radius: var(--r-pill); background: var(--accent-soft); }
+.area { color: var(--ink-soft); font-size: 0.95rem; }
+
+/* Layout */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 72px; align-items: start; padding-bottom: 96px; }
+.main { min-width: 0; }
+.block { padding: 40px 0; border-top: 1.5px solid var(--line); }
+.block:first-child { border-top: 0; padding-top: 8px; }
+.h2 { font-size: clamp(2.2rem, 4vw, 3.4rem); margin-bottom: 24px; }
+.h3 { font-size: clamp(1.6rem, 2.4vw, 2.1rem); margin-bottom: 18px; }
+.summary { font-size: clamp(1.2rem, 1.8vw, 1.45rem); line-height: 1.45; margin-bottom: 28px; max-width: 40ch; }
+.facts { display: flex; flex-wrap: wrap; margin: 0 0 32px; border: 2px solid var(--ink); border-radius: var(--r-md); overflow: hidden; background: var(--surface); }
+.facts > div { flex: 1 1 150px; padding: 16px 18px; border-right: 1.5px solid var(--line); border-bottom: 1.5px solid var(--line); margin: 0 -1.5px -1.5px 0; }
+.facts dt { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 4px; }
+.facts dd { margin: 0; font-weight: 600; font-size: 1rem; line-height: 1.35; }
+
+.flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; counter-reset: none; }
+.flow li { display: grid; grid-template-columns: 56px 1fr; gap: 16px; align-items: center; padding: 16px 20px 16px 16px; border-radius: var(--r-md); background: var(--accent-soft); font-weight: 600; font-size: 1.08rem; }
+.step { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font: 800 1.4rem/1 var(--display); }
+
+.reelBlock { display: grid; grid-template-columns: 1fr 260px; gap: 40px; align-items: center; }
+.reelCopy :global(.eyebrow) { margin-bottom: 12px; }
+.reel { width: 100%; }
+
+.twoCol { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+.ticks, .dots { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.ticks li, .dots li { position: relative; padding-left: 32px; line-height: 1.45; }
+.ticks li::before {
+  content: "";
+  position: absolute; left: 0; top: 2px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5.5 10.5l3 3 6-7' fill='none' stroke='%233a2212' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 20px no-repeat;
+}
+.dots li::before { content: ""; position: absolute; left: 7px; top: 0.6em; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-soft); }
+
+.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.chips li { padding: 0.55em 1em; border-radius: var(--r-pill); border: 1.5px solid var(--ink); font-weight: 600; font-size: 0.95rem; }
+.groupNote { margin: 24px 0 0; padding: 18px 20px; border-radius: var(--r-md); background: var(--accent-soft); }
+
+.host { display: grid; grid-template-columns: 120px 1fr; gap: 28px; align-items: start; }
+.hostImg { position: relative; width: 120px; aspect-ratio: 1; border-radius: 50%; overflow: hidden; }
+.host :global(.eyebrow) { margin-bottom: 6px; }
+.host .h3 { margin-bottom: 12px; }
+
+/* Price box */
+.side { position: sticky; top: 104px; }
+.priceBox { background: var(--surface); border: 2px solid var(--ink); border-radius: var(--r-lg); padding: 28px; box-shadow: var(--shadow-lg); }
+.priceLine { margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
+.priceLine strong { font: 800 2.2rem/1 var(--display); text-transform: uppercase; }
+.unit { color: var(--ink-soft); font-size: 0.95rem; margin: 6px 0 20px; }
+.options { list-style: none; margin: 0 0 20px; padding: 0; border-top: 1.5px solid var(--line); }
+.options li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1.5px solid var(--line); font-size: 0.98rem; }
+.assure { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 8px; font-size: 0.9rem; color: var(--ink-soft); }
+.assure li { padding-left: 22px; position: relative; }
+.assure li::before { content: "✓"; position: absolute; left: 0; font-weight: 800; color: var(--ink); }
+.giftLine { margin: 18px 0 0; padding-top: 16px; border-top: 1.5px solid var(--line); font-size: 0.92rem; }
+
+/* Booking */
+.book { background: var(--powder); padding: 104px 0; }
+.bookHead { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px 48px; margin-bottom: 40px; }
+.bookHead :global(.eyebrow) { margin-bottom: 12px; }
+.bookHead h2 { max-width: 12ch; }
+.bookHead > p { margin: 0; max-width: 40ch; opacity: 0.85; }
+
+/* Reviews */
+.reviews { padding: 104px 0; background: var(--accent-soft); }
+.reviewsHead { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px 40px; margin-bottom: 24px; }
+.reviewGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px 48px; margin: 40px 0 48px; }
+
+/* FAQ */
+.faq { padding: 104px 0; }
+.faqGrid { display: grid; grid-template-columns: 0.75fr 1.25fr; gap: 64px; }
+.faqGrid h2 { margin-bottom: 16px; }
+
+/* Others */
+.others { padding: 0 0 112px; }
+.otherGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.otherCard { display: grid; grid-template-columns: 160px 1fr; gap: 20px; align-items: center; padding: 14px; border: 2px solid var(--ink); border-radius: var(--r-lg); text-decoration: none; background: var(--surface); transition: transform 0.2s var(--ease-out), box-shadow 0.2s; }
+@media (hover: hover) { .otherCard:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); } }
+.otherImg { position: relative; aspect-ratio: 4 / 3; border-radius: 14px; overflow: hidden; background: var(--accent); }
+.otherBody { display: grid; gap: 4px; }
+.otherBody strong { font: 800 1.7rem/1 var(--display); text-transform: uppercase; }
+.otherBody .muted, .otherBody :global(.muted) { font-size: 0.9rem; }
+.otherLabel { justify-self: start; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.35em 0.7em; border-radius: var(--r-pill); background: var(--accent); color: var(--on-accent); }
+
+@media (max-width: 980px) {
+  .layout { grid-template-columns: 1fr; gap: 0; padding-bottom: 64px; }
+  .side { position: static; margin-top: 8px; }
+  .priceBox { box-shadow: none; }
+  .titleMeta { justify-items: start; text-align: left; }
+  .reviewGrid { grid-template-columns: 1fr 1fr; }
+  .faqGrid { grid-template-columns: 1fr; gap: 24px; }
+  .page { padding-bottom: 84px; }
+}
+@media (max-width: 600px) {
+  .top { padding: 24px 0 40px; }
+  .title { font-size: clamp(2.6rem, 12.5vw, 4rem); }
+  .block { padding: 32px 0; }
+  .flow li { grid-template-columns: 44px 1fr; gap: 14px; padding: 12px 16px 12px 12px; font-size: 1rem; }
+  .step { width: 44px; height: 44px; font-size: 1.15rem; }
+  .reelBlock { grid-template-columns: 1fr; gap: 24px; }
+  .reel { max-width: 300px; }
+  .twoCol { grid-template-columns: 1fr; gap: 32px; }
+  .host { grid-template-columns: 80px 1fr; gap: 18px; }
+  .hostImg { width: 80px; }
+  .priceBox { padding: 22px; }
+  .book, .reviews, .faq { padding: 72px 0; }
+  .reviewGrid { grid-template-columns: 1fr; gap: 32px; }
+  .otherCard { grid-template-columns: 110px 1fr; gap: 14px; }
+  .otherBody strong { font-size: 1.4rem; }
+  .others { padding-bottom: 72px; }
+}
