@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { siteUrl } from "@/lib/config";
 
 export default function robots(): MetadataRoute.Robots {
+  if (process.env.SITE_NOINDEX === "1") return { rules: [{ userAgent: "*", disallow: "/" }] };
   return {
     rules: [
       {

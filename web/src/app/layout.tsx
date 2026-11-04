@@ -13,6 +13,8 @@ export const metadata: Metadata = {
     "Private music production, DJ and sound meditation sessions in New York City with producer Alex Gentil. No experience needed. Rated 4.98 from 107 Airbnb reviews.",
   openGraph: { type: "website", siteName: BUSINESS.name, locale: "en_US" },
   twitter: { card: "summary_large_image" },
+  // Prototype / staging deploys set SITE_NOINDEX=1 so they never compete with the real site in search.
+  ...(process.env.SITE_NOINDEX === "1" ? { robots: { index: false, follow: false } } : {}),
 };
 
 export const viewport: Viewport = { themeColor: "#b8482e", width: "device-width", initialScale: 1 };
