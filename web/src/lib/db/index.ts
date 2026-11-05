@@ -21,7 +21,10 @@ async function create(): Promise<DB> {
   const url = process.env.DATABASE_URL;
   if (url) {
     const client = postgres(url, { max: Number(process.env.DATABASE_POOL_MAX ?? 5), prepare: false });
-    return drizzlePg(client, { schema });
+    const db = drizzlePg(client, { schema });
+    // Drizzle blanks this serializer, so a Date in a raw sql`` template (no column encoder) crashes on postgres-js but not PGlite.
+    client.options.serializers[1184] = (v: unknown) => (v instanceof Date ? v.toISOString() : v);
+    return db;
   }
   const { PGlite } = await import("@electric-sql/pglite");
   const { drizzle: drizzleLite } = await import("drizzle-orm/pglite");
