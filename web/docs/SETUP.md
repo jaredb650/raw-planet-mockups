@@ -21,8 +21,9 @@ Budget about two hours. Do them in this order.
    ```
    Run `npm run db:migrate` again after any future schema change.
 5. Add your domain under **Settings → Domains**.
-6. **Cron:** `vercel.json` runs `/api/cron/run` every 10 minutes. Vercel's free
-   (Hobby) plan only runs crons once a day, so either use Pro, or create a free
+6. **Cron:** `vercel.json` runs `/api/cron/run` once a day, because Vercel's free
+   (Hobby) plan rejects anything more frequent. For every 10 minutes, either use
+   Pro and set `*/10 * * * *`, or create a free
    job at cron-job.org that calls
    `GET https://YOUR-DOMAIN/api/cron/run` every 10 minutes with header
    `Authorization: Bearer <CRON_SECRET>`.

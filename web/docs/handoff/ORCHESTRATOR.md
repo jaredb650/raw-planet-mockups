@@ -142,5 +142,11 @@ All four agents stopped cleanly. The dev server has been stopped too, so restart
 - Vercel project `raw-planet-experiences` (team jareds-projects, Hobby) → https://raw-planet-experiences.vercel.app
 - DB: Neon free resource `raw-planet-db` via Vercel Marketplace (DATABASE_URL injected). Migrated + seeded with `--demo` from local (`DATABASE_URL=<unpooled> npx tsx scripts/{migrate,seed}.ts --demo`).
 - Env (production): ADMIN_PASSWORD (given to user), AUTH_SECRET, CRON_SECRET, ALLOW_TEST_CHECKOUT=1, SITE_NOINDEX=1, NEXT_PUBLIC_SITE_URL. No Stripe/Resend/Cal.com/Turnstile keys → test checkout, emails only logged in Admin → Emails.
-- Hobby allows daily crons only: deployed with a temporary `vercel.json` cron `0 13 * * *`; repo keeps `*/10`. Redeploy the same way (swap, `npx vercel deploy --prod`, `git checkout -- vercel.json`), or upgrade to Pro / add an external pinger (docs/AUTOMATIONS.md).
+- Hobby allows daily crons only: deployed with a temporary `vercel.json` cron `0 14 * * *`; repo keeps `*/10`. Redeploy the same way (swap, `npx vercel deploy --prod`, `git checkout -- vercel.json`), or upgrade to Pro / add an external pinger (docs/AUTOMATIONS.md).
 - Live checks: all main pages 200 (<2s), robots Disallow + noindex meta, availability from Neon, test booking → pay → confirmation OK (e2e), admin login OK; the e2e booking RP-UVUK4J was cancelled + refunded via admin. Unsigned webhooks correctly refused in production.
+
+## Vercel build setup (Nov 5)
+- The Vercel project has been linked to GitHub since creation, so pushing a branch triggers a build. Production branch is `main`; other branches build previews.
+- Root Directory is now `web` (the repo root has no `package.json`), and `web/vercel.json` uses the daily cron `0 14 * * *` so Hobby accepts it (14:00 UTC is 9am New York in winter; 13:00 would be 8am and miss the 9am sending window for thank-you emails). Go back to `*/10` only on Pro.
+- Running `vercel deploy` from `web/` no longer works, because the CLI looks for `web/web`. Deploy by pushing, or from a clean export: `git archive HEAD | tar -x -C <dir>`, then run `vercel deploy --prod` there with `VERCEL_PROJECT_ID` and `VERCEL_ORG_ID` set. Don't deploy from the working tree at the repo root, because `.vercelignore` lives in `web/` and `.env.local` and `.data` could be uploaded.
+- `main` still holds only the mockups, so a push to `main` fails the build rather than replacing the app. Merging this branch into `main` makes git the production deploy path.
