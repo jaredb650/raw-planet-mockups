@@ -101,6 +101,8 @@ export const experiences = pgTable("experiences", {
   calEventTypeId: integer("cal_event_type_id"),
   airbnbUrl: text("airbnb_url"),
   isPlaceholder: boolean("is_placeholder").notNull().default(false),
+  /** Guests sign the participation and recording release before the session. */
+  waiverRequired: boolean("waiver_required").notNull().default(true),
   active: boolean("active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: createdAt(),
@@ -138,7 +140,10 @@ export const customers = pgTable(
     phone: text("phone"),
     language: text("language").notNull().default("en"),
     marketingOptIn: boolean("marketing_opt_in").notNull().default(false),
+    /** Set by the unsubscribe link. Wins over marketingOptIn until the guest opts in again. */
+    unsubscribedAt: ts("unsubscribed_at"),
     notes: text("notes").notNull().default(""),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -197,6 +202,9 @@ export const bookings = pgTable(
     currency: text("currency").notNull().default("usd"),
     subtotalCents: integer("subtotal_cents").notNull().default(0),
     addonsCents: integer("addons_cents").notNull().default(0),
+    /** Smart pricing change already included in subtotalCents (negative = discount). */
+    priceAdjustCents: integer("price_adjust_cents").notNull().default(0),
+    priceRuleName: text("price_rule_name"),
     discountCents: integer("discount_cents").notNull().default(0),
     giftCardCents: integer("gift_card_cents").notNull().default(0),
     totalCents: integer("total_cents").notNull().default(0),
@@ -238,6 +246,7 @@ export const bookings = pgTable(
 
     rescheduledFromId: text("rescheduled_from_id"),
     rescheduleCount: integer("reschedule_count").notNull().default(0),
+    checkedInAt: ts("checked_in_at"),
     confirmedAt: ts("confirmed_at"),
     cancelledAt: ts("cancelled_at"),
     cancelReason: text("cancel_reason"),
@@ -571,6 +580,103 @@ export const webhookEvents = pgTable("webhook_events", {
   processedAt: ts("processed_at").notNull().defaultNow(),
 });
 
+/* ------------------------------------------------------------------ */
+/* Waivers (participation and recording release)                       */
+/* ------------------------------------------------------------------ */
+
+export const waivers = pgTable(
+  "waivers",
+  {
+    id: id(),
+    bookingId: text("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    signerName: text("signer_name").notNull(),
+    signerEmail: text("signer_email"),
+    /** Set when a parent or guardian signs for a minor. */
+    minorName: text("minor_name"),
+    recordingConsent: boolean("recording_consent").notNull().default(false),
+    /** Exact wording signed, so later edits never change what someone agreed to. */
+    waiverVersion: text("waiver_version").notNull(),
+    waiverText: text("waiver_text").notNull(),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    signedAt: ts("signed_at").notNull().defaultNow(),
+  },
+  (t) => [index("waivers_booking_idx").on(t.bookingId)],
+);
+
+/* ------------------------------------------------------------------ */
+/* Smart pricing rules                                                 */
+/* ------------------------------------------------------------------ */
+
+export const pricingRules = pgTable("pricing_rules", {
+  id: id(),
+  name: text("name").notNull(),
+  /** Null = every experience. */
+  experienceIds: jsonb("experience_ids").$type<string[] | null>(),
+  /** 0 = Sunday. Null = every day. */
+  weekdays: jsonb("weekdays").$type<number[] | null>(),
+  /** Session start, business-local "HH:MM". Null = any time. */
+  startTime: text("start_time"),
+  endTime: text("end_time"),
+  /** Business-local "YYYY-MM-DD", inclusive. Null = open-ended. */
+  dateFrom: text("date_from"),
+  dateTo: text("date_to"),
+  /** Applies when the session is at least / at most this many hours away. */
+  minHoursAhead: integer("min_hours_ahead"),
+  maxHoursAhead: integer("max_hours_ahead"),
+  /** Whole percent change to the session price, e.g. 15 or -20. */
+  adjustPercent: integer("adjust_percent").notNull(),
+  /** Only the highest-priority matching rule applies; rules never stack. */
+  priority: integer("priority").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/* ------------------------------------------------------------------ */
+/* Email campaigns                                                     */
+/* ------------------------------------------------------------------ */
+
+export type CampaignSegment = {
+  tags?: string[];
+  experienceIds?: string[];
+  /** Last completed session at least this many days ago. */
+  lapsedDays?: number;
+  minSessions?: number;
+  language?: "en" | "es";
+};
+
+export const campaigns = pgTable("campaigns", {
+  id: id(),
+  name: text("name").notNull(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  segment: jsonb("segment").$type<CampaignSegment>().notNull().default({}),
+  status: text("status").$type<"draft" | "sending" | "sent">().notNull().default("draft"),
+  sentAt: ts("sent_at"),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const campaignRecipients = pgTable(
+  "campaign_recipients",
+  {
+    id: id(),
+    campaignId: text("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    customerId: text("customer_id").references(() => customers.id, { onDelete: "set null" }),
+    email: text("email").notNull(),
+    status: text("status").$type<"pending" | "sent" | "failed">().notNull().default("pending"),
+    error: text("error"),
+    sentAt: ts("sent_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("campaign_recipient_idx").on(t.campaignId, t.email)],
+);
+
 /* Inferred row types */
 export type Experience = typeof experiences.$inferSelect;
 export type Addon = typeof addons.$inferSelect;
@@ -587,3 +693,7 @@ export type EventRsvp = typeof eventRsvps.$inferSelect;
 export type Inquiry = typeof inquiries.$inferSelect;
 export type WaitlistEntry = typeof waitlist.$inferSelect;
 export type EmailLogEntry = typeof emailLog.$inferSelect;
+export type Waiver = typeof waivers.$inferSelect;
+export type PricingRule = typeof pricingRules.$inferSelect;
+export type Campaign = typeof campaigns.$inferSelect;
+export type CampaignRecipient = typeof campaignRecipients.$inferSelect;

@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, desc, eq, gte, ilike, inArray, lt, or, sql, type SQL } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { bookingAddons, bookingEvents, bookings, customers, emailLog, experiences, giftCards, promoCodes, refunds, type BookingSource, type BookingStatus } from "@/lib/db/schema";
+import { bookingAddons, bookingEvents, bookings, customers, emailLog, experiences, giftCards, promoCodes, refunds, waivers, type BookingSource, type BookingStatus } from "@/lib/db/schema";
 import { addDaysKey, fromLocal } from "@/lib/time";
 
 export const VIEWS = ["upcoming", "past", "cancelled", "holds", "all"] as const;
@@ -225,7 +225,7 @@ export async function getBookingDetail(id: string) {
     .limit(1);
   if (!row) return null;
   const b = row.b;
-  const [events, refundRows, addonRows, emails, gift, promo, customer, otherBookings] = await Promise.all([
+  const [events, refundRows, addonRows, emails, gift, promo, customer, otherBookings, waiverRows] = await Promise.all([
     db.select().from(bookingEvents).where(eq(bookingEvents.bookingId, b.id)).orderBy(desc(bookingEvents.createdAt), desc(bookingEvents.id)),
     db.select().from(refunds).where(eq(refunds.bookingId, b.id)).orderBy(desc(refunds.createdAt)),
     db.select().from(bookingAddons).where(eq(bookingAddons.bookingId, b.id)),
@@ -240,6 +240,7 @@ export async function getBookingDetail(id: string) {
     b.customerId
       ? db.select({ n: sql<number>`count(*)::int` }).from(bookings).where(and(eq(bookings.customerId, b.customerId), inArray(bookings.status, ["confirmed", "completed", "no_show"])))
       : Promise.resolve([{ n: 0 }]),
+    db.select().from(waivers).where(eq(waivers.bookingId, b.id)).orderBy(asc(waivers.signedAt)),
   ]);
   let rescheduledFrom: { id: string; code: string } | null = null;
   if (b.rescheduledFromId) {
@@ -253,6 +254,7 @@ export async function getBookingDetail(id: string) {
     refunds: refundRows,
     addons: addonRows,
     emails,
+    waivers: waiverRows,
     giftCard: gift[0] ?? null,
     promo: promo[0] ?? null,
     customer: customer[0] ?? null,

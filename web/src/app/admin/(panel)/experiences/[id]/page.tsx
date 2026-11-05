@@ -77,6 +77,13 @@ export default async function EditExperiencePage({
                 <span className={a.cellSub}>Untick to hide it from the site and stop new bookings. Existing bookings stay.</span>
               </span>
             </label>
+            <label className={a.check}>
+              <input type="checkbox" name="waiverRequired" defaultChecked={x.waiverRequired} />
+              <span>
+                <strong>Guests sign a waiver</strong>
+                <span className={a.cellSub}>Adds the signing link to confirmation and reminder emails, and shows who has signed on the manifest.</span>
+              </span>
+            </label>
             <div className={a.formRow}>
               <div className={a.field}>
                 <label htmlFor="x-name">Name</label>

@@ -95,5 +95,13 @@ export function digestDue(now: Date, lastDigestDate: string | null | undefined, 
   return nyHour(now) >= 7 && lastDigestDate !== todayKey;
 }
 
+/**
+ * Weekly report: once per Monday-started week, from 7am New York on Monday.
+ * Later days catch up a missed Monday, so a daily cron at any hour still sends it.
+ */
+export function weeklyReportDue(now: Date, lastWeek: string | null | undefined, thisWeek: string, todayKey: string): boolean {
+  return lastWeek !== thisWeek && (todayKey !== thisWeek || nyHour(now) >= 7);
+}
+
 /** Stop retrying a failed automated email after this many failures. */
 export const MAX_SEND_ATTEMPTS = 3;

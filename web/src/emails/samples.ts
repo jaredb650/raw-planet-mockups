@@ -23,7 +23,8 @@ import {
 import { giftCardReceiptEmail, giftCardRecipientEmail, type GiftCardView } from "./templates/giftcards";
 import { inquiryAutoReplyEmail, inquiryHostAlertEmail, type InquiryView } from "./templates/inquiry";
 import { eventRsvpEmail, manageLinksEmail, waitlistOpeningEmail } from "./templates/misc";
-import { hostBookingAlertEmail, hostDigestEmail, type HostBookingView } from "./templates/host";
+import { hostBookingAlertEmail, hostDigestEmail, hostWeeklyReportEmail, type HostBookingView } from "./templates/host";
+import { campaignEmail, winBackEmail } from "./templates/campaign";
 
 const D = (iso: string) => new Date(iso);
 // Fixed sample: Saturday Nov 14, 2026, 2pm–4pm New York; "now" = Nov 4.
@@ -49,6 +50,7 @@ function experience(theme: string): Experience {
     calEventTypeId: null,
     airbnbUrl: null,
     isPlaceholder: false,
+    waiverRequired: true,
     active: true,
     sortOrder: 0,
     createdAt: NOW,
@@ -137,6 +139,8 @@ function booking(e: Experience, lang: Lang, over: Partial<Booking> = {}): Bookin
     currency: "usd",
     subtotalCents: subtotal,
     addonsCents: 0,
+    priceAdjustCents: 0,
+    priceRuleName: null,
     discountCents: discount,
     giftCardCents: 0,
     totalCents: subtotal - discount,
@@ -164,6 +168,7 @@ function booking(e: Experience, lang: Lang, over: Partial<Booking> = {}): Bookin
     abandonedEmailSentAt: null,
     rescheduledFromId: null,
     rescheduleCount: 0,
+    checkedInAt: null,
     confirmedAt: NOW,
     cancelledAt: null,
     cancelReason: null,
@@ -381,9 +386,42 @@ export const TEMPLATES: Record<string, { label: string; render: (o: Opts) => Ema
       });
     },
   },
+  campaign: {
+    label: "Marketing: campaign",
+    render: (o) =>
+      campaignEmail({
+        lang: o.lang,
+        subject: "New winter sessions are open",
+        body: "The studio's booked up fast this month, so I've opened a few more evenings.\n\nBring a friend and make something together.",
+        unsubscribeUrl: siteUrl("/unsubscribe"),
+        postalAddress: "123 Sample St, New York, NY 10001",
+        bookUrl: siteUrl("/book"),
+      }),
+  },
+  win_back: {
+    label: "Marketing: win-back",
+    render: (o) => winBackEmail({ lang: o.lang, name: "Maya Thompson", unsubscribeUrl: siteUrl("/unsubscribe"), postalAddress: "123 Sample St, New York, NY 10001", bookUrl: siteUrl("/book") }),
+  },
   host_new: { label: "Host: new booking", render: (o) => hostBookingAlertEmail(hostView("new", o)) },
   host_cancelled: { label: "Host: cancelled", render: (o) => hostBookingAlertEmail(hostView("cancelled", o)) },
   host_rescheduled: { label: "Host: rescheduled", render: (o) => hostBookingAlertEmail(hostView("rescheduled", o)) },
+  host_weekly_report: {
+    label: "Host: weekly report",
+    render: () =>
+      hostWeeklyReportEmail({
+        weekLabel: "Oct 26 to Nov 1",
+        netRevenue: "$2,340",
+        sessions: 9,
+        stats: [
+          { label: "Revenue", value: "$2,340" },
+          { label: "Sessions", value: "9" },
+          { label: "Studio booked", value: "38%" },
+          { label: "Repeat guests", value: "22%" },
+        ],
+        notes: ["Revenue the week before was $1,980.", "Music Production earned the most: $1,650.", "1 cancelled.", "Smart pricing changed 4 bookings by $85 overall."],
+        reportUrl: siteUrl("/admin/reports"),
+      }),
+  },
   host_digest: {
     label: "Host: morning digest",
     render: () =>

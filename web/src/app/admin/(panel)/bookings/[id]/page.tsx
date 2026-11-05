@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { getBookingDetail } from "@/lib/admin/bookings";
 import { refundForCancellation } from "@/lib/booking/pricing";
+import { canCheckIn } from "@/lib/booking/service";
+import { signingState } from "@/lib/waiver";
+import { waiverUrlFor } from "@/lib/waiver-token";
 import { manageUrl } from "@/lib/email/notify";
 import { fmt, fmtDateLong, fmtDuration, fmtTimeRange, localDateKey } from "@/lib/time";
 import { formatMoney } from "@/lib/money";
@@ -10,6 +13,7 @@ import { PageHeader, Panel, Empty } from "@/components/admin/PageHeader";
 import { BookingStatusPill, DeliverablePill, ExpName, PaymentPill, Pill } from "@/components/admin/Pill";
 import { ActionForm, SubmitButton } from "@/components/admin/ActionForm";
 import { CancelForm, RescheduleForm } from "@/components/admin/BookingForms";
+import { CheckInButton } from "@/components/admin/CheckInButton";
 import { CopyButton } from "@/components/admin/CopyButton";
 import { Icon } from "@/components/admin/Icon";
 import { SOURCE_LABEL, plural, telHref } from "@/components/admin/format";
@@ -77,6 +81,10 @@ export default async function BookingDetailPage({
           <span className={a.row} style={{ gap: 6 }}>
             <BookingStatusPill status={b.status} />
             <PaymentPill status={b.paymentStatus} />
+            {b.checkedInAt && b.status !== "no_show" && <Pill tone="success">Checked in</Pill>}
+            <Link className={`${a.btn} ${a.btnSm}`} href={`/admin/bookings/new?rebook=${b.id}`}>
+              <Icon name="plus" size={15} /> Book again
+            </Link>
           </span>
         }
       />
@@ -231,13 +239,62 @@ export default async function BookingDetailPage({
             </div>
           </Panel>
 
+          {(x.waiverRequired || r.waivers.length > 0) && (
+            <Panel
+              id="waivers"
+              title="Waivers"
+              count={`${r.waivers.length} of ${b.guests} signed`}
+              action={signingState(b, r.waivers.length) !== "closed" ? <CopyButton text={waiverUrlFor(b)} label="Copy signing link" /> : undefined}
+            >
+              {(b.source === "airbnb" || b.source === "viator") && (
+                <p className={`${a.panelBody} ${a.small} ${a.muted}`}>
+                  {SOURCE_LABEL[b.source]} guests don’t get our emails. Copy the link and send it in the {SOURCE_LABEL[b.source]} chat.
+                </p>
+              )}
+              {r.waivers.length === 0 ? (
+                <Empty>Nobody has signed yet.</Empty>
+              ) : (
+                <ul className={a.list}>
+                  {r.waivers.map((w) => (
+                    <li key={w.id} className={a.listRow}>
+                      <div className={a.listMain}>
+                        <strong>{w.signerName}</strong>
+                        <div className={a.listMeta}>
+                          {w.minorName ? `For ${w.minorName} (minor) · ` : ""}
+                          {fmt(w.signedAt, "MMM d, h:mmaaa")}
+                        </div>
+                        <details>
+                          <summary className={a.small}>Read what they signed</summary>
+                          <p className={`${a.small} ${a.muted}`}>
+                            Version {w.waiverVersion} · IP {w.ip ?? "unknown"} · {w.userAgent ?? "unknown device"}
+                          </p>
+                          <p className={a.small} style={{ whiteSpace: "pre-wrap", marginTop: 8 }}>
+                            {w.waiverText}
+                          </p>
+                        </details>
+                      </div>
+                      <Pill tone={w.recordingConsent ? "success" : "warning"}>{w.recordingConsent ? "Recording OK" : "No recording"}</Pill>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+          )}
+
           <Panel title="Payment" action={stripeUrl ? <a className={a.panelLink} href={stripeUrl} target="_blank" rel="noreferrer">Open in Stripe</a> : undefined}>
             <div className={a.panelBody}>
               <table className={d.money}>
                 <tbody>
                   {b.subtotalCents > 0 && (
                     <tr>
-                      <td>Session</td>
+                      <td>
+                        Session
+                        {b.priceAdjustCents !== 0 && (
+                          <span className={a.cellSub}>
+                            Includes {b.priceAdjustCents > 0 ? "+" : "−"}{formatMoney(Math.abs(b.priceAdjustCents))} smart pricing{b.priceRuleName ? ` (${b.priceRuleName})` : ""}
+                          </span>
+                        )}
+                      </td>
                       <td className={a.num}>{formatMoney(b.subtotalCents)}</td>
                     </tr>
                   )}
@@ -367,6 +424,11 @@ export default async function BookingDetailPage({
 
         <div className={`${a.stack} ${d.actionsFirst}`}>
           <Panel title="Actions">
+            {canCheckIn(b, now) && (
+              <div className={a.panelBody} style={{ borderBottom: "1px solid var(--a-line)" }}>
+                <CheckInButton id={b.id} guest={b.contactName} checkedIn={Boolean(b.checkedInAt)} />
+              </div>
+            )}
             {(b.status === "completed" || b.status === "no_show" || (live && ended)) && (
               <div className={a.panelBody} style={{ borderBottom: "1px solid var(--a-line)" }}>
                 <ActionForm action={setStatusAction} className={a.row}>

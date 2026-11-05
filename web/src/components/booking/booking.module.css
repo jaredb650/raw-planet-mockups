@@ -129,7 +129,7 @@
 .slot {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   font: 700 1rem/1 var(--body); padding: 12px 10px; min-height: 56px; justify-content: center;
-  border-radius: var(--r-pill); border: 2px solid var(--ink);
+  border-radius: var(--r-pill); border: 2px solid var(--ink); min-width: 0;
   background: var(--surface); color: var(--ink); cursor: pointer;
   transition: background-color 0.15s;
 }
@@ -137,6 +137,10 @@
 @media (hover: hover) { .slot:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--mist); } }
 .slot[aria-pressed="true"] { background: var(--ink); color: var(--cream); }
 .slot[aria-pressed="true"] small { color: inherit; opacity: 0.8; }
+.slot:has(.slotPrice) { border-radius: var(--r-md); }
+.slot .slotPrice { display: grid; gap: 2px; font-weight: 700; font-size: 0.9rem; color: inherit; font-variant-numeric: tabular-nums; }
+.slotPrice em { font-style: normal; font-weight: 600; font-size: 0.72rem; }
+.slotNote { margin: 8px 0 0; font-size: 0.85rem; color: var(--ink-soft); }
 .slot:disabled { border-style: dashed; border-color: var(--line); color: var(--ink-faint); cursor: not-allowed; text-decoration: line-through; }
 .slot:disabled small { color: inherit; }
 .slotSkeleton { min-height: 56px; border-radius: var(--r-pill); background: var(--mist); animation: pulse 1.2s ease-in-out infinite; }

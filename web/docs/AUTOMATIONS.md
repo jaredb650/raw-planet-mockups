@@ -45,6 +45,7 @@ Failed sends are retried on the next run, up to 3 times.
 | New booking / Cancelled / Moved | As it happens (new site and Cal.com bookings; guest-initiated cancels and moves). Reply-to is the guest, so Alex can just hit reply. Shows source, total paid, add-ons, promo, occasion, guest notes, refund, and any calendar sync warning |
 | Inquiry | New inquiry, reply-to = the inquirer |
 | Morning digest | Daily from 7am NY: today's and tomorrow's run sheet (time, guest, party size, phone, notes, flags like Birthday / Español / Returning guest / Unpaid), plus "needs you": new inquiries, undelivered tracks, calendar sync errors, broken feeds, unpaid upcoming bookings. Skipped on a completely empty day |
+| Weekly report | Mondays from 7am NY: last week's revenue (same cash basis as Admin → Reports), sessions, studio booked share, repeat guests and notes, with a link to the full report. Skipped when nothing happened |
 
 ## Scheduled jobs (`/api/cron/run`)
 
@@ -60,14 +61,17 @@ One endpoint runs everything, in this order. `?job=reminders,followups` runs a s
 | `followups` | Thank-you + review ask |
 | `reviewNudges` | One review reminder |
 | `hostDigest` | The morning digest (once per day, from 7am NY) |
+| `weeklyReport` | Last Monday to Sunday for the host (once per week, from 7am NY on Monday; a missed Monday catches up on the next run) |
+| `campaignQueue` | Sends the next batch of any campaign still going out, so a long list survives the 60-second limit |
+| `winBack` | Off by default (Settings). One rebook email per guest per 180 days, to opted-in guests whose last session was 120+ days ago |
 
 **Auth:** `Authorization: Bearer $CRON_SECRET`, or a signed-in admin, or local
 dev with no `CRON_SECRET` set. A lease in `settings.cronLock` stops overlapping
 runs; the last run is stored in `settings.lastCronRun`.
 
-**Schedule:** `vercel.json` asks Vercel Cron for every 10 minutes. On Vercel's
-free Hobby plan crons run at most once a day, so either use Pro, or add a
-free external pinger (cron-job.org, UptimeRobot) that calls
+**Schedule:** `vercel.json` runs once a day, because Vercel's free Hobby plan
+rejects anything more frequent. The jobs are built for every 10 minutes, so
+either use Pro and set `*/10 * * * *`, or add a free external pinger (cron-job.org, UptimeRobot) that calls
 `GET https://YOUR-DOMAIN/api/cron/run` every 10 minutes with the header
 `Authorization: Bearer <CRON_SECRET>`. Or GitHub Actions:
 

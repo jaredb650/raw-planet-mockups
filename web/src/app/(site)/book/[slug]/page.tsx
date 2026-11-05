@@ -56,7 +56,7 @@ export default async function BookExperiencePage({ params, searchParams }: Props
   let dateKey = one(sp.date);
 
   // A specific time was chosen: re-check it's still free before asking for details.
-  let slot: { start: string; end: string } | null = null;
+  let slot: { start: string; end: string; adjustPercent?: number } | null = null;
   if (!cancelled && startDate && !Number.isNaN(startDate.getTime())) {
     dateKey = localDateKey(startDate);
     const db = await getDb();
@@ -64,7 +64,7 @@ export default async function BookExperiencePage({ params, searchParams }: Props
     if (full) {
       const { days } = await getAvailability({ experience: full, fromKey: dateKey, toKey: dateKey, durationMinutes: duration });
       const match = days[0]?.slots.find((s) => s.start === startDate.toISOString());
-      if (match?.available) slot = { start: match.start, end: match.end };
+      if (match?.available) slot = { start: match.start, end: match.end, adjustPercent: match.adjustPercent };
       else notice = "Sorry, that time was just taken. Here's what's still open.";
     }
   }
@@ -89,6 +89,7 @@ export default async function BookExperiencePage({ params, searchParams }: Props
             end={slot.end}
             duration={duration}
             initialGuests={guests ?? defaultGuests(experience)}
+            adjustPercent={slot.adjustPercent}
           />
         </div>
       </section>

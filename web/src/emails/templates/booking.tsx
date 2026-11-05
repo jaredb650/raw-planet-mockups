@@ -157,6 +157,24 @@ function CancellationPanel({ v }: { v: BookingView }) {
 
 /* ------------------------------------------------------------------ */
 
+/** Asks the group to sign. The link is safe to forward: it only opens the signing page. */
+function WaiverNote({ v }: { v: BookingView }) {
+  if (!v.waiverUrl) return null;
+  return (
+    <>
+      <H2>{es(v) ? "Antes de tu sesión" : "Before your session"}</H2>
+      <P>
+        {es(v)
+          ? "Cada persona que venga necesita firmar una autorización corta de participación y grabación. Si alguien de tu grupo aún no lo ha hecho, reenvíale este enlace."
+          : "Everyone coming needs to sign a short participation and recording release. If anyone in your group hasn't signed yet, forward them this link."}
+      </P>
+      <Actions>
+        <Btn href={v.waiverUrl}>{es(v) ? "Firmar la autorización" : "Sign the waiver"}</Btn>
+      </Actions>
+    </>
+  );
+}
+
 export function bookingConfirmationEmail(v: BookingView): EmailOutput {
   const accent = accentFor(v.theme);
   const subject = es(v)
@@ -215,6 +233,7 @@ export function bookingConfirmationEmail(v: BookingView): EmailOutput {
 
       <Details rows={sessionRows(v, { notes: true })} accent={accent.strong} />
       <CalendarButtons v={v} />
+      <WaiverNote v={v} />
 
       {v.includes.length ? (
         <>
@@ -304,6 +323,7 @@ export function giftBookingRecipientEmail(
       ) : null}
       <Details rows={sessionRows(v, { code: true })} accent={accent.strong} />
       <CalendarButtons v={v} manage={false} />
+      <WaiverNote v={v} />
       {v.includes.length ? (
         <>
           <H2>{es(v) ? "Qué incluye" : "What's included"}</H2>
@@ -546,6 +566,7 @@ export function bookingReminderEmail(
             : null,
         ]}
       />
+      <WaiverNote v={v} />
       {bring.length ? (
         <>
           <H2>{es(v) ? "Qué traer" : "What to bring"}</H2>

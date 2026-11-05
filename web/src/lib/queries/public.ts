@@ -5,17 +5,23 @@
 import "server-only";
 import { and, asc, avg, count, desc, eq, gte } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { addons, eventRsvps, events, experiences, reviews, type Experience } from "@/lib/db/schema";
+import { addons, eventRsvps, events, experiences, pricingRules, reviews, type Experience } from "@/lib/db/schema";
 import { BUSINESS } from "@/lib/config";
+import { todayKey } from "@/lib/time";
 
 export type PublicExperience = Pick<
   Experience,
   | "id" | "slug" | "name" | "shortName" | "tagline" | "summary" | "description" | "theme" | "highlights" | "includes"
   | "goodToKnow" | "media" | "pricingMode" | "durationOptions" | "includedGuests" | "extraGuestCents" | "minGuests"
   | "maxGuests" | "minAge" | "locationArea" | "cancellationHours" | "leadTimeHours" | "maxAdvanceDays" | "isPlaceholder" | "airbnbUrl"
-> & { addons: { id: string; name: string; description: string; priceCents: number; pricing: "per_booking" | "per_guest" }[] };
+> & {
+  addons: { id: string; name: string; description: string; priceCents: number; pricing: "per_booking" | "per_guest" }[];
+  /** A live smart pricing rule covers this experience, so a flat headline price would be untrue. */
+  priceVaries?: boolean;
+};
 
-function toPublic(e: Experience, addonRows: (typeof addons.$inferSelect)[]): PublicExperience {
+function toPublic(e: Experience, addonRows: (typeof addons.$inferSelect)[], rules: { experienceIds: string[] | null; dateTo: string | null }[]): PublicExperience {
+  const today = todayKey();
   return {
     id: e.id, slug: e.slug, name: e.name, shortName: e.shortName, tagline: e.tagline, summary: e.summary,
     description: e.description, theme: e.theme, highlights: e.highlights, includes: e.includes, goodToKnow: e.goodToKnow,
@@ -23,6 +29,7 @@ function toPublic(e: Experience, addonRows: (typeof addons.$inferSelect)[]): Pub
     extraGuestCents: e.extraGuestCents, minGuests: e.minGuests, maxGuests: e.maxGuests, minAge: e.minAge,
     locationArea: e.locationArea, cancellationHours: e.cancellationHours, leadTimeHours: e.leadTimeHours,
     maxAdvanceDays: e.maxAdvanceDays, isPlaceholder: e.isPlaceholder, airbnbUrl: e.airbnbUrl,
+    priceVaries: rules.some((r) => (!r.experienceIds?.length || r.experienceIds.includes(e.id)) && (!r.dateTo || r.dateTo >= today)),
     addons: addonRows
       .filter((a) => a.active && (a.experienceId === null || a.experienceId === e.id))
       .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -32,11 +39,12 @@ function toPublic(e: Experience, addonRows: (typeof addons.$inferSelect)[]): Pub
 
 export async function getActiveExperiences(): Promise<PublicExperience[]> {
   const db = await getDb();
-  const [rows, addonRows] = await Promise.all([
+  const [rows, addonRows, rules] = await Promise.all([
     db.select().from(experiences).where(eq(experiences.active, true)).orderBy(asc(experiences.sortOrder)),
     db.select().from(addons).where(eq(addons.active, true)),
+    db.select({ experienceIds: pricingRules.experienceIds, dateTo: pricingRules.dateTo }).from(pricingRules).where(eq(pricingRules.active, true)),
   ]);
-  return rows.map((e) => toPublic(e, addonRows));
+  return rows.map((e) => toPublic(e, addonRows, rules));
 }
 
 export async function getPublicExperience(slug: string): Promise<PublicExperience | null> {

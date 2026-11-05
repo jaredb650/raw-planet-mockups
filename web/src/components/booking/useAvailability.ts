@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { firstOfMonth, lastOfMonth, type MonthKey } from "./dates";
 
-export type ApiSlot = { start: string; end: string; available: boolean; reason?: string };
+export type ApiSlot = { start: string; end: string; available: boolean; reason?: string; priceCents?: number; adjustPercent?: number };
 export type ApiDay = { date: string; open: boolean; available: number; slots: ApiSlot[] };
 export type DayState = "available" | "full" | "unavailable";
 

@@ -49,6 +49,8 @@ export type BookingView = {
   manageUrl: string;
   bookUrl: string;
   reviewUrl: string;
+  /** Waiver signing link; null when this booking is not asked to sign by email. */
+  waiverUrl: string | null;
   googleCalendarUrl: string;
   occasion: string | null;
   notes: string;

@@ -34,6 +34,7 @@ export function CheckoutForm({
   end,
   duration,
   initialGuests,
+  adjustPercent,
 }: {
   experience: PublicExperience;
   date: string;
@@ -41,6 +42,8 @@ export function CheckoutForm({
   end: string;
   duration: number;
   initialGuests: number;
+  /** Smart pricing for this slot, so the first paint already shows the real price. */
+  adjustPercent?: number;
 }) {
   const id = useId();
   const formRef = useRef<HTMLFormElement>(null);
@@ -55,8 +58,11 @@ export function CheckoutForm({
   const [fields, setFields] = useState<Fields>({});
   const [formError, setFormError] = useState<{ message: string; taken?: boolean } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [spanish, setSpanish] = useState(false);
 
-  const quoteKey = JSON.stringify([guests, addonIds, promo, giftCode]);
+  const [requote, setRequote] = useState(0);
+
+  const quoteKey = JSON.stringify([guests, addonIds, promo, giftCode, requote]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -64,7 +70,7 @@ export function CheckoutForm({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: ctrl.signal,
-      body: JSON.stringify({ experience: e.slug, duration, guests, addonIds, promoCode: promo, giftCardCode: giftCode }),
+      body: JSON.stringify({ experience: e.slug, start, duration, guests, addonIds, promoCode: promo, giftCardCode: giftCode }),
     })
       .then((r) => r.json().then((body) => ({ ok: r.ok, body })))
       .then(({ ok, body }) => {
@@ -73,10 +79,10 @@ export function CheckoutForm({
       })
       .catch(() => {});
     return () => ctrl.abort();
-  }, [quoteKey, e.slug, duration, guests, addonIds, promo, giftCode]);
+  }, [quoteKey, e.slug, start, duration, guests, addonIds, promo, giftCode]);
 
   // Until the server answers, show the local estimate (codes not applied yet).
-  const local = displayQuote(e, duration, guests);
+  const local = displayQuote(e, duration, guests, adjustPercent);
   const fresh = quote?.key === quoteKey ? quote : null;
   const view: QuoteView | null = fresh?.view ?? quote?.view ?? (local ? { totalCents: local.totalCents, lines: local.lines } : null);
   const promoError = promo && fresh ? fresh.promoError : null;
@@ -111,6 +117,7 @@ export function CheckoutForm({
           start,
           duration,
           guests,
+          expectedTotalCents: fresh?.view.totalCents,
           addonIds,
           promoCode: promo,
           giftCardCode: giftCode,
@@ -137,6 +144,7 @@ export function CheckoutForm({
       }
       resetTurnstile();
       setSubmitting(false);
+      if (body.code === "price_changed") setRequote((n) => n + 1);
       if (body.fields) {
         setFields(body.fields);
         focusFirst(body.fields);
@@ -212,11 +220,11 @@ export function CheckoutForm({
                 </legend>
                 <div className={styles.choiceRow}>
                   <label className={styles.choice}>
-                    <input type="radio" name="language" value="en" defaultChecked />
+                    <input type="radio" name="language" value="en" defaultChecked onChange={() => setSpanish(false)} />
                     <span>English</span>
                   </label>
                   <label className={styles.choice}>
-                    <input type="radio" name="language" value="es" />
+                    <input type="radio" name="language" value="es" onChange={() => setSpanish(true)} />
                     <span lang="es">Español</span>
                   </label>
                 </div>
@@ -371,7 +379,9 @@ export function CheckoutForm({
               {err("acceptPolicies")}
               <label className="check">
                 <input type="checkbox" name="marketingOptIn" value="1" />
-                <span className="small muted">Send me the occasional note about new sessions and community meetups.</span>
+                <span className="small muted" lang={spanish ? "es" : undefined}>
+                  {spanish ? "Envíame de vez en cuando novedades sobre sesiones y encuentros de la comunidad." : "Send me the occasional note about new sessions and community meetups."}
+                </span>
               </label>
               <input name="website" tabIndex={-1} autoComplete="off" className={styles.hp} aria-hidden="true" />
 

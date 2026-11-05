@@ -32,18 +32,29 @@ export type SessionRow = {
   source: string;
   experienceName: string;
   theme: string;
+  language: string;
+  checkedInAt: string | null;
+  owedCents: number;
+  waiverRequired: boolean;
+  waiversSigned: number;
+  /** Signers who left the optional recording and photo consent unticked. */
+  recordingDeclined: number;
 };
+
+// Correlated subqueries: only valid in queries that join experiences, because a single-table select drops the "bookings." prefix.
+const waiversSigned = sql<number>`(select count(*)::int from waivers w where w.booking_id = ${bookings.id})`;
+const recordingDeclined = sql<number>`(select count(*)::int from waivers w where w.booking_id = ${bookings.id} and not w.recording_consent)`;
 
 /** Confirmed/completed sessions starting in [from, to). */
 export async function getSessions(from: Date, to: Date): Promise<SessionRow[]> {
   const db = await getDb();
   const rows = await db
-    .select({ b: bookings, x: { name: experiences.shortName, theme: experiences.theme } })
+    .select({ b: bookings, x: { name: experiences.shortName, theme: experiences.theme, waiverRequired: experiences.waiverRequired }, signed: waiversSigned, declined: recordingDeclined })
     .from(bookings)
     .innerJoin(experiences, eq(experiences.id, bookings.experienceId))
     .where(and(gte(bookings.startAt, from), lt(bookings.startAt, to), inArray(bookings.status, ["confirmed", "completed", "no_show"])))
     .orderBy(asc(bookings.startAt));
-  return rows.map(({ b, x }) => ({
+  return rows.map(({ b, x, signed, declined }) => ({
     id: b.id,
     code: b.code,
     startAt: b.startAt.toISOString(),
@@ -61,6 +72,12 @@ export async function getSessions(from: Date, to: Date): Promise<SessionRow[]> {
     source: b.source,
     experienceName: x.name,
     theme: x.theme,
+    language: b.language,
+    checkedInAt: b.checkedInAt?.toISOString() ?? null,
+    owedCents: Math.max(0, b.totalCents - b.amountPaidCents),
+    waiverRequired: x.waiverRequired,
+    waiversSigned: Number(signed),
+    recordingDeclined: Number(declined),
   }));
 }
 
@@ -93,10 +110,45 @@ export type Kpis = {
   mixTotal: number;
 };
 
+export type CashEntry = { at: Date; cents: number; kind: "booking" | "refund" | "gift_card"; experienceId: string | null; source: string | null };
+
 /**
  * Cash basis: card payments received (by confirmation date) + gift cards sold,
  * minus refunds issued (by refund date). Comped gift cards are not revenue.
+ * The one definition of revenue: KPIs, reports and the weekly email all sum these.
  */
+export async function getCashEntries(from: Date, to?: Date): Promise<CashEntry[]> {
+  const db = await getDb();
+  const paidAt = sql<Date>`coalesce(${bookings.confirmedAt}, ${bookings.createdAt})`;
+  const [paid, refundRows, cards] = await Promise.all([
+    db
+      .select({ at: paidAt, cents: bookings.amountPaidCents, experienceId: bookings.experienceId, source: bookings.source })
+      .from(bookings)
+      .where(
+        and(
+          gt(bookings.amountPaidCents, 0),
+          inArray(bookings.status, ["confirmed", "completed", "no_show", "cancelled"]),
+          gte(paidAt, from),
+          to ? lt(paidAt, to) : undefined,
+        ),
+      ),
+    db
+      .select({ at: refunds.createdAt, cents: refunds.amountCents, experienceId: bookings.experienceId, source: bookings.source })
+      .from(refunds)
+      .innerJoin(bookings, eq(bookings.id, refunds.bookingId))
+      .where(and(gte(refunds.createdAt, from), to ? lt(refunds.createdAt, to) : undefined)),
+    db
+      .select({ at: giftCards.createdAt, cents: giftCards.initialCents })
+      .from(giftCards)
+      .where(and(eq(giftCards.issuedByAdmin, false), ne(giftCards.status, "pending_payment"), gte(giftCards.createdAt, from), to ? lt(giftCards.createdAt, to) : undefined)),
+  ]);
+  return [
+    ...paid.map((r) => ({ ...r, at: new Date(r.at), kind: "booking" as const })),
+    ...refundRows.map((r) => ({ ...r, cents: -r.cents, kind: "refund" as const })),
+    ...cards.map((r) => ({ ...r, kind: "gift_card" as const, experienceId: null, source: null })),
+  ];
+}
+
 export async function getKpis(now = new Date()): Promise<Kpis> {
   const db = await getDb();
   const today = todayKey(now);
@@ -104,34 +156,13 @@ export async function getKpis(now = new Date()): Promise<Kpis> {
   const lastMonth = addMonthsKey(thisMonth, -1);
   const from30 = addDaysKey(today, -29);
   const startKey = from30 < lastMonth ? from30 : lastMonth;
-  const start = fromLocal(startKey);
-
-  const [paid, refundRows, cards] = await Promise.all([
-    db
-      .select({ at: sql<Date>`coalesce(${bookings.confirmedAt}, ${bookings.createdAt})`, cents: bookings.amountPaidCents })
-      .from(bookings)
-      .where(
-        and(
-          gt(bookings.amountPaidCents, 0),
-          inArray(bookings.status, ["confirmed", "completed", "no_show", "cancelled"]),
-          gte(sql`coalesce(${bookings.confirmedAt}, ${bookings.createdAt})`, start),
-        ),
-      ),
-    db.select({ at: refunds.createdAt, cents: refunds.amountCents }).from(refunds).where(gte(refunds.createdAt, start)),
-    db
-      .select({ at: giftCards.createdAt, cents: giftCards.initialCents })
-      .from(giftCards)
-      .where(and(eq(giftCards.issuedByAdmin, false), ne(giftCards.status, "pending_payment"), gte(giftCards.createdAt, start))),
-  ]);
+  const entries = await getCashEntries(fromLocal(startKey));
 
   const byDay = new Map<string, number>();
-  const add = (at: Date | string, cents: number) => {
-    const k = localDateKey(new Date(at));
-    byDay.set(k, (byDay.get(k) ?? 0) + cents);
-  };
-  paid.forEach((r) => add(r.at, r.cents));
-  cards.forEach((r) => add(r.at, r.cents));
-  refundRows.forEach((r) => add(r.at, -r.cents));
+  for (const e of entries) {
+    const k = localDateKey(e.at);
+    byDay.set(k, (byDay.get(k) ?? 0) + e.cents);
+  }
 
   const dayOfMonth = Number(today.slice(8, 10));
   let revenueThisMonth = 0;
@@ -200,11 +231,12 @@ export type Attention = {
   failedEmails: { id: string; to: string; subject: string; error: string | null; at: string; bookingId: string | null }[];
   holds: { id: string; code: string; name: string; startAt: string; expiresAt: string | null; experience: string }[];
   feeds: { id: string; name: string; error: string }[];
+  waivers: { id: string; code: string; name: string; startAt: string; guests: number; signed: number; experience: string }[];
 };
 
 export async function getAttention(now = new Date()): Promise<Attention> {
   const db = await getDb();
-  const [deliv, calErr, inq, rev, mail, holds, feeds] = await Promise.all([
+  const [deliv, calErr, inq, rev, mail, holds, feeds, unsigned] = await Promise.all([
     db
       .select({ id: bookings.id, code: bookings.code, name: bookings.contactName, startAt: bookings.startAt, status: bookings.deliverableStatus, experience: experiences.shortName })
       .from(bookings)
@@ -244,6 +276,21 @@ export async function getAttention(now = new Date()): Promise<Attention> {
       .select({ id: calendarFeeds.id, name: calendarFeeds.name, error: calendarFeeds.lastError })
       .from(calendarFeeds)
       .where(and(eq(calendarFeeds.active, true), isNotNull(calendarFeeds.lastError))),
+    db
+      .select({ id: bookings.id, code: bookings.code, name: bookings.contactName, startAt: bookings.startAt, guests: bookings.guests, signed: waiversSigned, experience: experiences.shortName })
+      .from(bookings)
+      .innerJoin(experiences, eq(experiences.id, bookings.experienceId))
+      .where(
+        and(
+          eq(bookings.status, "confirmed"),
+          eq(experiences.waiverRequired, true),
+          gt(bookings.startAt, now),
+          lt(bookings.startAt, new Date(now.getTime() + 48 * 3600_000)),
+          sql`${waiversSigned} < ${bookings.guests}`,
+        ),
+      )
+      .orderBy(asc(bookings.startAt))
+      .limit(20),
   ]);
   const iso = (d: Date | null) => (d ? d.toISOString() : null);
   return {
@@ -254,5 +301,6 @@ export async function getAttention(now = new Date()): Promise<Attention> {
     failedEmails: mail.map((m) => ({ id: m.id, to: m.to, subject: m.subject, error: m.error, at: m.createdAt.toISOString(), bookingId: m.bookingId })),
     holds: holds.map((h) => ({ ...h, startAt: h.startAt.toISOString(), expiresAt: iso(h.expiresAt) })),
     feeds: feeds.map((f) => ({ id: f.id, name: f.name, error: f.error ?? "" })),
+    waivers: unsigned.map((w) => ({ ...w, startAt: w.startAt.toISOString(), signed: Number(w.signed) })),
   };
 }

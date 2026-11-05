@@ -2,7 +2,8 @@
  * Pure pricing engine — no DB access, fully unit-tested.
  * The server always recomputes the quote; client-side quotes are display-only.
  */
-import type { Addon, Experience, PromoCode } from "@/lib/db/schema";
+import type { Addon, Experience, PricingRule, PromoCode } from "@/lib/db/schema";
+import { fmt, localDateKey, weekdayOf } from "@/lib/time";
 
 export type QuoteInput = {
   experience: Pick<
@@ -17,6 +18,8 @@ export type QuoteInput = {
     "id" | "code" | "kind" | "value" | "experienceIds" | "minSubtotalCents" | "maxRedemptions" | "redemptions" | "validFrom" | "validUntil" | "active"
   > | null;
   giftCardBalanceCents?: number;
+  /** The smart pricing rule for this slot, from pickPriceRule. */
+  priceRule?: Pick<PricingRule, "name" | "adjustPercent"> | null;
   now?: Date;
 };
 
@@ -25,7 +28,9 @@ export type QuoteLine = { label: string; amountCents: number; kind: "base" | "gu
 export type Quote = {
   baseCents: number;
   extraGuestsCents: number;
-  subtotalCents: number; // base + extra guests
+  subtotalCents: number; // base + extra guests, smart pricing included
+  priceAdjustCents: number; // smart pricing share of subtotalCents (negative = discount)
+  priceRuleName: string | null;
   addonsCents: number;
   addonLines: { addonId: string; name: string; quantity: number; unitCents: number; totalCents: number }[];
   discountCents: number;
@@ -46,6 +51,45 @@ export function durationPrice(experience: QuoteInput["experience"], minutes: num
 /** Lowest headline price ("from $X") for cards and SEO. */
 export function fromPrice(experience: Pick<Experience, "durationOptions" | "pricingMode">): number {
   return Math.min(...experience.durationOptions.map((o) => o.priceCents));
+}
+
+/* ------------------------------------------------------------------ */
+/* Smart pricing                                                        */
+/* ------------------------------------------------------------------ */
+
+export type PriceRuleInput = Pick<
+  PricingRule,
+  | "id" | "name" | "experienceIds" | "weekdays" | "startTime" | "endTime" | "dateFrom" | "dateTo"
+  | "minHoursAhead" | "maxHoursAhead" | "adjustPercent" | "priority" | "active"
+>;
+
+/** All conditions read in business time. startTime is inclusive, endTime exclusive, dates inclusive. */
+export function ruleApplies(r: PriceRuleInput, experienceId: string, startAt: Date, now: Date): boolean {
+  if (!r.active) return false;
+  if (r.experienceIds?.length && !r.experienceIds.includes(experienceId)) return false;
+  const dateKey = localDateKey(startAt);
+  if (r.weekdays?.length && !r.weekdays.includes(weekdayOf(dateKey))) return false;
+  if (r.dateFrom && dateKey < r.dateFrom) return false;
+  if (r.dateTo && dateKey > r.dateTo) return false;
+  const time = fmt(startAt, "HH:mm");
+  if (r.startTime && time < r.startTime) return false;
+  if (r.endTime && time >= r.endTime) return false;
+  const hoursAhead = (startAt.getTime() - now.getTime()) / 3600_000;
+  if (r.minHoursAhead != null && hoursAhead < r.minHoursAhead) return false;
+  if (r.maxHoursAhead != null && hoursAhead > r.maxHoursAhead) return false;
+  return true;
+}
+
+/** The single rule for a slot: highest priority wins, rules never stack. Ties go to the lower price, so order never matters. */
+export function pickPriceRule<T extends PriceRuleInput>(rules: T[], experienceId: string, startAt: Date, now: Date): T | null {
+  const hits = rules.filter((r) => ruleApplies(r, experienceId, startAt, now));
+  hits.sort((a, b) => b.priority - a.priority || a.adjustPercent - b.adjustPercent || a.id.localeCompare(b.id));
+  return hits[0] ?? null;
+}
+
+/** A smart price is always whole dollars. No rule, no rounding. */
+export function adjustedCents(cents: number, percent: number): number {
+  return percent ? Math.round((cents * (100 + percent)) / 10_000) * 100 : cents;
 }
 
 export function validatePromo(
@@ -76,22 +120,24 @@ export function computeQuote(input: QuoteInput): Quote {
 
   const unit = durationPrice(e, durationMinutes);
   const lines: QuoteLine[] = [];
-  let baseCents: number;
-  let extraGuestsCents = 0;
+  const extra = e.pricingMode === "per_person" ? 0 : Math.max(0, guests - e.includedGuests);
+  let baseCents = e.pricingMode === "per_person" ? unit * guests : unit;
+  let extraGuestsCents = e.extraGuestCents > 0 ? extra * e.extraGuestCents : 0;
 
-  if (e.pricingMode === "per_person") {
-    baseCents = unit * guests;
-    lines.push({ label: `${guests} × guest`, amountCents: baseCents, kind: "base" });
-  } else {
-    baseCents = unit;
-    lines.push({ label: "Private session", amountCents: baseCents, kind: "base" });
-    const extra = Math.max(0, guests - e.includedGuests);
-    if (extra > 0 && e.extraGuestCents > 0) {
-      extraGuestsCents = extra * e.extraGuestCents;
-      lines.push({ label: `${extra} extra guest${extra > 1 ? "s" : ""}`, amountCents: extraGuestsCents, kind: "guests" });
-    }
+  // Smart pricing is folded into the session lines: it is the price of this slot, never a fee line.
+  const listCents = baseCents + extraGuestsCents;
+  const subtotalCents = adjustedCents(listCents, input.priceRule?.adjustPercent ?? 0);
+  const priceAdjustCents = subtotalCents - listCents;
+  if (priceAdjustCents !== 0) {
+    extraGuestsCents = Math.round((extraGuestsCents * subtotalCents) / listCents / 100) * 100;
+    baseCents = subtotalCents - extraGuestsCents;
   }
-  const subtotalCents = baseCents + extraGuestsCents;
+  lines.push(
+    e.pricingMode === "per_person"
+      ? { label: `${guests} × guest`, amountCents: baseCents, kind: "base" }
+      : { label: "Private session", amountCents: baseCents, kind: "base" },
+  );
+  if (extraGuestsCents > 0) lines.push({ label: `${extra} extra guest${extra > 1 ? "s" : ""}`, amountCents: extraGuestsCents, kind: "guests" });
 
   const addonLines = (input.addons ?? []).map(({ addon, quantity }) => {
     const qty = addon.pricing === "per_guest" ? guests : Math.max(1, quantity ?? 1);
@@ -124,6 +170,8 @@ export function computeQuote(input: QuoteInput): Quote {
     baseCents,
     extraGuestsCents,
     subtotalCents,
+    priceAdjustCents,
+    priceRuleName: priceAdjustCents !== 0 ? (input.priceRule?.name ?? null) : null,
     addonsCents,
     addonLines,
     discountCents,

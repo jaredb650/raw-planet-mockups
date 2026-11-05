@@ -14,9 +14,10 @@
 import "server-only";
 import { and, eq, gt, inArray, isNull, lt, or } from "drizzle-orm";
 import { getDb, type DB, type Tx } from "@/lib/db";
-import { blocks, bookings, experiences, type Experience } from "@/lib/db/schema";
+import { blocks, bookings, experiences, pricingRules, type Experience } from "@/lib/db/schema";
 import { calAvailableStarts } from "@/lib/integrations/calcom";
 import { addDaysKey, dateRange, fromLocal, localDateKey, overlaps, weekdayOf } from "@/lib/time";
+import { pickPriceRule } from "./pricing";
 
 export type Interval = { start: Date; end: Date; kind?: "booking" | "hold" | "block" };
 
@@ -25,6 +26,8 @@ export type Slot = {
   end: string; // ISO
   available: boolean;
   reason?: "past" | "notice" | "booked" | "blocked" | "calendar" | "too_far";
+  /** Smart pricing change for an open slot. Unset = list price. */
+  adjustPercent?: number;
 };
 
 export type DayAvailability = { date: string; open: boolean; slots: Slot[] };
@@ -129,6 +132,10 @@ export async function getExperienceBySlugOrId(db: DB | Tx, idOrSlug: string): Pr
   return row;
 }
 
+export function loadPriceRules(db: DB | Tx) {
+  return db.select().from(pricingRules).where(eq(pricingRules.active, true));
+}
+
 /**
  * Availability for a range of local days. Used by the public booking widget
  * (GET /api/availability) and the admin reschedule picker.
@@ -174,6 +181,11 @@ export async function getAvailability(opts: {
   const days = dateRange(opts.fromKey, opts.toKey).map((dateKey) =>
     computeDaySlots({ experience: opts.experience, dateKey, durationMinutes: opts.durationMinutes, busy, now, externalStarts }),
   );
+  const rules = await loadPriceRules(db);
+  for (const s of days.flatMap((d) => d.slots)) {
+    const rule = s.available ? pickPriceRule(rules, opts.experience.id, new Date(s.start), now) : null;
+    if (rule) s.adjustPercent = rule.adjustPercent;
+  }
   return { days, ...(calendarError ? { calendarError } : {}) };
 }
 

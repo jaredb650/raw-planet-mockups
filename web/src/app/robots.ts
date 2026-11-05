@@ -8,8 +8,8 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        // Private or per-guest pages: admin, APIs, checkout, booking/manage/review links.
-        disallow: ["/admin", "/api/", "/checkout", "/booking/", "/manage", "/review/"],
+        // Private or per-guest pages: admin, APIs, checkout, booking/manage/review/waiver links.
+        disallow: ["/admin", "/api/", "/checkout", "/booking/", "/manage", "/review/", "/waiver/", "/unsubscribe"],
       },
     ],
     sitemap: siteUrl("/sitemap.xml"),

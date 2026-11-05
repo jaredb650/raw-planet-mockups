@@ -223,6 +223,23 @@ function SessionList({ items, empty }: { items: DigestSession[]; empty: string }
   );
 }
 
+function StatRow({ stats }: { stats: { label: string; value: string }[] }) {
+  return (
+    <Section>
+      <Row>
+        {stats.map((s) => (
+          <Column key={s.label} style={{ verticalAlign: "top", paddingRight: "8px" }}>
+            <Text style={{ margin: 0, fontFamily: FONT_DISPLAY, fontSize: "26px", lineHeight: "28px", fontWeight: 800, color: C.cocoa }}>{s.value}</Text>
+            <Text style={{ margin: "2px 0 0", fontFamily: FONT_BODY, fontSize: "11px", lineHeight: "14px", letterSpacing: "1px", textTransform: "uppercase", fontWeight: 700, color: C.inkFaint }}>
+              {s.label}
+            </Text>
+          </Column>
+        ))}
+      </Row>
+    </Section>
+  );
+}
+
 export function hostDigestEmail(v: HostDigestView): EmailOutput {
   const n = v.today.length;
   const subject = n ? `Today: ${n} session${n === 1 ? "" : "s"}, first at ${v.today[0].time}` : `Today: no sessions${v.tomorrow.length ? `, ${v.tomorrow.length} tomorrow` : ""}`;
@@ -255,18 +272,7 @@ export function hostDigestEmail(v: HostDigestView): EmailOutput {
       {v.stats.length ? (
         <>
           <Divider />
-          <Section>
-            <Row>
-              {v.stats.map((s) => (
-                <Column key={s.label} style={{ verticalAlign: "top", paddingRight: "8px" }}>
-                  <Text style={{ margin: 0, fontFamily: FONT_DISPLAY, fontSize: "26px", lineHeight: "28px", fontWeight: 800, color: C.cocoa }}>{s.value}</Text>
-                  <Text style={{ margin: "2px 0 0", fontFamily: FONT_BODY, fontSize: "11px", lineHeight: "14px", letterSpacing: "1px", textTransform: "uppercase", fontWeight: 700, color: C.inkFaint }}>
-                    {s.label}
-                  </Text>
-                </Column>
-              ))}
-            </Row>
-          </Section>
+          <StatRow stats={v.stats} />
         </>
       ) : null}
       <Actions>
@@ -275,6 +281,39 @@ export function hostDigestEmail(v: HostDigestView): EmailOutput {
         <Btn href={v.calendarUrl} variant="secondary">
           Calendar
         </Btn>
+      </Actions>
+    </Layout>
+  );
+  return { subject, element };
+}
+
+export type HostWeeklyReportView = {
+  /** "Oct 26 to Nov 1" */
+  weekLabel: string;
+  netRevenue: string;
+  sessions: number;
+  stats: { label: string; value: string }[];
+  notes: string[];
+  reportUrl: string;
+};
+
+export function hostWeeklyReportEmail(v: HostWeeklyReportView): EmailOutput {
+  const subject = `Last week: ${v.netRevenue} received, ${v.sessions} session${v.sessions === 1 ? "" : "s"}`;
+  const element = (
+    <Layout lang="en" audience="host" preview={`${v.weekLabel}. ${v.notes[0] ?? ""}`}>
+      <P small muted style={{ margin: "0 0 4px" }}>
+        Your week, Alex
+      </P>
+      <H1>{v.weekLabel}</H1>
+      <StatRow stats={v.stats} />
+      {v.notes.length ? <Divider /> : null}
+      {v.notes.map((n, i) => (
+        <P key={i} small style={{ margin: "0 0 4px" }}>
+          {n}
+        </P>
+      ))}
+      <Actions>
+        <Btn href={v.reportUrl}>See the full report</Btn>
       </Actions>
     </Layout>
   );

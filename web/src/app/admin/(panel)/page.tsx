@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { getAttention, getKpis, getSessions, weekStartKey } from "@/lib/admin/dashboard";
+import { getOpportunities } from "@/lib/admin/opportunities";
 import { addDaysKey, fmt, fmtDateLong, fmtTime, fromLocal, localDateKey, todayKey } from "@/lib/time";
 import { formatMoney } from "@/lib/money";
+import { waiverUrlFor } from "@/lib/waiver-token";
 import { PageHeader, Panel, Empty } from "@/components/admin/PageHeader";
 import { SessionList } from "@/components/admin/SessionList";
 import { RevenueBars } from "@/components/admin/RevenueBars";
 import { ActionForm, SubmitButton } from "@/components/admin/ActionForm";
+import { CopyButton } from "@/components/admin/CopyButton";
 import { Icon } from "@/components/admin/Icon";
 import { SOURCE_LABEL, plural } from "@/components/admin/format";
 import { calendarResolvedAction } from "./bookings/actions";
@@ -30,10 +33,11 @@ export default async function TodayPage() {
   const now = new Date();
   const today = todayKey(now);
   const tomorrow = addDaysKey(today, 1);
-  const [sessions, kpis, att] = await Promise.all([
+  const [sessions, kpis, att, opportunities] = await Promise.all([
     getSessions(fromLocal(today), fromLocal(addDaysKey(today, 2))),
     getKpis(now),
     getAttention(now),
+    getOpportunities(now),
   ]);
   const todays = sessions.filter((s) => localDateKey(new Date(s.startAt)) === today);
   const tomorrows = sessions.filter((s) => localDateKey(new Date(s.startAt)) === tomorrow);
@@ -52,7 +56,7 @@ export default async function TodayPage() {
   const delta = kpis.revenueThisMonth - kpis.revenueLastMonthToDate;
   const deltaPct = kpis.revenueLastMonthToDate > 0 ? Math.round((delta / kpis.revenueLastMonthToDate) * 100) : null;
   const attentionCount =
-    att.calendarErrors.length + att.deliverables.length + att.inquiries.length + att.reviews.length + att.failedEmails.length + att.feeds.length;
+    att.calendarErrors.length + att.deliverables.length + att.inquiries.length + att.reviews.length + att.failedEmails.length + att.feeds.length + att.waivers.length;
 
   return (
     <div className={a.page}>
@@ -76,13 +80,19 @@ export default async function TodayPage() {
           <Panel
             title={<span className={t.dayHead}>Today <span className={a.muted} style={{ fontWeight: 500 }}>{fmt(now, "EEE MMM d")}</span></span>}
             count={todays.length ? plural(todays.length, "session") : undefined}
-            action={<Link className={a.panelLink} href={`/admin/calendar?view=day&date=${today}`}>Calendar</Link>}
+            action={
+              <span className={a.row}>
+                <Link className={a.panelLink} href={`/admin/manifest?date=${today}`}>Manifest</Link>
+                <Link className={a.panelLink} href={`/admin/calendar?view=day&date=${today}`}>Calendar</Link>
+              </span>
+            }
           >
             {todays.length ? <SessionList sessions={todays} now={now} /> : <Empty>No sessions today.</Empty>}
           </Panel>
           <Panel
             title={<span className={t.dayHead}>Tomorrow <span className={a.muted} style={{ fontWeight: 500 }}>{fmt(fromLocal(tomorrow, "12:00"), "EEE MMM d")}</span></span>}
             count={tomorrows.length ? plural(tomorrows.length, "session") : undefined}
+            action={<Link className={a.panelLink} href={`/admin/manifest?date=${tomorrow}`}>Manifest</Link>}
           >
             {tomorrows.length ? <SessionList sessions={tomorrows} now={now} /> : <Empty>Nothing booked tomorrow.</Empty>}
           </Panel>
@@ -120,6 +130,20 @@ export default async function TodayPage() {
                     <span className={t.attKind}>Calendar feed failing</span>
                     <Link href="/admin/availability#feeds" className={t.attTitle}>{f.name}</Link>
                     <p className={t.attText}>{f.error}</p>
+                  </div>
+                </li>
+              ))}
+              {att.waivers.map((w) => (
+                <li key={w.id}>
+                  <div className={t.attMain}>
+                    <span className={t.attKind}>Waivers not all signed · {w.signed} of {w.guests}</span>
+                    <Link href={`/admin/bookings/${w.id}#waivers`} className={t.attTitle}>{w.name}</Link>
+                    <p className={t.attText}>
+                      {w.experience}, {fmt(w.startAt, "EEE h:mmaaa")}
+                    </p>
+                  </div>
+                  <div className={t.attAction}>
+                    <CopyButton text={waiverUrlFor(w)} label="Copy link" />
                   </div>
                 </li>
               ))}
@@ -185,6 +209,24 @@ export default async function TodayPage() {
           )}
         </Panel>
       </div>
+
+      {opportunities.length > 0 && (
+        <div className={a.section}>
+          <Panel title="Opportunities" count={opportunities.length}>
+            <ul className={t.att}>
+              {opportunities.map((o) => (
+                <li key={o.key}>
+                  <div className={t.attMain}>
+                    <span className={t.attKind}>{o.kind}</span>
+                    <Link href={o.href} className={t.attTitle}>{o.title}</Link>
+                    <p className={t.attText}>{o.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        </div>
+      )}
 
       <div className={a.section}>
         <div className={a.kpis} style={{ ["--kpi-cols" as string]: 4 }}>

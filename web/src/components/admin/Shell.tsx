@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { CommandPalette } from "./CommandPalette";
 import { Icon } from "./Icon";
 import { Mark } from "./Mark";
 import s from "./shell.module.css";
@@ -19,6 +20,14 @@ const GROUPS: { label?: string; items: Item[] }[] = [
       { href: "/admin/bookings", label: "Bookings", icon: "bookings" },
       { href: "/admin/customers", label: "Customers", icon: "customers" },
       { href: "/admin/inquiries", label: "Inquiries", icon: "inquiries", badgeKey: "inquiries" },
+    ],
+  },
+  {
+    label: "Grow",
+    items: [
+      { href: "/admin/reports", label: "Reports", icon: "reports" },
+      { href: "/admin/pricing", label: "Smart pricing", icon: "pricing" },
+      { href: "/admin/campaigns", label: "Campaigns", icon: "campaigns" },
     ],
   },
   {
@@ -149,6 +158,7 @@ export function Shell({ badges, logout, children }: { badges: NavBadges; logout:
           <Mark size={26} />
         </Link>
         <span className={s.topTitle} aria-hidden>Raw Planet</span>
+        <CommandPalette />
         <Link href="/admin/bookings/new" className={`${a.btn} ${a.btnSm} ${a.btnPrimary}`}>
           <Icon name="plus" size={15} /> Booking
         </Link>

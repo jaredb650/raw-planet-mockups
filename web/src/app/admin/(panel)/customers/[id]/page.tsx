@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
-import { getCustomerDetail } from "@/lib/admin/customers";
+import { getCustomerDetail, listTags } from "@/lib/admin/customers";
 import { fmt, fmtTimeRange } from "@/lib/time";
 import { formatMoney } from "@/lib/money";
 import { PageHeader, Panel, Empty } from "@/components/admin/PageHeader";
@@ -9,7 +9,7 @@ import { BookingStatusPill, ExpName, Pill } from "@/components/admin/Pill";
 import { ActionForm, SubmitButton } from "@/components/admin/ActionForm";
 import { Icon } from "@/components/admin/Icon";
 import { SOURCE_LABEL, plural, telHref } from "@/components/admin/format";
-import { updateCustomerAction } from "../actions";
+import { addTagAction, removeTagAction, updateCustomerAction } from "../actions";
 import a from "@/components/admin/admin.module.css";
 
 export const metadata = { title: "Customer" };
@@ -17,7 +17,7 @@ export const metadata = { title: "Customer" };
 export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
-  const r = await getCustomerDetail(id);
+  const [r, allTags] = await Promise.all([getCustomerDetail(id), listTags()]);
   if (!r) notFound();
   const { customer: c } = r;
   const hasEmail = !c.email.endsWith("@rawplanet.invalid");
@@ -34,7 +34,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
         actions={
           <Link
             className={`${a.btn} ${a.btnPrimary}`}
-            href={`/admin/bookings/new?${new URLSearchParams({ source: "phone" })}`}
+            href={`/admin/bookings/new?${new URLSearchParams(r.bookings[0] ? { rebook: r.bookings[0].id } : { source: "phone" })}`}
           >
             <Icon name="plus" size={16} /> Book again
           </Link>
@@ -161,6 +161,43 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
               </div>
             </div>
           </Panel>
+          <Panel title="Tags">
+            <div className={a.panelBody}>
+              {c.tags.length > 0 && (
+                <ul className={a.row} style={{ listStyle: "none", margin: "0 0 12px", padding: 0 }}>
+                  {c.tags.map((t) => (
+                    <li key={t}>
+                      <ActionForm action={removeTagAction} className={a.row} hideMessage>
+                        <input type="hidden" name="id" value={c.id} />
+                        <input type="hidden" name="tag" value={t} />
+                        <Pill>{t}</Pill>
+                        <button type="submit" className={`${a.btn} ${a.btnGhost} ${a.iconBtn}`} aria-label={`Remove tag ${t}`}>
+                          <Icon name="close" size={14} />
+                        </button>
+                      </ActionForm>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <ActionForm action={addTagAction} resetOnSuccess>
+                <input type="hidden" name="id" value={c.id} />
+                <div className={a.field}>
+                  <label htmlFor="c-tag">Add a tag</label>
+                  <input id="c-tag" name="tag" className={a.input} list="c-tags" maxLength={40} placeholder="vip, dj student, birthday…" autoComplete="off" />
+                  <datalist id="c-tags">
+                    {allTags.map((t) => (
+                      <option key={t} value={t} />
+                    ))}
+                  </datalist>
+                </div>
+                <div className={a.formFoot}>
+                  <SubmitButton className={a.btn} pendingText="Adding…">
+                    Add tag
+                  </SubmitButton>
+                </div>
+              </ActionForm>
+            </div>
+          </Panel>
           <Panel title="Details">
             <div className={a.panelBody}>
               <ActionForm action={updateCustomerAction}>
@@ -185,8 +222,11 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                   <textarea id="c-notes" name="notes" className={a.textarea} defaultValue={c.notes} placeholder="Likes deep house, brings own headphones…" />
                 </div>
                 <label className={a.check}>
-                  <input type="checkbox" name="marketingOptIn" defaultChecked={c.marketingOptIn} />
-                  <span>Happy to get news and offers</span>
+                  <input type="checkbox" name="marketingOptIn" defaultChecked={c.marketingOptIn} disabled={Boolean(c.unsubscribedAt)} />
+                  <span>
+                    Happy to get news and offers
+                    {c.unsubscribedAt && <span className={a.cellSub}>Unsubscribed on {fmt(c.unsubscribedAt, "MMM d, yyyy")}. Marketing emails stay off for this guest.</span>}
+                  </span>
                 </label>
                 <div className={a.formFoot}>
                   <SubmitButton pendingText="Saving…">Save</SubmitButton>

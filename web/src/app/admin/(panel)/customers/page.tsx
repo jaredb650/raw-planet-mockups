@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
-import { CUSTOMER_PAGE, customerQuery, listCustomers, parseCustomerFilters } from "@/lib/admin/customers";
+import { CUSTOMER_PAGE, customerQuery, listCustomers, listTags, parseCustomerFilters } from "@/lib/admin/customers";
 import { fmt } from "@/lib/time";
 import { formatMoney } from "@/lib/money";
 import { PageHeader, Panel, Empty } from "@/components/admin/PageHeader";
@@ -22,7 +22,7 @@ const SORTS = [
 export default async function CustomersPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireAdmin();
   const f = parseCustomerFilters(await searchParams);
-  const { rows, hasMore, total } = await listCustomers(f);
+  const [{ rows, hasMore, total }, tags] = await Promise.all([listCustomers(f), listTags()]);
   const now = new Date();
 
   return (
@@ -51,6 +51,19 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
           <label htmlFor="cq">Search</label>
           <input id="cq" name="q" type="search" className={a.input} defaultValue={f.q} placeholder="Name, email or phone" />
         </div>
+        {tags.length > 0 && (
+          <div className={a.field}>
+            <label htmlFor="ctag">Tag</label>
+            <select id="ctag" name="tag" className={a.select} defaultValue={f.tag}>
+              <option value="">Any tag</option>
+              {tags.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <label className={a.check} style={{ alignSelf: "center", paddingTop: 20 }}>
           <input type="checkbox" name="optin" value="1" defaultChecked={f.optIn} />
           <span>Only people who said yes to news</span>
@@ -62,7 +75,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
 
       <Panel>
         {rows.length === 0 ? (
-          <Empty>{f.q || f.optIn ? "No customers match." : "No customers yet."}</Empty>
+          <Empty>{f.q || f.optIn || f.tag ? "No customers match." : "No customers yet."}</Empty>
         ) : (
           <div className={a.tableWrap}>
             <table className={`${a.table} ${a.tableStack}`}>
@@ -84,7 +97,10 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                         {c.name}
                       </Link>
                       <span className={`${a.cellSub} ${a.hideSm}`}>
-                        {c.sessions > 1 && <Pill tone="accent">Returning</Pill>} {c.marketingOptIn && <Pill tone="info">News opt-in</Pill>}
+                        {c.sessions > 1 && <Pill tone="accent">Returning</Pill>} {c.marketingOptIn && !c.unsubscribedAt && <Pill tone="info">News opt-in</Pill>}{" "}
+                        {c.tags.map((t) => (
+                          <Pill key={t}>{t}</Pill>
+                        ))}
                       </span>
                     </td>
                     <td>

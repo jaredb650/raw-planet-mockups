@@ -26,6 +26,7 @@ export type NewBookingPrefill = {
   notes?: string;
   inquiryId?: string;
   source?: string;
+  language?: string;
 };
 
 const SOURCES: { value: string; label: string; hint: string }[] = [
@@ -201,7 +202,7 @@ export function NewBookingForm({
           </div>
           <div className={a.field}>
             <label htmlFor="nb-lang">Emails in</label>
-            <select id="nb-lang" name="language" className={a.select} defaultValue="en">
+            <select id="nb-lang" name="language" className={a.select} defaultValue={prefill.language ?? "en"}>
               <option value="en">English</option>
               <option value="es">Spanish</option>
             </select>

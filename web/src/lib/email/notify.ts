@@ -61,7 +61,9 @@ import {
 import { giftCardReceiptEmail, giftCardRecipientEmail, type GiftCardView } from "@/emails/templates/giftcards";
 import { inquiryAutoReplyEmail, inquiryHostAlertEmail, type InquiryKind } from "@/emails/templates/inquiry";
 import { eventRsvpEmail, manageLinksEmail, waitlistOpeningEmail, type ManageLinkItem } from "@/emails/templates/misc";
-import { hostBookingAlertEmail, hostDigestEmail, type DigestSession, type HostBookingView } from "@/emails/templates/host";
+import { hostBookingAlertEmail, hostDigestEmail, hostWeeklyReportEmail, type DigestSession, type HostBookingView } from "@/emails/templates/host";
+import { getCashEntries, weekStartKey } from "@/lib/admin/dashboard";
+import { getReport, sumCash } from "@/lib/admin/reports";
 import { sendEmail } from "./send";
 
 export type SendStatus = "sent" | "skipped" | "failed";
@@ -794,6 +796,47 @@ export async function tryHostDigest(now = new Date()): Promise<SendStatus> {
       }),
     });
   }, "host digest");
+}
+
+/** Last Monday to Sunday, for the host. Skipped when nothing happened at all. */
+export async function tryWeeklyReport(now = new Date()): Promise<SendStatus> {
+  return safe(async () => {
+    const thisWeek = weekStartKey(localDateKey(now));
+    const from = addDaysKey(thisWeek, -7);
+    const to = addDaysKey(thisWeek, -1);
+    const [r, before] = await Promise.all([getReport({ from, to, preset: null }, now), getCashEntries(fromLocal(addDaysKey(from, -7)), fromLocal(from))]);
+    const net = r.revenue.totalCents;
+    if (!r.rates.sessions && !net) return "skipped";
+    const sessions = r.rates.sessions - r.rates.cancelled;
+    const pct = (rate: number | null) => (rate === null ? "–" : `${Math.round(rate * 100)}%`);
+    const top = r.revenue.byExperience[0];
+    const notes = [
+      `Revenue the week before was ${money(sumCash(before))}.`,
+      top && top.cents > 0 ? `${top.label} earned the most: ${money(top.cents)}.` : null,
+      r.rates.cancelled ? `${r.rates.cancelled} cancelled.` : null,
+      r.rates.noShows ? `${r.rates.noShows} no-show${r.rates.noShows === 1 ? "" : "s"}.` : null,
+      r.giftCards.soldCount ? `${r.giftCards.soldCount} gift card${r.giftCards.soldCount === 1 ? "" : "s"} sold for ${money(r.giftCards.soldCents)}.` : null,
+      r.abandoned.recovered ? `${r.abandoned.recovered} abandoned checkout${r.abandoned.recovered === 1 ? "" : "s"} came back after the reminder.` : null,
+      r.smartPricing.bookings ? `Smart pricing changed ${r.smartPricing.bookings} booking${r.smartPricing.bookings === 1 ? "" : "s"} by ${money(r.smartPricing.netCents)} overall.` : null,
+    ].filter((n): n is string => Boolean(n));
+    return deliver({
+      template: "host_weekly_report",
+      to: hostNotificationEmail(),
+      out: hostWeeklyReportEmail({
+        weekLabel: `${fmt(fromLocal(from, "12:00"), "MMM d")} to ${fmt(fromLocal(to, "12:00"), "MMM d")}`,
+        netRevenue: money(net),
+        sessions,
+        stats: [
+          { label: "Revenue", value: money(net) },
+          { label: "Sessions", value: String(sessions) },
+          { label: "Studio booked", value: pct(r.occupancy.openHours ? r.occupancy.bookedHours / r.occupancy.openHours : null) },
+          { label: "Repeat guests", value: pct(r.repeat.rate) },
+        ],
+        notes,
+        reportUrl: siteUrl(`/admin/reports?from=${from}&to=${to}`),
+      }),
+    });
+  }, "weekly report");
 }
 
 export async function sendHostDigest(now = new Date()): Promise<void> {

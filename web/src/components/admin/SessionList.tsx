@@ -5,6 +5,8 @@ import { Icon } from "./Icon";
 import { BookingStatusPill, ExpName, Pill } from "./Pill";
 import { SOURCE_LABEL, plural, telHref } from "./format";
 import { QuickStatus } from "./QuickStatus";
+import { CheckInButton } from "./CheckInButton";
+import { canCheckIn } from "@/lib/booking/service";
 import s from "./today.module.css";
 import a from "./admin.module.css";
 import type { BookingSource, BookingStatus } from "@/lib/db/schema";
@@ -34,12 +36,14 @@ export function SessionList({ sessions, now }: { sessions: SessionRow[]; now: Da
               </Link>
               <div className={s.tags}>
                 {b.status !== "confirmed" && <BookingStatusPill status={b.status as BookingStatus} />}
+                {b.checkedInAt && b.status !== "no_show" && <Pill tone="success">Checked in</Pill>}
                 {b.occasion && <Pill tone="accent">{b.occasion}</Pill>}
                 {b.isGift && <Pill tone="info">Gift{b.giftRecipientName ? ` for ${b.giftRecipientName}` : ""}</Pill>}
               </div>
               {b.customerNotes && <p className={s.note}>“{b.customerNotes}”</p>}
               {b.internalNotes && <p className={s.note}>Note: {b.internalNotes}</p>}
               <div className={s.quick}>
+                {canCheckIn(b, now) && <CheckInButton id={b.id} guest={b.contactName} checkedIn={Boolean(b.checkedInAt)} />}
                 {b.contactPhone && (
                   <>
                     <a className={`${a.btn} ${a.btnSm}`} href={`tel:${telHref(b.contactPhone)}`}>

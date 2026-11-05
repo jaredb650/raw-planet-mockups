@@ -7,16 +7,20 @@ import { PageHeader, Panel } from "@/components/admin/PageHeader";
 import { ActionForm, SubmitButton } from "@/components/admin/ActionForm";
 import { Pill } from "@/components/admin/Pill";
 import { logout } from "../../login/actions";
-import { runAutomationsAction, saveContactAction } from "./actions";
+import { runAutomationsAction, saveContactAction, saveMarketingAction } from "./actions";
 import a from "@/components/admin/admin.module.css";
 
 export const metadata = { title: "Settings" };
+// "Run now" also runs the campaign and win-back jobs, which pace their sends.
+export const maxDuration = 60;
 
 export default async function SettingsPage() {
   await requireAdmin();
-  const [hostPhone, hostWhatsapp, lastRun] = await Promise.all([
+  const [hostPhone, hostWhatsapp, postalAddress, winBack, lastRun] = await Promise.all([
     getStringSetting("hostPhone"),
     getStringSetting("hostWhatsapp"),
+    getStringSetting("postalAddress"),
+    getSetting<boolean>("winBackEnabled"),
     getSetting<{ at: string; ok: boolean }>("lastCronRun"),
   ]);
   const env = (k: string) => Boolean(process.env[k]);
@@ -52,6 +56,28 @@ export default async function SettingsPage() {
               <p className={a.hint}>
                 Booking alerts go to <strong>{hostNotificationEmail()}</strong> (set by HOST_NOTIFICATION_EMAIL).
               </p>
+              <div className={a.formFoot}>
+                <SubmitButton pendingText="Saving…">Save</SubmitButton>
+              </div>
+            </ActionForm>
+          </div>
+        </Panel>
+
+        <Panel title="Marketing emails">
+          <div className={a.panelBody}>
+            <ActionForm action={saveMarketingAction}>
+              <div className={a.field}>
+                <label htmlFor="s-postal">Mailing address</label>
+                <textarea id="s-postal" name="postalAddress" className={a.textarea} rows={2} maxLength={300} defaultValue={postalAddress ?? ""} placeholder="Street or PO box, city, state, ZIP" />
+                <span className={a.hint}>US law (CAN-SPAM) requires a real postal address on every marketing email. Campaigns can’t go out until this is filled in. A PO box is fine.</span>
+              </div>
+              <label className={a.check}>
+                <input type="checkbox" name="winBackEnabled" defaultChecked={winBack === true} />
+                <span>
+                  Win-back emails
+                  <span className={a.cellSub}>Sends a short “come back” note to guests who said yes to news and whose last session was 120 or more days ago. At most once every 180 days per guest.</span>
+                </span>
+              </label>
               <div className={a.formFoot}>
                 <SubmitButton pendingText="Saving…">Save</SubmitButton>
               </div>

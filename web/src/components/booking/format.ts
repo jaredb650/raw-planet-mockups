@@ -32,7 +32,7 @@ export function fromPriceLabel(e: PublicExperience): string {
   const opts = sortedDurations(e);
   const min = Math.min(...opts.map((o) => o.priceCents));
   const unit = e.pricingMode === "per_session" ? "per session" : "per guest";
-  return `${opts.length > 1 ? "From " : ""}${formatMoney(min)} ${unit}`;
+  return `${opts.length > 1 || e.priceVaries ? "From " : ""}${formatMoney(min)} ${unit}`;
 }
 
 /** Chip label for a duration option: "2 hours · $150". */
@@ -56,9 +56,9 @@ export function groupHint(e: Pick<PublicExperience, "minGuests" | "maxGuests">):
 }
 
 /** Client-side, display-only quote (the server re-quotes at checkout). */
-export function displayQuote(e: PublicExperience, minutes: number, guests: number): Quote | null {
+export function displayQuote(e: PublicExperience, minutes: number, guests: number, adjustPercent = 0): Quote | null {
   try {
-    return computeQuote({ experience: e, durationMinutes: minutes, guests });
+    return computeQuote({ experience: e, durationMinutes: minutes, guests, priceRule: { name: "", adjustPercent } });
   } catch (err) {
     if (err instanceof PricingError) return null;
     throw err;
@@ -67,4 +67,12 @@ export function displayQuote(e: PublicExperience, minutes: number, guests: numbe
 
 export function guestsLabel(n: number): string {
   return `${n} ${n === 1 ? "guest" : "guests"}`;
+}
+
+/** Slot price wording in the visitor's language. Only rendered after the client has loaded slots. */
+export function slotPriceCopy(guests: number): { offPeak: string; note: string } {
+  const es = typeof navigator !== "undefined" && navigator.language.toLowerCase().startsWith("es");
+  return es
+    ? { offPeak: "Horario económico", note: `Precio total para ${guests} ${guests === 1 ? "persona" : "personas"}. Varía según el día y la hora.` }
+    : { offPeak: "Off-peak", note: `Total for ${guestsLabel(guests)}. Prices vary by day and time.` };
 }

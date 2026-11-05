@@ -15,6 +15,7 @@ import {
   rescheduleBooking,
   resendConfirmation,
   setBookingStatus,
+  setCheckedIn,
   setDeliverable,
   type RefundMode,
 } from "@/lib/booking/service";
@@ -30,6 +31,14 @@ export async function setStatusAction(_p: ActionResult, fd: FormData): Promise<A
     const status = z.enum(["completed", "no_show", "confirmed"]).parse(str(fd, "status"));
     await setBookingStatus(id(fd), status);
     return status === "completed" ? "Marked completed." : status === "no_show" ? "Marked as no-show." : "Re-opened.";
+  });
+}
+
+export async function checkInAction(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return adminAction(async () => {
+    const undo = bool(fd, "undo");
+    await setCheckedIn(id(fd), !undo);
+    return undo ? "Check-in undone." : "Checked in.";
   });
 }
 

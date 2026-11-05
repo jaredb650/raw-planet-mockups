@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { inquiries } from "@/lib/db/schema";
+import { bookings, inquiries } from "@/lib/db/schema";
 import { experienceOptions } from "@/lib/admin/bookings";
 import { todayKey } from "@/lib/time";
 import { PageHeader, Panel } from "@/components/admin/PageHeader";
@@ -45,12 +45,31 @@ export default async function NewBookingPage({ searchParams }: { searchParams: P
     }
   }
 
+  // Book again: the booking id, not the guest's details, goes in the URL.
+  let rebooking: string | null = null;
+  const rebookId = one(sp.rebook);
+  if (rebookId) {
+    const db = await getDb();
+    const [b] = await db.select().from(bookings).where(eq(bookings.id, rebookId)).limit(1);
+    if (b) {
+      rebooking = b.contactName;
+      Object.assign(prefill, {
+        experienceId: prefill.experienceId ?? b.experienceId,
+        guests: b.guests,
+        name: b.contactName,
+        email: b.contactEmail.endsWith(".invalid") ? undefined : b.contactEmail,
+        phone: b.contactPhone ?? undefined,
+        language: b.language,
+      } satisfies NewBookingPrefill);
+    }
+  }
+
   return (
     <div className={`${a.page} ${a.pageNarrow}`}>
       <PageHeader
-        back={{ href: fromInquiry ? "/admin/inquiries" : "/admin/bookings", label: fromInquiry ? "Inquiries" : "Bookings" }}
+        back={rebookId ? { href: `/admin/bookings/${rebookId}`, label: "Booking" } : { href: fromInquiry ? "/admin/inquiries" : "/admin/bookings", label: fromInquiry ? "Inquiries" : "Bookings" }}
         title="New booking"
-        sub={fromInquiry ? `Turning ${fromInquiry}’s inquiry into a booking.` : "For phone bookings, Airbnb and Viator. It blocks the time on the website straight away."}
+        sub={rebooking ? `Booking ${rebooking} again.` : fromInquiry ? `Turning ${fromInquiry}’s inquiry into a booking.` : "For phone bookings, Airbnb and Viator. It blocks the time on the website straight away."}
       />
       <Panel>
         <div className={a.panelBody}>

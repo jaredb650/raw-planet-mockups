@@ -1,5 +1,5 @@
 /**
- * POST /api/quote  { experience, duration, guests, addonIds?, promoCode?, giftCardCode? }
+ * POST /api/quote  { experience, start, duration, guests, addonIds?, promoCode?, giftCardCode? }
  * → { quote, promoError, giftCardError }
  *
  * Display-only: /api/checkout re-quotes on the server, so nothing here is trusted later.
@@ -13,6 +13,7 @@ import { LIMITS, clientIp, domainErrorResponse, fieldErrors, jsonError, rateLimi
 
 const quoteSchema = z.object({
   experience: z.string().min(1).max(80),
+  start: z.iso.datetime({ offset: true }),
   duration: z.coerce.number().int().min(15).max(24 * 60),
   guests: z.coerce.number().int().min(1).max(500),
   addonIds: z.array(z.string().max(64)).max(20).optional().default([]),
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
     if (!experience || !experience.active) return jsonError(404, "That experience isn't available.");
     const { quote, giftCardError } = await buildQuote(db, {
       experienceId: experience.id,
+      start: q.start,
       durationMinutes: q.duration,
       guests: q.guests,
       addonIds: q.addonIds,

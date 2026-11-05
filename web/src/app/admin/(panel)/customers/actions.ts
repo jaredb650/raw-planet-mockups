@@ -19,10 +19,40 @@ export async function updateCustomerAction(_p: ActionResult, fd: FormData): Prom
       })
       .parse({ name: str(fd, "name"), phone: str(fd, "phone"), notes: str(fd, "notes"), language: str(fd, "language") || "en" });
     const db = await getDb();
+    const [c] = await db.select({ unsubscribedAt: customers.unsubscribedAt }).from(customers).where(eq(customers.id, id)).limit(1);
     await db
       .update(customers)
-      .set({ name: v.name, phone: v.phone || null, notes: v.notes, language: v.language, marketingOptIn: bool(fd, "marketingOptIn"), updatedAt: new Date() })
+      .set({ name: v.name, phone: v.phone || null, notes: v.notes, language: v.language, marketingOptIn: bool(fd, "marketingOptIn") && !c?.unsubscribedAt, updatedAt: new Date() })
       .where(eq(customers.id, id));
     return "Saved.";
+  });
+}
+
+/** Lowercase so "VIP" and "vip" can't become two segments. */
+const tagSchema = z
+  .string()
+  .transform((s) => s.trim().replace(/\s+/g, " ").toLowerCase())
+  .pipe(z.string().min(1, "Type a tag first.").max(40, "Keep tags under 40 characters."));
+
+async function setTags(id: string, change: (tags: string[]) => string[]) {
+  const db = await getDb();
+  const [c] = await db.select({ tags: customers.tags }).from(customers).where(eq(customers.id, id)).limit(1);
+  if (!c) throw new Error("Customer not found.");
+  await db.update(customers).set({ tags: change(c.tags), updatedAt: new Date() }).where(eq(customers.id, id));
+}
+
+export async function addTagAction(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return adminAction(async () => {
+    const tag = tagSchema.parse(str(fd, "tag"));
+    await setTags(str(fd, "id"), (tags) => (tags.includes(tag) ? tags : [...tags, tag]));
+    return `Tagged “${tag}”.`;
+  });
+}
+
+export async function removeTagAction(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return adminAction(async () => {
+    const tag = str(fd, "tag");
+    await setTags(str(fd, "id"), (tags) => tags.filter((t) => t !== tag));
+    return "Tag removed.";
   });
 }

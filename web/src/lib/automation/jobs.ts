@@ -14,6 +14,8 @@ import { bookingEvents, bookings, emailLog, giftCards, reviews } from "@/lib/db/
 import { expireStaleHolds, logEvent } from "@/lib/booking/service";
 import { localDateKey } from "@/lib/time";
 import { syncCalendarFeeds } from "@/lib/feeds";
+import { weekStartKey } from "@/lib/admin/dashboard";
+import { finishCampaigns, sendWinBacks } from "@/lib/admin/campaigns";
 import {
   tryAbandonedCheckout,
   tryBookingReminder,
@@ -21,6 +23,7 @@ import {
   tryGiftCardEmails,
   tryHostDigest,
   tryReviewNudge,
+  tryWeeklyReport,
   type SendStatus,
 } from "@/lib/email/notify";
 import { acquireLease, getSetting, releaseLease, setSetting } from "./settings";
@@ -31,8 +34,10 @@ import {
   giftCardDeliveryDue,
   guestAutomationAllowed,
   MAX_SEND_ATTEMPTS,
+  nyHour,
   reminderDue,
   reviewNudgeDue,
+  weeklyReportDue,
 } from "./rules";
 
 const H = 3600_000;
@@ -50,7 +55,7 @@ export type JobResult = {
   error?: string;
 };
 
-export const JOBS = ["expireHolds", "syncFeeds", "giftCardDelivery", "reminders", "abandonedCheckouts", "followups", "reviewNudges", "hostDigest"] as const;
+export const JOBS = ["expireHolds", "syncFeeds", "giftCardDelivery", "reminders", "abandonedCheckouts", "followups", "reviewNudges", "hostDigest", "weeklyReport", "campaignQueue", "winBack"] as const;
 export type JobName = (typeof JOBS)[number];
 
 type Tally = { sent: number; skipped: number; failed: number; detail?: unknown };
@@ -250,6 +255,32 @@ async function hostDigest(now: Date): Promise<Tally> {
   return t;
 }
 
+/** Finishes campaigns too big for the send request. Last in line so a long list can't starve the digest. */
+async function campaignQueue(): Promise<Tally> {
+  const r = await finishCampaigns(25_000);
+  return { sent: r.sent, failed: r.failed, skipped: 0, detail: { remaining: r.remaining } };
+}
+
+async function winBack(now: Date): Promise<Tally> {
+  // Wider than inSendingHours: the once-a-day cron lands at 8am New York in winter, which that would skip.
+  const h = nyHour(now);
+  if (h < 7 || h >= 20) return tally();
+  return { ...tally(), ...(await sendWinBacks(now, 15_000)) };
+}
+
+async function weeklyReport(now: Date): Promise<Tally> {
+  const t = tally();
+  const today = localDateKey(now);
+  const week = weekStartKey(today);
+  const last = await getSetting<string>("lastWeeklyReportWeek");
+  if (!weeklyReportDue(now, last, week, today)) return t;
+  await setSetting("lastWeeklyReportWeek", week); // claim for this week
+  const s = await tryWeeklyReport(now);
+  if (s === "failed") await setSetting("lastWeeklyReportWeek", last ?? "");
+  count(t, s);
+  return t;
+}
+
 const RUNNERS: Record<JobName, (now: Date) => Promise<Tally>> = {
   expireHolds: async (now) => ({ ...tally(), detail: { expired: await expireStaleHolds(now) } }),
   syncFeeds: async () => {
@@ -262,6 +293,9 @@ const RUNNERS: Record<JobName, (now: Date) => Promise<Tally>> = {
   followups,
   reviewNudges,
   hostDigest,
+  weeklyReport,
+  campaignQueue,
+  winBack,
 };
 
 const LOCK = "cronLock";

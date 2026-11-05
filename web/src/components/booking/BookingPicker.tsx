@@ -21,6 +21,7 @@ import {
   fromPriceLabel,
   groupHint,
   guestsLabel,
+  slotPriceCopy,
   sortedDurations,
   themeOf,
 } from "./format";
@@ -119,7 +120,13 @@ export function BookingPicker({
 
   const theme = themeOf(exp);
   const durations = sortedDurations(exp);
-  const quote = displayQuote(exp, duration, guests);
+  const quote = displayQuote(exp, duration, guests, startSlot?.adjustPercent);
+  // When any open time today differs from list price, every time shows its real price up front.
+  const openSlots = day?.slots.filter((s) => s.available) ?? [];
+  const priced = openSlots.some((s) => s.adjustPercent);
+  const copy = slotPriceCopy(guests);
+  const slotSubtotal = (adjustPercent?: number) => displayQuote(exp, duration, guests, adjustPercent)?.subtotalCents ?? null;
+  const fromCents = priced && !start ? Math.min(...openSlots.map((s) => slotSubtotal(s.adjustPercent) ?? Infinity)) : null;
 
   function selectExperience(next: PublicExperience) {
     if (next.slug === slug) return;
@@ -282,6 +289,15 @@ export function BookingPicker({
               selected={start}
               onSelect={setPickedStart}
               loading={loading}
+              priceOf={
+                priced
+                  ? (s) => {
+                      const cents = slotSubtotal(s.adjustPercent);
+                      return cents === null ? null : { price: formatMoney(cents), label: (s.adjustPercent ?? 0) < 0 ? copy.offPeak : undefined };
+                    }
+                  : undefined
+              }
+              priceNote={priced ? copy.note : undefined}
               emptyText={
                 avail.status === "ready" && !date
                   ? "No open times this month. Try the next one."
@@ -304,15 +320,15 @@ export function BookingPicker({
             </div>
             <div className={styles.total}>
               <span>
-                Total
-                {quote && exp.pricingMode === "per_person" && guests > 1 ? (
+                {fromCents === null ? "Total" : "From"}
+                {quote && exp.pricingMode === "per_person" && guests > 1 && !priced ? (
                   <small className="muted">
                     {" "}
                     {formatMoney(quote.baseCents / guests)} × {guests}
                   </small>
                 ) : null}
               </span>
-              <strong className="tabular">{quote ? formatMoney(quote.subtotalCents) : "—"}</strong>
+              <strong className="tabular">{quote ? formatMoney(fromCents ?? quote.subtotalCents) : "—"}</strong>
             </div>
             {href ? (
               <Link href={href} className={`btn btn--accent btn--block ${styles.cta}`}>

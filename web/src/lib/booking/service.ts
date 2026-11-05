@@ -11,7 +11,7 @@
  *   confirmed ─► rescheduleBooking ─► confirmed (new time)
  */
 import "server-only";
-import { and, eq, gt, gte, inArray, lt, sql, type SQL } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { getDb, type DB, type Tx } from "@/lib/db";
 import {
   addons as addonsTable,
@@ -31,9 +31,10 @@ import {
 } from "@/lib/db/schema";
 import { CHECKOUT_HOLD_MINUTES, integrations, siteUrl } from "@/lib/config";
 import { newBookingCode, newToken, normalizeCode } from "@/lib/ids";
+import { formatMoney } from "@/lib/money";
 import { fmtDateShort, fmtDuration, fmtTimeRange, localDateKey } from "@/lib/time";
-import { computeQuote, refundForCancellation, type Quote } from "./pricing";
-import { isSlotFree } from "./availability";
+import { computeQuote, pickPriceRule, refundForCancellation, type Quote } from "./pricing";
+import { isSlotFree, loadPriceRules } from "./availability";
 import {
   CalcomError,
   calCancelBooking,
@@ -54,7 +55,8 @@ export class BookingError extends Error {
       | "invalid"
       | "policy"
       | "payment"
-      | "calendar" = "invalid",
+      | "calendar"
+      | "price_changed" = "invalid",
   ) {
     super(message);
   }
@@ -88,7 +90,7 @@ async function lockResource(tx: Tx, resourceGroup: string) {
 
 async function upsertCustomer(
   tx: Tx,
-  c: { email: string; name: string; phone?: string | null; language?: string; marketingOptIn?: boolean },
+  c: { email: string; name: string; phone?: string | null; language?: string },
   opts: { updateExisting?: boolean } = {},
 ): Promise<string> {
   const email = c.email.trim().toLowerCase();
@@ -102,7 +104,6 @@ async function upsertCustomer(
         name: c.name || existing.name,
         phone: c.phone || existing.phone,
         language: c.language ?? existing.language,
-        marketingOptIn: existing.marketingOptIn || Boolean(c.marketingOptIn),
         updatedAt: new Date(),
       })
       .where(eq(customers.id, existing.id));
@@ -110,7 +111,7 @@ async function upsertCustomer(
   }
   const [row] = await tx
     .insert(customers)
-    .values({ email, name: c.name, phone: c.phone ?? null, language: c.language ?? "en", marketingOptIn: Boolean(c.marketingOptIn) })
+    .values({ email, name: c.name, phone: c.phone ?? null, language: c.language ?? "en" })
     .returning({ id: customers.id });
   return row.id;
 }
@@ -149,6 +150,8 @@ async function liveHolds(db: DB | Tx, where: SQL): Promise<{ n: number; cents: n
 
 export type QuoteRequest = {
   experienceId: string;
+  /** Slot start (ISO instant): smart pricing is decided here on the server, never taken from the client. */
+  start: string;
   durationMinutes: number;
   guests: number;
   addonIds?: string[];
@@ -193,6 +196,7 @@ export async function buildQuote(
     }
   }
 
+  const now = new Date();
   const quote = computeQuote({
     experience,
     durationMinutes: req.durationMinutes,
@@ -200,6 +204,8 @@ export async function buildQuote(
     addons: addonRows.map((a) => ({ addon: a })),
     promo: promo ?? null,
     giftCardBalanceCents: giftCard?.balanceCents ?? 0,
+    priceRule: pickPriceRule(await loadPriceRules(db), experience.id, new Date(req.start), now),
+    now,
   });
   if (req.promoCode?.trim() && !promo) quote.promoError = "We don't recognise that code.";
 
@@ -224,6 +230,8 @@ export type CreateBookingInput = QuoteRequest & {
   occasion?: string | null;
   marketingOptIn?: boolean;
   gift?: { recipientName: string; recipientEmail?: string | null; message?: string | null } | null;
+  /** The total the guest was shown. If the server's total differs, stop rather than charge a surprise. */
+  expectedTotalCents?: number;
 };
 
 export type CreateBookingResult = { booking: Booking; next: { type: "redirect"; url: string } };
@@ -240,6 +248,8 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   const { experience, quote, promoId, giftCardId, giftCardError } = await buildQuote(db, input);
   if (quote.promoError && input.promoCode) throw new BookingError(quote.promoError);
   if (giftCardError) throw new BookingError(giftCardError);
+  if (input.expectedTotalCents != null && input.expectedTotalCents !== quote.totalCents)
+    throw new BookingError(`The price for this time just changed to ${formatMoney(quote.totalCents)}. Please check it and confirm again.`, "price_changed");
   const end = new Date(start.getTime() + input.durationMinutes * 60_000);
   const holdExpiresAt = new Date(Date.now() + CHECKOUT_HOLD_MINUTES * 60_000);
 
@@ -250,7 +260,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
 
     const customerId = await upsertCustomer(
       tx,
-      { ...input.contact, language: input.language, marketingOptIn: input.marketingOptIn },
+      { ...input.contact, language: input.language },
       { updateExisting: false },
     );
     const [b] = await tx
@@ -275,6 +285,8 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
         occasion: input.occasion ?? null,
         subtotalCents: quote.subtotalCents,
         addonsCents: quote.addonsCents,
+        priceAdjustCents: quote.priceAdjustCents,
+        priceRuleName: quote.priceRuleName,
         discountCents: quote.discountCents,
         giftCardCents: quote.giftCardCents,
         totalCents: quote.totalCents,
@@ -301,6 +313,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
       );
     }
     await logEvent(tx, b.id, "created", "Booking started — waiting for payment", { actor: "customer", public: false });
+    if (input.marketingOptIn) await logEvent(tx, b.id, "marketing_opt_in", "Guest ticked “send me news” at checkout", { actor: "customer" });
     return b;
   });
 
@@ -508,6 +521,9 @@ export async function fulfillBooking(
         .update(customers)
         .set({ name: updated.contactName, phone: updated.contactPhone ?? sql`${customers.phone}`, language: updated.language, updatedAt: new Date() })
         .where(eq(customers.id, updated.customerId));
+      // The checkout tick counts once the booking is real (an unpaid form proves nothing), and never undoes an unsubscribe.
+      const [tick] = await tx.select({ id: bookingEvents.id }).from(bookingEvents).where(and(eq(bookingEvents.bookingId, b.id), eq(bookingEvents.type, "marketing_opt_in"))).limit(1);
+      if (tick) await tx.update(customers).set({ marketingOptIn: true }).where(and(eq(customers.id, updated.customerId), isNull(customers.unsubscribedAt)));
     }
     return { booking: updated, conflict: false, already: false };
   });
@@ -767,6 +783,7 @@ export async function rescheduleBooking(
         durationMinutes: duration,
         rescheduleCount: opts.by === "customer" ? b.rescheduleCount + 1 : b.rescheduleCount,
         reminderSentAt: null,
+        checkedInAt: null,
         updatedAt: new Date(),
       })
       .where(eq(bookings.id, b.id))
@@ -838,6 +855,25 @@ export async function setBookingStatus(bookingId: string, status: "completed" | 
     public: status === "completed",
   });
   return u;
+}
+
+/** Check-in (and its undo) is open on the business-local day of a confirmed booking. */
+export function canCheckIn(b: { status: string; startAt: Date | string }, now = new Date()): boolean {
+  return b.status === "confirmed" && localDateKey(new Date(b.startAt)) === localDateKey(now);
+}
+
+export async function setCheckedIn(bookingId: string, checkedIn: boolean): Promise<void> {
+  const b = await getBooking(bookingId);
+  if (!b) throw new BookingError("Booking not found", "not_found");
+  if (!canCheckIn(b)) throw new BookingError("Check-in is only open on the day of a confirmed booking.", "policy");
+  const db = await getDb();
+  // Matching only the opposite state makes a double tap a no-op instead of a second timeline entry.
+  const [u] = await db
+    .update(bookings)
+    .set({ checkedInAt: checkedIn ? new Date() : null, updatedAt: new Date() })
+    .where(and(eq(bookings.id, b.id), eq(bookings.status, "confirmed"), checkedIn ? isNull(bookings.checkedInAt) : isNotNull(bookings.checkedInAt)))
+    .returning({ id: bookings.id });
+  if (u) await logEvent(db, b.id, checkedIn ? "checked_in" : "check_in_undone", checkedIn ? "Guest checked in" : "Check-in undone", { actor: "admin" });
 }
 
 export async function setDeliverable(

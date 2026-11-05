@@ -21,7 +21,7 @@ export function shortestMinutes(e: Pick<PublicExperience, "durationOptions">): n
 
 /** "From $150 per guest" / "From $300 per session" */
 export function priceLabel(e: PublicExperience, opts: { from?: boolean } = {}): string {
-  const many = e.durationOptions.length > 1;
+  const many = e.durationOptions.length > 1 || e.priceVaries;
   const from = opts.from ?? many;
   const unit = e.pricingMode === "per_session" ? "per session" : "per guest";
   return `${from ? "From " : ""}${formatMoney(fromPriceCents(e))} ${unit}`;

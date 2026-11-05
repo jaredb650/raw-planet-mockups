@@ -17,6 +17,7 @@ export type OutgoingEmail = {
   template: string;
   bookingId?: string | null;
   replyTo?: string;
+  headers?: Record<string, string>;
   attachments?: { filename: string; content: string; contentType?: string }[];
 };
 
@@ -46,6 +47,7 @@ export async function sendEmail(msg: OutgoingEmail): Promise<{ ok: boolean; id?:
       html: msg.html,
       text: msg.text,
       replyTo: msg.replyTo ?? BUSINESS.contactEmail,
+      headers: msg.headers,
       attachments: msg.attachments?.map((a) => ({
         filename: a.filename,
         content: Buffer.from(a.content).toString("base64"),

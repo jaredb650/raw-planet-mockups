@@ -13,12 +13,13 @@ export async function GET(req: Request) {
   const f = parseCustomerFilters(new URL(req.url).searchParams);
   const { rows } = await listCustomers(f, { limit: 50_000 });
   const body = toCsv(
-    ["Name", "Email", "Phone", "News opt-in", "Language", "Sessions", "Spent", "Last session", "Next session", "Sources", "Customer since"],
+    ["Name", "Email", "Phone", "News opt-in", "Tags", "Language", "Sessions", "Spent", "Last session", "Next session", "Sources", "Customer since"],
     rows.map((c) => [
       c.name,
       c.hasEmail ? c.email : "",
       c.phone,
-      c.marketingOptIn ? "yes" : "no",
+      c.marketingOptIn && !c.unsubscribedAt ? "yes" : "no",
+      c.tags.join("; "),
       c.language,
       c.sessions,
       (c.spent / 100).toFixed(2),

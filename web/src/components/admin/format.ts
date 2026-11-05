@@ -55,3 +55,8 @@ export function plural(n: number, one: string, many = `${one}s`) {
 export function telHref(phone: string) {
   return phone.replace(/[^\d+]/g, "");
 }
+
+/** 14 → "2pm" */
+export function fmtHour(h: number) {
+  return `${h % 12 || 12}${h < 12 ? "am" : "pm"}`;
+}

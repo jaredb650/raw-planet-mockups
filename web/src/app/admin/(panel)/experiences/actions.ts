@@ -70,6 +70,7 @@ export async function updateExperienceAction(_p: ActionResult, fd: FormData): Pr
       description: str(fd, "description").slice(0, 8000),
       theme: z.enum(THEMES).parse(str(fd, "theme")),
       active: bool(fd, "active"),
+      waiverRequired: bool(fd, "waiverRequired"),
       sortOrder: int(fd, "sortOrder", 0),
       pricingMode,
       durationOptions: parseDurations(fd),

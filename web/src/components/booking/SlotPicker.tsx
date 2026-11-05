@@ -22,6 +22,8 @@ export function SlotPicker({
   loading,
   title = "Pick a start time",
   emptyText,
+  priceOf,
+  priceNote,
 }: {
   slots: ApiSlot[];
   selected: string | null;
@@ -29,6 +31,9 @@ export function SlotPicker({
   loading?: boolean;
   title?: string;
   emptyText?: string;
+  /** What this slot costs, shown on the button. Left out when moving a booking: its price is already paid. */
+  priceOf?: (s: ApiSlot) => { price: string; label?: string } | null;
+  priceNote?: string;
 }) {
   const titleId = useId();
   return (
@@ -46,6 +51,8 @@ export function SlotPicker({
             const label = fmtTime(s.start);
             const end = fmtTime(s.end);
             const why = s.available ? "" : (REASON[s.reason ?? ""] ?? "unavailable");
+            const cost = s.available ? priceOf?.(s) : null;
+            const costText = cost ? `, ${cost.price}${cost.label ? `, ${cost.label}` : ""}` : "";
             return (
               <button
                 key={s.start}
@@ -53,17 +60,24 @@ export function SlotPicker({
                 className={styles.slot}
                 aria-pressed={selected === s.start}
                 disabled={!s.available}
-                aria-label={s.available ? `${label} to ${end}` : `${label}, ${why}`}
+                aria-label={s.available ? `${label} to ${end}${costText}` : `${label}, ${why}`}
                 title={why || undefined}
                 onClick={() => onSelect(s.start)}
               >
                 <span>{label}</span>
                 <small aria-hidden="true">to {end}</small>
+                {cost ? (
+                  <small aria-hidden="true" className={styles.slotPrice}>
+                    {cost.price}
+                    {cost.label ? <em>{cost.label}</em> : null}
+                  </small>
+                ) : null}
               </button>
             );
           })
         )}
       </div>
+      {priceNote ? <p className={styles.slotNote}>{priceNote}</p> : null}
     </div>
   );
 }

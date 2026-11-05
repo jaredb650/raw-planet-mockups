@@ -6,6 +6,7 @@
 import type { Booking, Experience } from "@/lib/db/schema";
 import { siteUrl } from "@/lib/config";
 import { reviewToken } from "@/lib/review-token";
+import { waiverUrlFor } from "@/lib/waiver-token";
 import { googleCalendarUrl } from "@/lib/ics";
 import { localDateKey } from "@/lib/time";
 import type { PriceLine } from "./components/ui";
@@ -126,6 +127,7 @@ export function buildBookingView(input: BookingViewInput): BookingView {
     manageUrl: manage,
     bookUrl: siteUrl(`/book/${e.slug}`),
     reviewUrl: siteUrl(`/review/${b.code}?t=${reviewToken(b.id)}`),
+    waiverUrl: e.waiverRequired && ["direct", "manual", "phone"].includes(b.source) ? waiverUrlFor(b) : null,
     googleCalendarUrl: googleCalendarUrl({
       start: b.startAt,
       end: b.endAt,

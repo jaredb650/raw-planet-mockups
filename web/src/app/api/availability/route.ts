@@ -3,12 +3,16 @@
  *   [&booking=RP-XXXXXX&t=token]  (reschedule: ignore the guest's own booking)
  *
  * → { experience, duration, days: [{ date, open, available, slots }], calendarError? }
+ * Slots carry priceCents (one guest, or one session before extra guests) and adjustPercent when
+ * smart pricing applies. Party totals round once on the whole subtotal, so the picker computes them
+ * with computeQuote and adjustPercent. Reschedules keep the price paid, so their slots carry no price.
  * Range is capped at 62 days. Never cached: holds and bookings change by the second.
  */
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { getAvailability, getExperienceBySlugOrId } from "@/lib/booking/availability";
+import { adjustedCents, durationPrice } from "@/lib/booking/pricing";
 import { getBookingForCustomer } from "@/lib/booking/service";
 import { addDaysKey } from "@/lib/time";
 import { LIMITS, clientIp, dateKeySchema, fieldErrors, jsonError, rateLimit, tooMany } from "../_lib/http";
@@ -54,6 +58,7 @@ export async function GET(req: NextRequest) {
     durationMinutes: q.duration,
     ignoreBookingId,
   });
+  const unitCents = durationPrice(experience, q.duration);
 
   return Response.json(
     {
@@ -65,7 +70,7 @@ export async function GET(req: NextRequest) {
         date: d.date,
         open: d.open,
         available: d.slots.filter((s) => s.available).length,
-        slots: d.slots,
+        slots: d.slots.map(({ adjustPercent, ...s }) => (ignoreBookingId ? s : { ...s, adjustPercent, priceCents: adjustedCents(unitCents, adjustPercent ?? 0) })),
       })),
       ...(calendarError ? { calendarError: true } : {}),
     },

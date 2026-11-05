@@ -1,10 +1,11 @@
 import "server-only";
-import { asc, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { bookings, customers, eventRsvps, events, experiences, giftCards, inquiries } from "@/lib/db/schema";
+import { rows } from "./badges";
 
 export type CustomerSort = "recent" | "spent" | "sessions" | "name";
-export type CustomerFilters = { q: string; sort: CustomerSort; optIn: boolean; page: number };
+export type CustomerFilters = { q: string; sort: CustomerSort; optIn: boolean; tag: string; page: number };
 type SP = Record<string, string | string[] | undefined> | URLSearchParams;
 const one = (sp: SP, k: string) => (sp instanceof URLSearchParams ? sp.get(k) ?? "" : ((Array.isArray(sp[k]) ? sp[k][0] : sp[k]) as string | undefined) ?? "");
 
@@ -14,6 +15,7 @@ export function parseCustomerFilters(sp: SP): CustomerFilters {
     q: one(sp, "q").trim().slice(0, 100),
     sort: (["recent", "spent", "sessions", "name"] as const).includes(sort) ? sort : "recent",
     optIn: one(sp, "optin") === "1",
+    tag: one(sp, "tag").trim().slice(0, 40),
     page: Math.max(1, Math.min(1000, Number(one(sp, "page")) || 1)),
   };
 }
@@ -23,6 +25,7 @@ export function customerQuery(f: CustomerFilters, patch: Partial<CustomerFilters
   if (m.q) p.set("q", m.q);
   if (m.sort !== "recent") p.set("sort", m.sort);
   if (m.optIn) p.set("optin", "1");
+  if (m.tag) p.set("tag", m.tag);
   if (m.page > 1) p.set("page", String(m.page));
   const s = p.toString();
   return s ? `?${s}` : "";
@@ -52,7 +55,8 @@ export async function listCustomers(f: CustomerFilters, opts: { limit?: number }
     const like = `%${f.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
     where.push(or(ilike(customers.name, like), ilike(customers.email, like), ilike(customers.phone, like))!);
   }
-  if (f.optIn) where.push(eq(customers.marketingOptIn, true));
+  if (f.optIn) where.push(and(eq(customers.marketingOptIn, true), isNull(customers.unsubscribedAt))!);
+  if (f.tag) where.push(sql`${customers.tags} @> ${JSON.stringify([f.tag])}::jsonb`);
   const order =
     f.sort === "spent"
       ? [desc(sql`coalesce(${stats.spent}, 0)`), asc(customers.name)]
@@ -69,6 +73,8 @@ export async function listCustomers(f: CustomerFilters, opts: { limit?: number }
       email: customers.email,
       phone: customers.phone,
       marketingOptIn: customers.marketingOptIn,
+      unsubscribedAt: customers.unsubscribedAt,
+      tags: customers.tags,
       language: customers.language,
       createdAt: customers.createdAt,
       sessions: sql<number>`coalesce(${stats.sessions}, 0)`,
@@ -97,6 +103,13 @@ export async function listCustomers(f: CustomerFilters, opts: { limit?: number }
     hasMore: rows.length > limit,
     total: Number(n),
   };
+}
+
+/** Every tag in use, for filters and the add-tag suggestions. */
+export async function listTags(): Promise<string[]> {
+  const db = await getDb();
+  const res = await db.execute(sql`select distinct t.v from customers c, jsonb_array_elements_text(c.tags) t(v) order by t.v`);
+  return rows<{ v: string }>(res).map((r) => r.v);
 }
 
 export async function getCustomerDetail(id: string) {
