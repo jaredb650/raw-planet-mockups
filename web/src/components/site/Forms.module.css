@@ -18,3 +18,5 @@
   .row2 { grid-template-columns: 1fr; }
   .narrow { max-width: none; }
 }
+
+:global(:root[data-style="future"]) .doneTitle { font-size: 1.25rem; }

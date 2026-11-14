@@ -110,7 +110,7 @@
 
 /* Dialog */
 .dialog { border: 2px solid var(--ink); border-radius: var(--r-lg); padding: 0; max-width: min(520px, calc(100vw - 32px)); width: 100%; background: var(--surface); color: var(--ink); }
-.dialog::backdrop { background: rgba(14, 30, 72, 0.5); }
+.dialog::backdrop { background: rgba(31, 28, 36, 0.5); }
 .dialogBody { padding: 28px; display: grid; gap: 16px; }
 .dialogBody h2 { font-size: 2.2rem; }
 .dialogBody p { margin: 0; }
@@ -149,3 +149,10 @@
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
 .cardHead :global(.pill) { white-space: nowrap; flex: none; }
 .hero :global(.eyebrow) { margin: 0 0 14px; }
+
+:global(:root[data-style="future"]) .totalRow strong { font-size: 1.7rem; }
+:global(:root[data-style="future"]) .giftPreview { clip-path: var(--chamfer); }
+:global(:root[data-style="future"]) .giftPreview .gpBrand { font-size: 0.85rem; letter-spacing: 0.2em; }
+:global(:root[data-style="future"]) .giftPreview .gpAmount { font-size: clamp(2.2rem, 6vw, 3.2rem); }
+:global(:root[data-style="future"] [data-site]) .cardTitle { font: 700 1.2rem/1.25 var(--body); letter-spacing: 0; }
+:global(:root[data-style="future"] [data-site]) .titleSm { font-size: clamp(1.7rem, 3.4vw, 2.6rem); }

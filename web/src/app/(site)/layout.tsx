@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const experiences = (await getActiveExperiences()).map((e) => ({ slug: e.slug, name: e.name, shortName: e.shortName }));
   return (
-    <>
+    <div data-site>
       <a href="#main" className={styles.skip}>
         Skip to content
       </a>
@@ -18,6 +18,6 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         {children}
       </main>
       <SiteFooter experiences={experiences} />
-    </>
+    </div>
   );
 }

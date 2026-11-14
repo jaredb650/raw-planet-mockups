@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Page not found" };
 export default async function NotFound() {
   const experiences = (await getActiveExperiences().catch(() => [])).map((e) => ({ slug: e.slug, name: e.name, shortName: e.shortName, theme: e.theme }));
   return (
-    <>
+    <div data-site>
       <SiteHeader experiences={experiences} />
       <main id="main" className={styles.main}>
         <div className={`wrap ${styles.grid}`}>
@@ -54,6 +54,6 @@ export default async function NotFound() {
         </div>
       </main>
       <SiteFooter experiences={experiences} />
-    </>
+    </div>
   );
 }

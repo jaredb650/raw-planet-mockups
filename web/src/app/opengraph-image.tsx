@@ -36,15 +36,15 @@ export default async function OpengraphImage() {
   const display = font ? "Big Shoulders" : undefined;
   return new ImageResponse(
     (
-      <div style={{ width: "100%", height: "100%", display: "flex", background: "#fffcf7", color: "#0e1e48", fontFamily: display }}>
+      <div style={{ width: "100%", height: "100%", display: "flex", background: "#fffcf7", color: "#1f1c24", fontFamily: display }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "64px 56px 56px 72px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 30, fontWeight: 800, letterSpacing: 1, fontFamily: display }}>
-            <div style={{ width: 30, height: 30, borderRadius: 30, background: "#ee5622" }} />
+            <div style={{ width: 30, height: 30, borderRadius: 30, background: "#d9784a" }} />
             RAW PLANET
           </div>
           <div style={{ display: "flex", flexDirection: "column", fontFamily: display, fontWeight: 800, fontSize: font ? 100 : 80, lineHeight: 0.9 }}>
             <span>MUSIC EXPERIENCES</span>
-            <span style={{ color: "#ee5622" }}>IN NEW YORK CITY</span>
+            <span style={{ color: "#b0582d" }}>IN NEW YORK CITY</span>
           </div>
           <div style={{ display: "flex", gap: 12, fontSize: font ? 30 : 24 }}>
             {["Music production", "Learn to DJ", "Meditation"].map((t, i) => (
@@ -54,8 +54,8 @@ export default async function OpengraphImage() {
                   display: "flex",
                   padding: "10px 20px",
                   borderRadius: 999,
-                  background: ["#4fb3d9", "#f47a3a", "#8cb54a"][i],
-                  color: "#0e1e48",
+                  background: ["#7e56a4", "#d9784a", "#8cb54a"][i],
+                  color: i === 0 ? "#fff" : "#1f1c24",
                   fontWeight: 700,
                 }}
               >

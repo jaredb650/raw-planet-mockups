@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
   // Static file, not under /admin/: browsers fetch manifests without cookies, so the login redirect would break it.
   manifest: "/admin.webmanifest",
-  icons: { icon: "/icon.svg", apple: "/admin-icon-180.png" },
+  icons: { icon: "/icon.png", apple: "/admin-icon-180.png" },
   appleWebApp: { capable: true, title: "RP Admin", statusBarStyle: "default" },
 };
 

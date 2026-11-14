@@ -86,7 +86,7 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
       />
 
       {/* Title + gallery */}
-      <section data-band="navy" className={styles.top} aria-labelledby="exp-title">
+      <section data-band="purple" className={styles.top} aria-labelledby="exp-title">
         <div className="wrap">
           <Breadcrumbs crumbs={[{ name: "Experiences", href: "/experiences" }, { name: e.shortName }]} />
           <div className={styles.titleRow}>

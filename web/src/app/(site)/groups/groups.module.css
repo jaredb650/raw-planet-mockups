@@ -49,3 +49,8 @@
   .faq { padding: 72px 0; }
   .h2 { margin-bottom: 28px; }
 }
+
+:global(:root[data-style="future"]) .rate { font-size: clamp(1.9rem, 3vw, 2.5rem); }
+:global(:root[data-style="future"]) .rateGrid li { border: 0; clip-path: var(--chamfer); }
+:global(:root[data-style="future"]) .occGrid li { clip-path: var(--chamfer); }
+:global(:root[data-style="future"] [data-site]) .formTitle { font-size: 1.3rem; }

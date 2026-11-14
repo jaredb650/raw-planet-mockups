@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { BUSINESS } from "@/lib/config";
-import { LogoMark } from "./Logo";
 import styles from "./SiteFooter.module.css";
 
 export function SiteFooter({ experiences }: { experiences: { slug: string; shortName: string }[] }) {
@@ -56,7 +55,7 @@ export function SiteFooter({ experiences }: { experiences: { slug: string; short
         </div>
         <div className={styles.legal}>
           <span className={styles.legalMark}>
-            <LogoMark size={22} /> © {year} {BUSINESS.legalName}
+            © {year} {BUSINESS.legalName}
           </span>
           <span>New York City</span>
           <Link href="/policies#privacy">Privacy</Link>

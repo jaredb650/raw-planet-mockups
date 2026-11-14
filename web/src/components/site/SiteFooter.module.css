@@ -1,7 +1,7 @@
 .foot {
-  --accent: var(--ochre);
-  background: var(--ink);
-  color: var(--cream);
+  --accent: #ffd2b8;
+  background: var(--purple);
+  color: #fff;
   padding: 104px 0 40px;
 }
 .bigRow {
@@ -19,12 +19,12 @@
   max-width: none;
 }
 .big a { text-decoration: none; transition: color 0.2s; }
-.big a span { color: var(--brick); transition: color 0.2s; }
-.big a:hover { color: var(--ochre); }
-.big a:hover span { color: var(--cream); }
+.big a span { color: #ffd2b8; transition: color 0.2s; }
+.big a:hover { color: #ffd2b8; }
+.big a:hover span { color: #fff; }
 .bigSide {
   max-width: 30ch;
-  color: color-mix(in srgb, var(--cream) 78%, transparent);
+  color: #fbeedb;
   font-size: 1rem;
   margin: 0 0 12px;
 }
@@ -32,18 +32,18 @@
   display: table;
   margin-top: 16px;
   padding: 0.45em 0.9em;
-  border: 1.5px solid color-mix(in srgb, var(--cream) 40%, transparent);
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--r-pill);
   font-weight: 600;
   font-size: 0.88rem;
-  color: var(--cream);
+  color: #fff;
 }
 .cols {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 32px;
   padding-top: 40px;
-  border-top: 1.5px solid color-mix(in srgb, var(--cream) 22%, transparent);
+  border-top: 1.5px solid rgba(255, 255, 255, 0.3);
   font-size: 0.98rem;
 }
 .cols > div { display: grid; align-content: start; gap: 2px; }
@@ -51,18 +51,18 @@
   font: 700 0.82rem/1 var(--body);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--ochre);
+  color: #fff;
   margin: 0 0 12px;
 }
 .cols a {
-  color: color-mix(in srgb, var(--cream) 82%, transparent);
+  color: #fbeedb;
   text-decoration: none;
   min-height: 34px;
   display: flex;
   align-items: center;
   overflow-wrap: anywhere;
 }
-.cols a:hover { color: var(--cream); text-decoration: underline; text-underline-offset: 4px; }
+.cols a:hover { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
 .legal {
   margin-top: 64px;
   display: flex;
@@ -70,11 +70,11 @@
   gap: 8px 24px;
   align-items: center;
   font-size: 0.88rem;
-  color: color-mix(in srgb, var(--cream) 60%, transparent);
+  color: #fbeedb;
 }
 .legal a { color: inherit; min-height: 32px; display: inline-flex; align-items: center; }
 .legalMark { display: inline-flex; align-items: center; gap: 10px; margin-right: auto; }
-.foot :focus-visible { outline-color: var(--cream); }
+.foot :focus-visible { outline-color: #fff; }
 
 @media (max-width: 900px) {
   .bigRow { grid-template-columns: 1fr; }
@@ -86,3 +86,6 @@
   .legalMark { margin-right: 0; width: 100%; }
   .cols > div:last-child { grid-column: 1 / -1; }
 }
+
+:global(:root[data-style="future"]) .big { font-size: clamp(1.9rem, 5.6vw, 5rem); line-height: 1.02; letter-spacing: -0.02em; }
+:global(:root[data-style="future"] [data-site]) .h { font: 600 0.68rem/1.4 var(--display); letter-spacing: 0.22em; }

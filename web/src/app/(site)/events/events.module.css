@@ -33,3 +33,5 @@
   .howList li { padding: 24px; }
   .empty { padding: 24px; }
 }
+
+:global(:root[data-style="future"]) .emptyTitle { font-size: 1.35rem; }

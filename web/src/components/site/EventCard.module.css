@@ -70,4 +70,19 @@
 }
 
 /* Bold look: the card stays light on a coloured band */
-:global(:root[data-look="bold"]) .card { --mist: #f7efe2; --ink-soft: #4a5475; }
+:global(:root[data-look="bold"]) .card {
+  --surface: #fff;
+  --brick: #d9784a;
+  --ink: #1f1c24;
+  --cream: #fbeedb;
+  --ink-soft: #5c5650;
+  --ink-faint: #8a837b;
+  --line: #e6dccb;
+  --mist: #f7efe2;
+  --accent: #d9784a;
+  --on-accent: #1f1c24;
+  color: var(--ink);
+}
+
+:global(:root[data-style="future"]) .card { border: 0; clip-path: var(--chamfer); }
+:global(:root[data-style="future"]) .day { font-size: 2.2rem; }

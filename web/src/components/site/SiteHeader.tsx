@@ -89,7 +89,7 @@ export function SiteHeader({ experiences }: { experiences: { slug: string; name:
     });
 
   return (
-    <header ref={headerRef} className={styles.top} data-band="navy" data-open={open || undefined}>
+    <header ref={headerRef} className={styles.top} data-open={open || undefined}>
       <div className={`wrap ${styles.bar}`}>
         <Logo onClick={close} />
         <nav className={styles.nav} aria-label="Main">

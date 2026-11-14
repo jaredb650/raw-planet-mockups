@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Big_Shoulders, DM_Sans } from "next/font/google";
+import { Big_Shoulders, DM_Sans, Unbounded } from "next/font/google";
 import { BUSINESS, siteUrl } from "@/lib/config";
 import "./globals.css";
 
 const display = Big_Shoulders({ subsets: ["latin"], weight: ["700", "800", "900"], variable: "--font-display", display: "swap" });
+// Wide rounded geometric caps, the closest free match to the logo's "RAW" lettering (future style).
+const future = Unbounded({ subsets: ["latin"], weight: ["500", "600", "700", "800"], variable: "--font-future", display: "swap" });
 const body = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], style: ["normal", "italic"], variable: "--font-body", display: "swap" });
 
 export const metadata: Metadata = {
@@ -17,12 +19,13 @@ export const metadata: Metadata = {
   ...(process.env.SITE_NOINDEX === "1" ? { robots: { index: false, follow: false } } : {}),
 };
 
-export const viewport: Viewport = { themeColor: "#ee5622", width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#1f1c24", width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    // data-look="bold": the colour-band skin in globals.css. Remove the attribute for the plain light look.
-    <html lang="en" className={`${display.variable} ${body.variable}`} data-look="bold">
+    // data-look="bold": the colour-band skin. data-style="future": the logo-matched type and shapes on top of it.
+    // Remove an attribute to go back a step (globals.css).
+    <html lang="en" className={`${display.variable} ${future.variable} ${body.variable}`} data-look="bold" data-style="future">
       <body>{children}</body>
     </html>
   );

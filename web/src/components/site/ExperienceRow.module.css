@@ -136,9 +136,15 @@
     background: var(--surface);
     border: 2px solid var(--cocoa);
     border-radius: var(--r-lg);
-    --ink-soft: #4a5475;
+    --ink-soft: #5c5650;
   }
 }
-:global(:root[data-look="bold"]) .row { --ink-soft: #4a5475; }
+:global(:root[data-look="bold"]) .row { --ink-soft: #5c5650; }
 :global(:root[data-look="bold"]) .inset { border-color: var(--surface); }
 :global(:root[data-look="bold"]) .swipe { color: var(--ink); }
+
+/* Future style: borderless cards with the R's cut, no 01/02/03 (they aren't a sequence) */
+:global(:root[data-style="future"]) .row { border: 0; clip-path: var(--chamfer); }
+:global(:root[data-style="future"]) .num { display: none; }
+:global(:root[data-style="future"]) .kicker { font: 600 0.68rem/1.4 var(--display); letter-spacing: 0.22em; }
+:global(:root[data-style="future"]) .img, :global(:root[data-style="future"]) .media > :first-child:not(.inset) { border-radius: 14px; }

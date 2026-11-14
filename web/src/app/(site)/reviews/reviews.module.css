@@ -47,3 +47,5 @@
   .summary { padding: 22px; }
   .score strong { font-size: 3.6rem; }
 }
+
+:global(:root[data-style="future"]) .score strong { font-size: 3rem; }

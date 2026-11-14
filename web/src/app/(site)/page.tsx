@@ -52,7 +52,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       <JsonLd data={businessJsonLd(rating, heroMain.src)} />
 
       {/* Hero */}
-      <section data-band="navy" className={styles.hero} aria-labelledby="hero-title">
+      <section data-band="purple" className={styles.hero} aria-labelledby="hero-title">
         <div className={`wrap ${styles.heroGrid}`}>
           <div className={styles.heroCopy}>
             <h1 id="hero-title" className={styles.heroTitle}>
@@ -107,6 +107,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
                 style={{ objectPosition: "38% 50%" }}
               />
             </div>
+            <span className={styles.orb} aria-hidden="true" />
             <div className={styles.snap}>
               <div className={styles.snapImg}>
                 <Image src={heroSnap.src} alt={heroSnap.alt} fill sizes="(max-width: 600px) 46vw, 230px" className={styles.cover} />
@@ -130,7 +131,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       </section>
 
       {/* Host */}
-      <section data-band="blue" className={styles.host} id="alex" aria-labelledby="alex-title">
+      <section data-band="sand" className={styles.host} id="alex" aria-labelledby="alex-title">
         <div className={`wrap ${styles.hostGrid}`}>
           <div className={styles.hostPhoto}>
             <div className={styles.hostImg}>
@@ -161,7 +162,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       </section>
 
       {/* Reviews */}
-      <section data-band="navy" className={styles.reviews} id="reviews" aria-labelledby="reviews-title">
+      <section data-band="purple" className={styles.reviews} id="reviews" aria-labelledby="reviews-title">
         <div className="wrap">
           <div className={styles.head}>
             <div className={styles.reviewsTitle}>
@@ -224,7 +225,6 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
         <div className="wrap">
           <div className={styles.head}>
             <div>
-              <p className="eyebrow">Find your time</p>
               <h2 id="book-title">
                 Book an <span className="tt">experience</span>
               </h2>
@@ -276,10 +276,9 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       </section>
 
       {/* Community */}
-      <section data-band="blue" className={styles.community} id="community" aria-labelledby="community-title">
+      <section data-band="purple" className={styles.community} id="community" aria-labelledby="community-title">
         <div className={`wrap ${styles.communityGrid}`}>
           <div className={styles.communityIntro}>
-            <p className="eyebrow">Community events &amp; meetups</p>
             <h2 id="community-title">
               Community <span className="tt">events</span>
             </h2>

@@ -37,3 +37,4 @@
   .rsvp { padding: 24px 20px; }
   .moreList { grid-template-columns: 1fr; }
 }
+:global(:root[data-style="future"] [data-site]) .h3 { font-size: 1.1rem; }

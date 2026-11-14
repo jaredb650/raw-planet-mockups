@@ -17,3 +17,5 @@
   .section { padding-bottom: 72px; }
   .formCard { padding: 24px 20px; }
 }
+
+:global(:root[data-style="future"]) .h3 { font-size: 1.05rem; }

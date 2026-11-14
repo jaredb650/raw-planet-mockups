@@ -14,7 +14,7 @@ export function businessJsonLd(rating: { score: number; count: number }, image: 
     legalName: BUSINESS.legalName,
     url: siteUrl("/"),
     image: siteUrl(image),
-    logo: siteUrl("/icon.svg"),
+    logo: siteUrl("/brand/logo-mark.png"),
     email: BUSINESS.contactEmail,
     description:
       "Music production, DJ and meditation experiences in New York City with producer Alex Gentil. No experience needed.",

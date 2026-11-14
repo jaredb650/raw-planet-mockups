@@ -123,7 +123,7 @@
 .extra p { opacity: 0.92; }
 .extra :global(.btn) { align-self: flex-start; }
 .extraGift { background: var(--brick); color: var(--cocoa); }
-.extraGroup { background: var(--ink); color: var(--cream); }
+.extraGroup { background: var(--purple); color: #fff; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 20px 0 0; padding: 0; }
 .chips li { background: rgba(255, 255, 255, 0.14); border-radius: var(--r-pill); padding: 0.45em 1em; font-weight: 700; font-size: 0.92rem; }
 .extra :focus-visible { outline-color: currentColor; }
@@ -169,4 +169,31 @@
   .extra { padding: 30px 24px; min-height: 0; }
   .credits > div { grid-template-columns: 1fr; gap: 2px; }
   .eventsEmpty { padding: 24px; }
+}
+
+/* Future style */
+.orb { display: none; }
+:global(:root[data-style="future"]) .heroTitle span { white-space: normal; }
+:global(:root[data-style="future"]) .heroMeta strong { font-size: 1.3rem; }
+/* The hero photo is cut like the R, and the chrome planet sits on the cut, like the logo's orb */
+:global(:root[data-style="future"]) .heroMain { --cut: 22%; clip-path: polygon(0 0, 78% 0, 100% 17.6%, 100% 100%, 0 100%); }
+:global(:root[data-style="future"]) .snap { display: none; }
+:global(:root[data-style="future"]) .orb {
+  display: block;
+  position: absolute;
+  top: -3%;
+  right: -3%;
+  width: 21%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 70% 38%, #fff 0 16%, #e4e1e8 30%, #9a96a2 52%, #3a3641 74%, #1f1c24 92%);
+  box-shadow: 0 18px 40px -16px rgba(31, 28, 36, 0.55);
+}
+:global(:root[data-style="future"]) .score strong { font-size: 3.4rem; }
+:global(:root[data-style="future"]) .leadQuote p { font-size: clamp(1.25rem, 2.3vw, 1.9rem); font-weight: 600; line-height: 1.22; letter-spacing: -0.01em; }
+:global(:root[data-style="future"]) .extra { clip-path: var(--chamfer); }
+:global(:root[data-style="future"] [data-site]) .extra h3 { font-size: clamp(1.4rem, 2.6vw, 2.1rem); }
+@media (max-width: 600px) {
+  :global(:root[data-style="future"]) .score strong { font-size: 2.6rem; }
+  :global(:root[data-style="future"]) .heroMeta strong { font-size: 1.05rem; }
 }

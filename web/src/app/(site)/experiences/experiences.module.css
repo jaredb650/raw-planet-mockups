@@ -26,3 +26,5 @@
   .compare tbody th { width: 120px; }
   .cta { padding: 72px 0; }
 }
+
+:global(:root[data-style="future"]) .compare thead th a { font-size: 1.05rem; }

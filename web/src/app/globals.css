@@ -2,46 +2,47 @@
  * Raw Planet design system.
  * Layout language from the "Open Door" mockup the client chose (big display
  * type, rounded cards, pill buttons), skinned with the client's Nov 2026
- * palette: navy, orange, blue, green and sand. Token names are historical;
+ * palette: charcoal, crab orange, purple, green and sand. Token names are historical;
  * the comment on each says what it is now.
  * To swap palettes, change only the tokens in :root.
  */
 :root {
   /* Brand palette (client reference, Nov 2026) */
-  --brick: #ee5622;      /* orange: primary */
-  --ochre: #4fb3d9;      /* blue: music production, highlights on navy */
-  --orange: #f47a3a;     /* light orange: DJ */
+  --brick: #d9784a;      /* crab orange: primary */
+  --purple: #7e56a4;     /* logo purple: music production (text on it is white) */
+  --ochre: #b598d6;      /* light purple: highlights on charcoal */
+  --orange: #d9784a;     /* crab orange: DJ */
   --green: #8cb54a;      /* green: meditation */
-  --powder: #cfe8f3;     /* pale blue: booking strip */
-  --cream: #fbeedb;      /* sand: text on navy, light buttons */
+  --powder: #ece3f5;     /* pale purple: booking strip */
+  --cream: #fbeedb;      /* sand: text on charcoal, light buttons */
   --olive: #6e6f69;      /* grey */
-  --cocoa: #0e1e48;      /* navy: text and dark sections */
+  --cocoa: #1f1c24;      /* charcoal (from the logo's grey): text and dark sections */
 
   /* Semantic tokens */
   --bg: #fffcf7;
   --surface: #ffffff;
   --mist: #f7efe2;       /* soft section background */
   --ink: var(--cocoa);
-  --ink-soft: #4a5475;
-  --ink-faint: #7c86a0;
+  --ink-soft: #5c5650;
+  --ink-faint: #8a837b;
   --line: #e6dccb;
   --line-strong: var(--cocoa);
   --accent: var(--brick);
   --on-accent: var(--cocoa);
-  --accent-soft: #fde1d5;
+  --accent-soft: #f8e2d6;
   --success: #3f7d3a;
   --success-soft: #e3f0dc;
   --warning: #9a6200;
   --warning-soft: #fdf0cf;
   --danger: #a3341f;
   --danger-soft: #f9e0d9;
-  --info-soft: #e1eff6;
+  --info-soft: #ece3f5;
 
   /* Per-experience accents (text on these must be --ink for contrast) */
-  --c-production: var(--ochre);
-  --c-production-soft: #dbf0f8;
+  --c-production: var(--purple);
+  --c-production-soft: #ece3f5;
   --c-dj: var(--orange);
-  --c-dj-soft: #ffe3d3;
+  --c-dj-soft: #f8e2d6;
   --c-wellness: var(--green);
   --c-wellness-soft: #e7f1d6;
 
@@ -52,17 +53,17 @@
   --r-sm: 10px;
   --r-pill: 999px;
   --wrap: 1200px;
-  --shadow-sm: 0 1px 2px rgba(14, 30, 72, 0.06), 0 2px 8px -2px rgba(14, 30, 72, 0.08);
-  --shadow-lg: 0 24px 48px -24px rgba(14, 30, 72, 0.35);
+  --shadow-sm: 0 1px 2px rgba(31, 28, 36, 0.06), 0 2px 8px -2px rgba(31, 28, 36, 0.08);
+  --shadow-lg: 0 24px 48px -24px rgba(31, 28, 36, 0.35);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: light;
 }
 
 /* Theme hooks: set data-theme on any element to recolour the accent */
-[data-theme="production"] { --accent: var(--ochre); --on-accent: var(--cocoa); --accent-soft: var(--c-production-soft); }
+[data-theme="production"] { --accent: var(--purple); --on-accent: #fff; --accent-soft: var(--c-production-soft); }
 [data-theme="dj"] { --accent: var(--orange); --on-accent: var(--cocoa); --accent-soft: var(--c-dj-soft); }
 [data-theme="wellness"] { --accent: var(--green); --on-accent: var(--cocoa); --accent-soft: var(--c-wellness-soft); }
-[data-theme="brick"] { --accent: var(--brick); --on-accent: var(--cocoa); --accent-soft: #fde1d5; }
+[data-theme="brick"] { --accent: var(--brick); --on-accent: var(--cocoa); --accent-soft: #f8e2d6; }
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-padding-top: 96px; }
@@ -175,33 +176,90 @@ p { margin: 0 0 1em; max-width: 65ch; text-wrap: pretty; }
  * the tokens, so the components inside recolour themselves.
  */
 :root[data-look="bold"] [data-band] { background: var(--bg); color: var(--ink); }
-:root[data-look="bold"] [data-band="navy"] {
-  --bg: #0e1e48;
-  --ink: #fbeedb;
-  --cream: #0e1e48;
-  --ink-soft: rgba(251, 238, 219, 0.8);
-  --ink-faint: rgba(251, 238, 219, 0.62);
-  --line: rgba(251, 238, 219, 0.22);
-  --mist: rgba(251, 238, 219, 0.1);
-  --surface: #18306b;
-  --band-accent: #ee5622;
+/* Purple bands (the hero, reviews, page headers): white text, crab orange buttons */
+:root[data-look="bold"] [data-band="purple"] {
+  --bg: #7e56a4;
+  --ink: #fff;
+  --cream: #1f1c24;
+  --brick: #ffd2b8;
+  --ink-soft: #fbeedb;
+  --ink-faint: rgba(251, 238, 219, 0.85);
+  --line: rgba(255, 255, 255, 0.3);
+  --mist: rgba(255, 255, 255, 0.14);
+  --surface: #6a4790;
+  --accent: #d9784a;
+  --on-accent: #1f1c24;
+  --accent-soft: rgba(255, 255, 255, 0.2);
+  --band-accent: #ffd2b8;
 }
-:root[data-look="bold"] [data-band="navy"] .btn--light { background: #fbeedb; border-color: #fbeedb; color: #0e1e48; }
+:root[data-look="bold"] [data-band="purple"] .btn--light { background: #fbeedb; border-color: #fbeedb; color: #1f1c24; }
 :root[data-look="bold"] [data-band="orange"],
-:root[data-look="bold"] [data-band="blue"],
 :root[data-look="bold"] [data-band="green"] {
-  --ink-soft: #0e1e48;
-  --ink-faint: rgba(14, 30, 72, 0.75);
-  --line: rgba(14, 30, 72, 0.28);
+  --ink-soft: #1f1c24;
+  --ink-faint: rgba(31, 28, 36, 0.75);
+  --line: rgba(31, 28, 36, 0.28);
   --mist: rgba(255, 255, 255, 0.22);
-  --accent: #0e1e48;
+  --accent: #1f1c24;
   --on-accent: #fbeedb;
   --accent-soft: rgba(255, 255, 255, 0.35);
   --band-accent: #fbeedb;
 }
-:root[data-look="bold"] [data-band="orange"] { --bg: #ee5622; }
-:root[data-look="bold"] [data-band="blue"] { --bg: #4fb3d9; --band-accent: #0e1e48; }
-:root[data-look="bold"] [data-band="green"] { --bg: #8cb54a; --band-accent: #0e1e48; }
-:root[data-look="bold"] [data-band="sand"] { --bg: #fbeedb; --band-accent: #ee5622; }
+:root[data-look="bold"] [data-band="orange"] { --bg: #d9784a; --band-accent: #fff; }
+:root[data-look="bold"] [data-band="green"] {
+  --ink-soft: #1f1c24;
+  --ink-faint: rgba(31, 28, 36, 0.75);
+  --line: rgba(31, 28, 36, 0.28);
+  --mist: rgba(255, 255, 255, 0.22);
+  --accent: #1f1c24;
+  --on-accent: #fbeedb;
+  --accent-soft: rgba(255, 255, 255, 0.35);
+  --band-accent: #fbeedb;
+}
+:root[data-look="bold"] [data-band="orange"] { --bg: #d9784a; --band-accent: #fff; }
+/* Purple is dark: cream text, like the dark bands, with crab orange buttons */
+:root[data-look="bold"] [data-band="purple"] {
+  --bg: #7e56a4;
+  --ink: #fbeedb;
+  --cream: #1f1c24;
+  --ink-soft: rgba(251, 238, 219, 0.92);
+  --ink-faint: rgba(251, 238, 219, 0.75);
+  --line: rgba(251, 238, 219, 0.3);
+  --mist: rgba(251, 238, 219, 0.12);
+  --accent: #d9784a;
+  --on-accent: #1f1c24;
+  --accent-soft: rgba(251, 238, 219, 0.2);
+  --band-accent: #fbeedb;
+}
+:root[data-look="bold"] [data-band="green"] { --bg: #8cb54a; --band-accent: #1f1c24; }
+:root[data-look="bold"] [data-band="sand"] { --bg: #fbeedb; --band-accent: #b0582d; }
 /* Second word of a two-tone heading */
 :root[data-look="bold"] .tt { color: var(--band-accent, var(--brick)); }
+
+/*
+ * Future style (on via <html data-style="future">, public site only via [data-site]): the site drawn in the logo's
+ * geometry. Wide rounded caps (Unbounded, like "RAW"), headings stacked in two
+ * tones like RAW over PLANET, logo-block corners instead of pills, and one 45°
+ * chamfered corner, the cut of the R, on photos and panels.
+ */
+:root[data-style="future"] [data-site] {
+  --display: var(--font-future), "Unbounded", system-ui, sans-serif;
+  --r-lg: 22px;
+  --r-md: 14px;
+  --r-pill: 12px;
+  /* The R's top-right cut. Use on boxes without a border. */
+  --cut: 32px;
+  --chamfer: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+}
+:root[data-style="future"] [data-site] h1,
+:root[data-style="future"] [data-site] h2,
+:root[data-style="future"] [data-site] h3,
+:root[data-style="future"] [data-site] .display { font-weight: 800; letter-spacing: -0.02em; line-height: 1.04; }
+:root[data-style="future"] [data-site] h1 { font-size: clamp(2.1rem, 4.6vw, 4.2rem); }
+:root[data-style="future"] [data-site] h2 { font-size: clamp(1.6rem, 3.3vw, 2.8rem); }
+:root[data-style="future"] [data-site] h3 { font-size: clamp(1.15rem, 1.8vw, 1.55rem); }
+/* Two-tone headings stack, like the wordmark */
+:root[data-style="future"] [data-site] .tt { display: block; }
+/* Small labels take the wordmark's "EXPERIENCES" treatment: wide caps, wide spacing */
+:root[data-style="future"] [data-site] .eyebrow { font: 600 0.68rem/1.4 var(--display); letter-spacing: 0.26em; }
+:root[data-style="future"] [data-site] .btn { font-weight: 700; letter-spacing: 0.01em; }
+:root[data-style="future"] [data-site] .sticker { display: none; }

@@ -13,7 +13,7 @@
     padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
     background: var(--surface);
     border-top: 2px solid var(--ink);
-    box-shadow: 0 -12px 28px -18px rgba(14, 30, 72, 0.45);
+    box-shadow: 0 -12px 28px -18px rgba(31, 28, 36, 0.45);
     transition: transform 0.3s var(--ease-out), visibility 0.3s;
   }
   .bar[data-hidden] { transform: translateY(110%); visibility: hidden; }
@@ -21,3 +21,5 @@
 .price { margin: 0; display: grid; line-height: 1.2; }
 .price strong { font: 800 1.5rem/1 var(--display); text-transform: uppercase; }
 .price span { font-size: 0.82rem; color: var(--ink-soft); }
+
+:global(:root[data-style="future"]) .price strong { font-size: 1.05rem; }
