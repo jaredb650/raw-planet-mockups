@@ -11,11 +11,11 @@ export function SiteFooter({ experiences }: { experiences: { slug: string; short
         <div className={styles.bigRow}>
           <p className={styles.big}>
             <Link href="/book">
-              Come play<span aria-hidden="true">.</span>
+              Book an experience
             </Link>
           </p>
           <p className={styles.bigSide}>
-            Private music production, DJ and sound meditation sessions in New York City. No experience needed.
+            Music production, DJ and meditation experiences in New York City. No experience needed.
             <span className={styles.lang}>English &amp; Español</span>
           </p>
         </div>
@@ -27,7 +27,7 @@ export function SiteFooter({ experiences }: { experiences: { slug: string; short
                 {e.shortName}
               </Link>
             ))}
-            <Link href="/groups">Groups &amp; private events</Link>
+            <Link href="/groups">Private sessions &amp; groups</Link>
           </div>
           <div>
             <h2 className={styles.h}>Plan</h2>
@@ -38,7 +38,7 @@ export function SiteFooter({ experiences }: { experiences: { slug: string; short
           </div>
           <div>
             <h2 className={styles.h}>Raw Planet</h2>
-            <Link href="/about">Meet Alex</Link>
+            <Link href="/about">About</Link>
             <Link href="/reviews">Reviews</Link>
             <Link href="/faq">FAQ</Link>
             <Link href="/policies">Policies</Link>

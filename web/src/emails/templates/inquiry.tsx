@@ -29,7 +29,7 @@ export type InquiryView = {
 
 const KIND: Record<InquiryKind, { en: string; es: string }> = {
   group: { en: "Group booking", es: "Reserva de grupo" },
-  private_event: { en: "Private event", es: "Evento privado" },
+  private_event: { en: "Private session", es: "Sesión privada" },
   corporate: { en: "Team / corporate", es: "Empresa / equipo" },
   general: { en: "Question", es: "Consulta" },
   press: { en: "Press", es: "Prensa" },

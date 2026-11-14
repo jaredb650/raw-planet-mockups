@@ -77,7 +77,7 @@ export const firstName = (name: string) => name.trim().match(/^[\p{L}\p{M}'’-]
 export function experienceName(e: { name: string; theme: string }, lang: Lang): string {
   if (lang !== "es") return e.name;
   return (
-    { production: "Sesión de producción musical", dj: "Sesión de DJ", wellness: "Meditación con sonido" }[e.theme] ?? e.name
+    { production: "Experiencia de producción musical", dj: "Experiencia de DJ", wellness: "Experiencia de meditación" }[e.theme] ?? e.name
   );
 }
 
@@ -87,21 +87,27 @@ export function experienceName(e: { name: string; theme: string }, lang: Lang): 
  */
 const ES: Record<string, string> = {
   "All studio gear and software": "Todo el equipo y software del estudio",
-  "A private session with Alex": "Una sesión privada con Alex",
-  "Your finished track, sent after your visit": "Tu canción terminada, enviada después de tu visita",
+  "A bounced audio file of the music you create": "Un archivo de audio con la música que crees",
+  "Pictures from your experience": "Fotos de tu experiencia",
   "All DJ gear and headphones": "Todo el equipo de DJ y audífonos",
-  "Music library — or bring your own playlist": "Biblioteca de música, o trae tu propia playlist",
+  "A recording of the mix you create": "Una grabación de la mezcla que crees",
   "Mats and cushions": "Colchonetas y cojines",
-  "Live sound by Alex": "Sonido en vivo con Alex",
-  "Tea and a slow return to the city": "Té y un regreso tranquilo a la ciudad",
+  "Live sound": "Sonido en vivo",
+  "Access to the full meditation recording": "Acceso a la grabación completa de la meditación",
+  "The original musical compositions created for the experience": "Las composiciones musicales originales creadas para la experiencia",
   "Ages 10 and up": "Para mayores de 10 años",
-  "Press the buzzer and Alex will bring you upstairs": "Toca el timbre y Alex te sube al estudio",
+  "Shared session, up to 15 guests": "Sesión compartida, hasta 15 personas",
+  "Shared session, up to 5 guests": "Sesión compartida, hasta 5 personas",
+  "Extra hours are $150 per hour": "Las horas adicionales cuestan $150 por hora",
+  "Each participant prepares 5 songs for their recorded mix": "Cada participante prepara 5 canciones para su mezcla grabada",
+  "Minimum booking of 6 guests": "Reserva mínima de 6 personas",
+  "Up to 15 guests per session": "Hasta 15 personas por sesión",
   "Sessions in English or Spanish": "Sesiones en inglés o en español",
-  "Great for birthdays and groups of friends": "Ideal para cumpleaños y grupos de amigos",
-  "Group bookings only — minimum 10 guests": "Solo reservas de grupo: mínimo 10 personas",
   "Wear comfortable clothes": "Ven con ropa cómoda",
-  "Press the buzzer when you arrive and Alex will bring you upstairs.": "Cuando llegues, toca el timbre y Alex te sube al estudio.",
-  "Arrive 10 minutes early to settle in.": "Llega 10 minutos antes para acomodarte con calma.",
-  "Exact address and entry instructions are in your confirmation email.": "La dirección exacta y cómo entrar están en tu correo de confirmación.",
+  "Please arrive on time. Sessions are scheduled and reserved in advance, so we can't guarantee extra time for late arrivals":
+    "Por favor llega a tiempo. Las sesiones se programan y reservan con anticipación, así que no podemos garantizar tiempo adicional si llegas tarde",
+  "Press the buzzer when you arrive and we'll bring you upstairs. Please arrive on time.": "Cuando llegues, toca el timbre y te subimos al estudio. Por favor llega a tiempo.",
+  "Please arrive on time, with your 5 songs ready.": "Por favor llega a tiempo, con tus 5 canciones listas.",
+  "Please arrive on time so the session can start together.": "Por favor llega a tiempo para que la sesión empiece con todos.",
 };
 export const tr = (s: string, lang: Lang) => (lang === "es" ? (ES[s.trim()] ?? s) : s);

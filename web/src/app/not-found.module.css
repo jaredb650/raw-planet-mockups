@@ -12,7 +12,7 @@
   width: 0.78em; height: 0.78em; border-radius: 50%;
   background:
     radial-gradient(circle, var(--brick) 0 14%, var(--cream) 14.5% 16%, transparent 16.5%),
-    conic-gradient(var(--ink), #6a4630 8%, var(--ink) 22%, var(--ink) 50%, #6a4630 58%, var(--ink) 72%);
+    conic-gradient(var(--ink), #2a3d75 8%, var(--ink) 22%, var(--ink) 50%, #2a3d75 58%, var(--ink) 72%);
   box-shadow: inset 0 0 0 0.03em color-mix(in srgb, var(--cream) 20%, transparent);
 }
 @media (prefers-reduced-motion: no-preference) {

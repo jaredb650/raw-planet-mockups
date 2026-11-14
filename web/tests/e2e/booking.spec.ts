@@ -24,11 +24,13 @@ async function fillDetails(page: Page, opts: { name?: string; email?: string } =
 }
 
 /** /book → first open slot → details → test checkout. Returns the test checkout page. */
-async function startBooking(page: Page) {
+async function startBooking(page: Page, { laterDay = false } = {}) {
   await page.goto(`/book?experience=${EXPERIENCE}`);
   await expect(page.getByRole("tab", { name: /Music production/ })).toHaveAttribute("aria-selected", "true");
   // The first open day is selected automatically.
   await expect(page.getByRole("grid").locator('button[aria-pressed="true"]')).toBeVisible();
+  // Online changes close 24 hours before a session, so a test that reschedules can't use the first open slot.
+  if (laterDay) await page.getByRole("button", { name: "Next month" }).click();
   await pickFirstOpenSlot(page);
   await page.getByRole("link", { name: "Continue" }).click();
   await fillDetails(page);
@@ -49,7 +51,7 @@ async function cancelFromManage(page: Page) {
 
 test.describe("booking", () => {
   test("book, pay (test mode), confirm, reschedule and cancel", async ({ page }) => {
-    await startBooking(page);
+    await startBooking(page, { laterDay: true });
     await page.getByRole("button", { name: /Pay \$[\d,]+ \(test\)/ }).click();
 
     await expect(page.getByRole("heading", { name: /You.re in, E2E/ })).toBeVisible();
@@ -121,6 +123,8 @@ test.describe("booking", () => {
 
     // Two guests × 2 hours = $300, fully covered → no payment step.
     await page.goto(`/book/${EXPERIENCE}`);
+    // Next month: the test cancels afterwards, and online cancelling closes 24 hours before a session.
+    await page.getByRole("button", { name: "Next month" }).click();
     await pickFirstOpenSlot(page);
     await page.getByRole("link", { name: "Continue" }).click();
     await fillDetails(page, { name: "Robin Gift" });

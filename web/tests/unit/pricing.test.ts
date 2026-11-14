@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeQuote, PricingError, refundForCancellation } from "@/lib/booking/pricing";
+import { computeQuote, PricingError, refundForCancellation, withPassOn } from "@/lib/booking/pricing";
 
 const perPerson = {
   id: "exp1",
@@ -23,6 +23,22 @@ describe("computeQuote", () => {
   it("per-person pricing multiplies by guests", () => {
     const q = computeQuote({ experience: perPerson, durationMinutes: 120, guests: 3 });
     expect(q.totalCents).toBe(45000);
+  });
+  it("adds extra hours as one flat fee, whatever the party size", () => {
+    const e = {
+      ...perPerson,
+      durationOptions: [
+        { minutes: 120, priceCents: 15000 },
+        { minutes: 180, priceCents: 15000, flatCents: 15000 },
+        { minutes: 240, priceCents: 15000, flatCents: 30000 },
+      ],
+    };
+    expect(computeQuote({ experience: e, durationMinutes: 120, guests: 3 }).totalCents).toBe(45000);
+    const q = computeQuote({ experience: e, durationMinutes: 240, guests: 3 });
+    expect(q.totalCents).toBe(45000 + 30000);
+    expect(q.extraTimeCents).toBe(30000);
+    expect(q.lines.map((l) => [l.label, l.amountCents])).toEqual([["3 × guest", 45000], ["Extra studio time", 30000]]);
+    expect(withPassOn(e, 300).durationOptions[1]).toMatchObject({ priceCents: 15500, flatCents: 15500 });
   });
   it("uses the price for the chosen duration", () => {
     expect(computeQuote({ experience: perPerson, durationMinutes: 180, guests: 2 }).totalCents).toBe(42000);

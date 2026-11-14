@@ -19,11 +19,11 @@ export function shortestMinutes(e: Pick<PublicExperience, "durationOptions">): n
   return Math.min(...e.durationOptions.map((o) => o.minutes));
 }
 
-/** "From $150 per guest" / "From $300 per session" */
+/** "$150 per person" / "From $300 per session" ("From" only when the price really varies) */
 export function priceLabel(e: PublicExperience, opts: { from?: boolean } = {}): string {
-  const many = e.durationOptions.length > 1 || e.priceVaries;
+  const many = new Set(e.durationOptions.map((o) => o.priceCents)).size > 1 || e.priceVaries;
   const from = opts.from ?? many;
-  const unit = e.pricingMode === "per_session" ? "per session" : "per guest";
+  const unit = e.pricingMode === "per_session" ? "per session" : "per person";
   return `${from ? "From " : ""}${formatMoney(fromPriceCents(e))} ${unit}`;
 }
 
@@ -32,24 +32,24 @@ export function priceUnit(e: PublicExperience): string {
     ? e.includedGuests > 1
       ? `per session, up to ${e.includedGuests} guests`
       : "per session"
-    : "per guest";
+    : "per person";
 }
 
-/** "2 hours" or "2, 3 or 4 hours" */
+/** "2 hours": the standard session. Longer options are extra hours on top. */
 export function durationLabel(e: PublicExperience): string {
-  const mins = [...e.durationOptions.map((o) => o.minutes)].sort((a, b) => a - b);
-  if (mins.length === 1) return fmtDuration(mins[0]);
-  if (mins.every((m) => m % 60 === 0)) {
-    const hrs = mins.map((m) => m / 60);
-    return `${hrs.slice(0, -1).join(", ")} or ${hrs[hrs.length - 1]} hours`;
-  }
-  return mins.map(fmtDuration).join(" / ");
+  return fmtDuration(shortestMinutes(e));
+}
+
+/** Flat fee for one extra hour, when longer sessions are offered that way. */
+export function extraHourCents(e: Pick<PublicExperience, "durationOptions">): number | null {
+  const flats = e.durationOptions.map((o) => o.flatCents ?? 0).filter(Boolean);
+  return flats.length ? Math.min(...flats) : null;
 }
 
 export function groupLabel(e: PublicExperience): string {
-  if (e.minGuests >= 5) return `Groups of ${e.minGuests}+`;
   if (e.maxGuests <= 1) return "Just you";
-  return `Private, 1–${e.maxGuests} guests`;
+  if (e.minGuests > 1) return `${e.minGuests} to ${e.maxGuests} guests`;
+  return `Up to ${e.maxGuests} guests`;
 }
 
 export function ageLabel(e: PublicExperience): string | null {
@@ -65,7 +65,6 @@ export function quickFacts(e: PublicExperience): { label: string; ph?: boolean }
   ];
   const age = ageLabel(e);
   if (age) facts.push({ label: age });
-  facts.push({ label: e.locationArea });
   return facts;
 }
 

@@ -56,7 +56,7 @@ export default async function BookExperiencePage({ params, searchParams }: Props
   let dateKey = one(sp.date);
 
   // A specific time was chosen: re-check it's still free before asking for details.
-  let slot: { start: string; end: string; adjustPercent?: number } | null = null;
+  let slot: { start: string; end: string; adjustPercent?: number; seatsLeft?: number } | null = null;
   if (!cancelled && startDate && !Number.isNaN(startDate.getTime())) {
     dateKey = localDateKey(startDate);
     const db = await getDb();
@@ -64,7 +64,7 @@ export default async function BookExperiencePage({ params, searchParams }: Props
     if (full) {
       const { days } = await getAvailability({ experience: full, fromKey: dateKey, toKey: dateKey, durationMinutes: duration });
       const match = days[0]?.slots.find((s) => s.start === startDate.toISOString());
-      if (match?.available) slot = { start: match.start, end: match.end, adjustPercent: match.adjustPercent };
+      if (match?.available) slot = { start: match.start, end: match.end, adjustPercent: match.adjustPercent, seatsLeft: match.seatsLeft };
       else notice = "Sorry, that time was just taken. Here's what's still open.";
     }
   }
@@ -88,8 +88,9 @@ export default async function BookExperiencePage({ params, searchParams }: Props
             start={slot.start}
             end={slot.end}
             duration={duration}
-            initialGuests={guests ?? defaultGuests(experience)}
+            initialGuests={Math.min(guests ?? defaultGuests(experience), slot.seatsLeft ?? experience.maxGuests)}
             adjustPercent={slot.adjustPercent}
+            seatsLeft={slot.seatsLeft}
           />
         </div>
       </section>
@@ -105,7 +106,7 @@ export default async function BookExperiencePage({ params, searchParams }: Props
             <h1 className={styles.title}>Pick a time</h1>
           </div>
           <p className="lede">
-            {experience.tagline}{" "}
+            {experience.name}.{" "}
             <Link href="/book" className="link">
               See all experiences
             </Link>

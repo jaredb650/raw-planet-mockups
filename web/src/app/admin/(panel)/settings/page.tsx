@@ -7,7 +7,8 @@ import { PageHeader, Panel } from "@/components/admin/PageHeader";
 import { ActionForm, SubmitButton } from "@/components/admin/ActionForm";
 import { Pill } from "@/components/admin/Pill";
 import { logout } from "../../login/actions";
-import { runAutomationsAction, saveContactAction, saveMarketingAction } from "./actions";
+import { runAutomationsAction, saveContactAction, saveMarketingAction, savePlatformAction } from "./actions";
+import { connectMode, getPlatform } from "@/lib/platform";
 import a from "@/components/admin/admin.module.css";
 
 export const metadata = { title: "Settings" };
@@ -16,12 +17,14 @@ export const maxDuration = 60;
 
 export default async function SettingsPage() {
   await requireAdmin();
-  const [hostPhone, hostWhatsapp, postalAddress, winBack, lastRun] = await Promise.all([
+  const [hostPhone, hostWhatsapp, postalAddress, winBack, lastRun, platform, passOn] = await Promise.all([
     getStringSetting("hostPhone"),
     getStringSetting("hostWhatsapp"),
     getStringSetting("postalAddress"),
     getSetting<boolean>("winBackEnabled"),
     getSetting<{ at: string; ok: boolean }>("lastCronRun"),
+    getPlatform(),
+    getSetting<boolean>("platformFeePassOn"),
   ]);
   const env = (k: string) => Boolean(process.env[k]);
   const checks: { name: string; on: boolean; what: string; off: string }[] = [
@@ -62,6 +65,29 @@ export default async function SettingsPage() {
             </ActionForm>
           </div>
         </Panel>
+
+        {connectMode() && (
+          <Panel title="Platform fee">
+            <div className={a.panelBody}>
+              <p>
+                {platform.feeBps / 100}% of each card payment goes to your booking platform. Stripe&rsquo;s processing fee is separate. Refunds don&rsquo;t return this fee.
+                {!platform.chargesEnabled && <> <Pill tone="warning">Card payments aren&rsquo;t ready yet</Pill></>}
+              </p>
+              <ActionForm action={savePlatformAction}>
+                <label className={a.check}>
+                  <input type="checkbox" name="passOn" defaultChecked={passOn === true} />
+                  <span>
+                    Build the fee into my prices
+                    <span className={a.cellSub}>Guests see higher prices, rounded to whole dollars, so you keep your list price. Gift cards stay at face value. Off means the fee comes out of your payout.</span>
+                  </span>
+                </label>
+                <div className={a.formFoot}>
+                  <SubmitButton pendingText="Saving…">Save</SubmitButton>
+                </div>
+              </ActionForm>
+            </div>
+          </Panel>
+        )}
 
         <Panel title="Marketing emails">
           <div className={a.panelBody}>

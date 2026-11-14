@@ -143,16 +143,18 @@ export default async function EditExperiencePage({
               <div className={e.durRow}>
                 <span className={e.durHead}>Minutes</span>
                 <span className={e.durHead}>Price ($)</span>
+                <span className={e.durHead}>Flat extra ($)</span>
                 <span className={e.durHead}>Label (optional)</span>
               </div>
               {durRows.map((o, i) => (
                 <div className={e.durRow} key={i}>
                   <input name="durMinutes" className={a.input} inputMode="numeric" defaultValue={o.minutes} aria-label={`Length ${i + 1} minutes`} placeholder={i >= x.durationOptions.length ? "e.g. 180" : undefined} />
                   <input name="durPrice" className={a.input} inputMode="decimal" defaultValue={o.priceCents == null ? "" : dollars(o.priceCents)} aria-label={`Length ${i + 1} price`} />
+                  <input name="durFlat" className={a.input} inputMode="decimal" defaultValue={"flatCents" in o && o.flatCents ? dollars(o.flatCents) : ""} aria-label={`Length ${i + 1} flat extra per booking`} />
                   <input name="durLabel" className={a.input} defaultValue={o.label ?? ""} aria-label={`Length ${i + 1} label`} placeholder={i === 0 ? "Most popular" : undefined} />
                 </div>
               ))}
-              <span className={a.hint}>Clear a row to remove that length. Existing bookings keep the price they paid.</span>
+              <span className={a.hint}>Clear a row to remove that length. Flat extra is added once per booking on top of the price (extra hours). Existing bookings keep the price they paid.</span>
             </div>
             <div className={a.formRow} style={{ ["--cols" as string]: 3 }}>
               <div className={a.field}>

@@ -9,7 +9,7 @@ type State = { kind: "idle" } | { kind: "sending" } | { kind: "done"; email: str
 
 const KIND_LABEL: Record<Kind, string> = {
   group: "Group or party",
-  private_event: "Private event",
+  private_event: "Private session",
   corporate: "Company / team",
   general: "A question",
   press: "Press or collab",
@@ -30,7 +30,7 @@ export function InquiryForm({
 }) {
   const [state, setState] = useState<State>({ kind: "idle" });
   const id = useId();
-  const kindOptions: Kind[] = variant === "group" ? ["group", "corporate", "private_event"] : ["general", "group", "press"];
+  const kindOptions: Kind[] = variant === "group" ? ["private_event", "group", "corporate"] : ["general", "group", "press"];
   const err = state.kind === "error" ? state : null;
   const invalid = (f: string) => (err?.field === f ? true : undefined);
 
@@ -176,7 +176,7 @@ export function InquiryForm({
       <div className={styles.actions}>
         <Turnstile />
         <button type="submit" className="btn btn--accent" disabled={state.kind === "sending"}>
-          {state.kind === "sending" ? "Sending…" : variant === "group" ? "Send group request" : "Send message"}
+          {state.kind === "sending" ? "Sending…" : variant === "group" ? "Send request" : "Send message"}
         </button>
         <p className={styles.fine}>Alex replies personally, usually within a day.</p>
       </div>

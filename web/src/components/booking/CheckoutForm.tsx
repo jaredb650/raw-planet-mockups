@@ -35,6 +35,7 @@ export function CheckoutForm({
   duration,
   initialGuests,
   adjustPercent,
+  seatsLeft,
 }: {
   experience: PublicExperience;
   date: string;
@@ -44,6 +45,8 @@ export function CheckoutForm({
   initialGuests: number;
   /** Smart pricing for this slot, so the first paint already shows the real price. */
   adjustPercent?: number;
+  /** Seats still open when other guests have already joined this session. */
+  seatsLeft?: number;
 }) {
   const id = useId();
   const formRef = useRef<HTMLFormElement>(null);
@@ -179,7 +182,14 @@ export function CheckoutForm({
         <div className={styles.card}>
           <div className={styles.section}>
             <h2 className={styles.cardTitle}>Who&rsquo;s coming?</h2>
-            <GuestStepper value={guests} min={e.minGuests} max={e.maxGuests} onChange={setGuests} label="Guests" hint={groupHint(e)} />
+            <GuestStepper
+              value={guests}
+              min={e.minGuests}
+              max={Math.min(e.maxGuests, seatsLeft ?? e.maxGuests)}
+              onChange={setGuests}
+              label="Guests"
+              hint={seatsLeft ? `${seatsLeft} ${seatsLeft === 1 ? "spot" : "spots"} left at this time` : groupHint(e)}
+            />
           </div>
 
           <div className={styles.section}>
@@ -211,7 +221,11 @@ export function CheckoutForm({
                     Phone <span className={styles.optional}>(optional)</span>
                   </label>
                   <input id={`${id}-phone`} name="phone" type="tel" inputMode="tel" className="input" autoComplete="tel" maxLength={40} {...invalid("phone")} />
-                  {err("phone") ?? <p className="hint">Only used if we need to reach you on the day.</p>}
+                  {err("phone") ?? (
+                    <p className="hint">
+                      {theme === "dj" ? "We use it to coordinate your 5 songs before the session." : "Only used if we need to reach you on the day."}
+                    </p>
+                  )}
                 </div>
               </div>
               <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
@@ -416,8 +430,7 @@ export function CheckoutForm({
       <aside className={styles.aside} aria-label="Booking summary">
         <div className={styles.summary} data-theme={theme}>
           <div className={styles.summaryTop}>
-            <h2>{e.shortName}</h2>
-            <p>{e.tagline}</p>
+            <h2>{e.name}</h2>
           </div>
           <div className={styles.summaryBody}>
             <dl className={styles.facts}>

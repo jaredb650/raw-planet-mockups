@@ -37,7 +37,7 @@ export default async function FaqPage() {
           ]),
         ]}
       />
-      <PageHeader crumbs={[{ name: "FAQ" }]} title="Good questions." lede="Everything people usually ask before they come. Can't find yours? Ask us and Alex will answer personally.">
+      <PageHeader crumbs={[{ name: "FAQ" }]} title="Questions & answers" lede="Everything people usually ask before they come. Can't find yours? Ask us and Alex will answer personally.">
         <div className={styles.search}>
           <FaqSearch scopeId="faq-all" />
         </div>

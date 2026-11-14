@@ -16,7 +16,7 @@
   padding: 14px 8px;
   border-radius: 18px;
   background: var(--brick);
-  color: #fff;
+  color: var(--cocoa);
   text-transform: uppercase;
   align-self: start;
 }
@@ -68,3 +68,6 @@
   .card[data-compact] .title { font-size: 1.4rem; }
   .card[data-compact] .meta { margin-bottom: 14px; }
 }
+
+/* Bold look: the card stays light on a coloured band */
+:global(:root[data-look="bold"]) .card { --mist: #f7efe2; --ink-soft: #4a5475; }

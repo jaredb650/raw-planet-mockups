@@ -8,7 +8,7 @@ type Ctx = { slug: string; theme: string; picked: boolean; choose: (slug: string
 const MoodCtx = createContext<Ctx | null>(null);
 
 /**
- * Holds the experience chosen in the home "mood" chooser. Re-tints everything
+ * Holds the experience picked from a home page card ("Check dates"). Re-tints everything
  * inside via data-theme, and tells the booking section which experience to show.
  */
 export function MoodProvider({

@@ -17,6 +17,7 @@ function parseDurations(fd: FormData): DurationOption[] {
   const mins = fd.getAll("durMinutes").map(String);
   const prices = fd.getAll("durPrice").map(String);
   const labels = fd.getAll("durLabel").map(String);
+  const flats = fd.getAll("durFlat").map(String);
   const out: DurationOption[] = [];
   mins.forEach((m, i) => {
     const mm = m.trim();
@@ -27,7 +28,9 @@ function parseDurations(fd: FormData): DurationOption[] {
     const price = parseDollars(p);
     if (price === null) throw new Error(`Length ${i + 1}: enter a price.`);
     const label = (labels[i] ?? "").trim();
-    out.push({ minutes, priceCents: price, ...(label ? { label } : {}) });
+    const flat = (flats[i] ?? "").trim() ? parseDollars(flats[i].trim()) : 0;
+    if (flat === null) throw new Error(`Length ${i + 1}: the flat extra must be an amount.`);
+    out.push({ minutes, priceCents: price, ...(flat ? { flatCents: flat } : {}), ...(label ? { label } : {}) });
   });
   if (!out.length) throw new Error("Add at least one session length with a price.");
   if (new Set(out.map((o) => o.minutes)).size !== out.length) throw new Error("Two session lengths are the same.");

@@ -37,7 +37,7 @@ export default async function PoliciesPage() {
       />
       <PageHeader
         crumbs={[{ name: "Policies" }]}
-        title="Fair and simple."
+        title="Policies"
         lede="Cancel for free up to the cutoff, move your session yourself, and get your money back the way you paid. Here are the details."
       />
       <div className={`wrap ${styles.layout}`}>
@@ -96,10 +96,10 @@ export default async function PoliciesPage() {
           <section id="arrival" aria-labelledby="a-title">
             <h2 id="a-title">On the day</h2>
             <ul>
-              <li>The exact address and arrival instructions are in your confirmation email and on your booking page.</li>
+              <li>The address and arrival instructions are in your confirmation email and on your booking page.</li>
               <li>
-                Running late? Message us as soon as you can. Sessions after yours may be booked, so we can&rsquo;t always run over, but we&rsquo;ll make
-                the most of the time you have.
+                Please arrive on time. If you&rsquo;re running late, let us know as soon as you can. Sessions are scheduled and reserved in advance, so
+                we can&rsquo;t guarantee extra time or extensions for late arrivals.
               </li>
               <li>Guests under 18 need a parent or guardian to book. Music production is open to ages 10 and up.</li>
               <li>Everything you need is in the room. Alex will show you how the gear works; please treat it kindly.</li>

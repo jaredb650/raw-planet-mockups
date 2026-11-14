@@ -33,7 +33,8 @@ import { CHECKOUT_HOLD_MINUTES, integrations, siteUrl } from "@/lib/config";
 import { newBookingCode, newToken, normalizeCode } from "@/lib/ids";
 import { formatMoney } from "@/lib/money";
 import { fmtDateShort, fmtDuration, fmtTimeRange, localDateKey } from "@/lib/time";
-import { computeQuote, pickPriceRule, refundForCancellation, type Quote } from "./pricing";
+import { computeQuote, pickPriceRule, refundForCancellation, type Quote, passOnCents, withPassOn } from "./pricing";
+import { passOnBps, paymentsReady } from "@/lib/platform";
 import { isSlotFree, loadPriceRules } from "./availability";
 import {
   CalcomError,
@@ -197,11 +198,12 @@ export async function buildQuote(
   }
 
   const now = new Date();
+  const feeBps = await passOnBps();
   const quote = computeQuote({
-    experience,
+    experience: withPassOn(experience, feeBps),
     durationMinutes: req.durationMinutes,
     guests: req.guests,
-    addons: addonRows.map((a) => ({ addon: a })),
+    addons: addonRows.map((a) => ({ addon: { ...a, priceCents: passOnCents(a.priceCents, feeBps) } })),
     promo: promo ?? null,
     giftCardBalanceCents: giftCard?.balanceCents ?? 0,
     priceRule: pickPriceRule(await loadPriceRules(db), experience.id, new Date(req.start), now),
@@ -250,13 +252,16 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   if (giftCardError) throw new BookingError(giftCardError);
   if (input.expectedTotalCents != null && input.expectedTotalCents !== quote.totalCents)
     throw new BookingError(`The price for this time just changed to ${formatMoney(quote.totalCents)}. Please check it and confirm again.`, "price_changed");
+  if (quote.totalCents > 0 && !(await paymentsReady())) throw new BookingError("Online payments aren't set up yet. Please contact us to book.", "policy");
   const end = new Date(start.getTime() + input.durationMinutes * 60_000);
   const holdExpiresAt = new Date(Date.now() + CHECKOUT_HOLD_MINUTES * 60_000);
 
+  let joinsSession = false;
   const booking = await db.transaction(async (tx) => {
     await lockResource(tx, experience.resourceGroup);
-    const free = await isSlotFree(tx, { experience, start, durationMinutes: input.durationMinutes });
+    const free = await isSlotFree(tx, { experience, start, durationMinutes: input.durationMinutes, guests: input.guests });
     if (!free.ok) throw new BookingError("Sorry, that time was just taken. Please pick another.", "slot_unavailable");
+    joinsSession = free.shared;
 
     const customerId = await upsertCustomer(
       tx,
@@ -317,8 +322,8 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     return b;
   });
 
-  // Hold the slot in Cal.com too (it re-checks Google Calendar / Airbnb).
-  if (experience.calEventTypeId) {
+  // Hold the slot in Cal.com too (it re-checks Google Calendar / Airbnb). A session already on the calendar is held.
+  if (experience.calEventTypeId && !joinsSession) {
     try {
       const r = await calReserveSlot({
         eventTypeId: experience.calEventTypeId,
@@ -438,6 +443,7 @@ export async function fulfillBooking(
         experience,
         start: b.startAt,
         durationMinutes: b.durationMinutes,
+        guests: b.guests,
         ignoreBookingId: b.id,
         skipNotice: true,
       });
@@ -770,6 +776,7 @@ export async function rescheduleBooking(
         experience,
         start: newStart,
         durationMinutes: duration,
+        guests: b.guests,
         ignoreBookingId: b.id,
         skipNotice: opts.by === "admin",
       });
@@ -948,7 +955,7 @@ export async function createManualBooking(input: {
   const booking = await db.transaction(async (tx) => {
     await lockResource(tx, experience.resourceGroup);
     if (!input.allowConflicts) {
-      const free = await isSlotFree(tx, { experience, start, durationMinutes: input.durationMinutes, skipNotice: true });
+      const free = await isSlotFree(tx, { experience, start, durationMinutes: input.durationMinutes, guests: input.guests, skipNotice: true });
       if (!free.ok) throw new BookingError(`That time conflicts with another booking or block (${free.reason}).`, "slot_unavailable");
     }
     const customerId = await upsertCustomer(tx, { ...input.contact, email, language: input.language });

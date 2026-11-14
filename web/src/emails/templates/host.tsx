@@ -195,7 +195,7 @@ function SessionRow({ s }: { s: DigestSession }) {
           {s.phone ? (
             <>
               {" · "}
-              <a href={`tel:${s.phone.replace(/[^\d+]/g, "")}`} style={{ color: C.brick }}>
+              <a href={`tel:${s.phone.replace(/[^\d+]/g, "")}`} style={{ color: C.brickDark }}>
                 {s.phone}
               </a>
             </>

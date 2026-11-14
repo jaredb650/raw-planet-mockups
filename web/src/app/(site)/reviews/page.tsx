@@ -16,7 +16,7 @@ import styles from "./reviews.module.css";
 
 export const metadata: Metadata = {
   title: "Reviews",
-  description: `Rated ${BUSINESS.airbnbRating.score} out of 5 by guests. Read what people say about Raw Planet's music production, DJ and sound meditation sessions in NYC.`,
+  description: `Rated ${BUSINESS.airbnbRating.score} out of 5 by guests. Read what people say about Raw Planet's music production, DJ and meditation experiences in NYC.`,
   alternates: { canonical: "/reviews" },
   openGraph: { url: "/reviews" },
 };
@@ -25,7 +25,7 @@ const VIDEOS = [
   meditationReel && {
     video: meditationReel,
     theme: "wellness",
-    title: "Inside a sound meditation",
+    title: "Inside the Meditation Experience",
     note: "Sound on. A real group session: crystal bowls, live soundscapes and projected visuals.",
   },
   productionReel && {
@@ -60,7 +60,7 @@ export default async function ReviewsPage({ searchParams }: PageProps<"/reviews"
       />
       <PageHeader
         crumbs={[{ name: "Reviews" }]}
-        title="Guests leave humming."
+        title="Reviews"
         tone="accent"
         lede="Real words from real guests: birthdays, first-timers, colleagues and couples who came in curious and left with a track."
         aside={
@@ -122,7 +122,7 @@ export default async function ReviewsPage({ searchParams }: PageProps<"/reviews"
               <div className={styles.videoAsk}>
                 <h3>Been to a session?</h3>
                 <p>
-                  We&rsquo;d love a 30-second video about how it felt, especially after sound meditation. Film it on your phone and send it with your
+                  We&rsquo;d love a 30-second video about how it felt, especially after the Meditation Experience. Film it on your phone and send it with your
                   review link, or reply to your thank-you email.
                 </p>
                 <Link href="/contact" className="btn btn--ghost btn--sm">
@@ -175,8 +175,8 @@ export default async function ReviewsPage({ searchParams }: PageProps<"/reviews"
 
       <section className={styles.cta} aria-labelledby="cta-title">
         <div className={`wrap ${styles.ctaGrid}`}>
-          <h2 id="cta-title">Your turn.</h2>
-          <p>Private sessions, no experience needed. Pick a room and a time.</p>
+          <h2 id="cta-title">Book an experience</h2>
+          <p>No experience needed. Pick an experience and a time.</p>
           <Link href="/experiences" className="btn btn--light">
             Find your session
           </Link>

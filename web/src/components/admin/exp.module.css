@@ -10,7 +10,7 @@
 @media (max-width: 420px) { .facts { grid-template-columns: repeat(2, auto); } }
 
 /* Editor */
-.durRow { display: grid; grid-template-columns: 110px 130px minmax(0, 1fr); gap: 8px; }
+.durRow { display: grid; grid-template-columns: 110px 130px 130px minmax(0, 1fr); gap: 8px; }
 .durHead { font-size: 12.5px; color: var(--a-grey); font-weight: 600; }
 .hours { display: grid; gap: 6px; }
 .hourRow { display: grid; grid-template-columns: 48px repeat(2, minmax(0, 1fr)); gap: 10px; align-items: center; }
@@ -25,7 +25,7 @@
 .media { display: flex; gap: 8px; flex-wrap: wrap; }
 .media img { width: 96px; height: 72px; object-fit: cover; border-radius: 6px; background: var(--mist); }
 @media (max-width: 640px) {
-  .durRow { grid-template-columns: 80px 100px minmax(0, 1fr); }
+  .durRow { grid-template-columns: 70px 80px 80px minmax(0, 1fr); }
   .hourRow { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 6px 0; border-bottom: 1px solid var(--a-line); }
   .save { bottom: 58px; }
 }

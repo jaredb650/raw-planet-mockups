@@ -5,11 +5,17 @@
  *   1. it falls inside the experience's weekly schedule (business-local time)
  *      and the whole session ends before the window closes;
  *   2. it respects lead time (min notice) and the max-advance window;
- *   3. it doesn't overlap (incl. buffer) any confirmed booking, live checkout
- *      hold, manual block, or imported calendar busy time in the same
- *      resource group (one host = one calendar);
- *   4. when Cal.com is connected, Cal.com also offers it — Cal.com checks the
+ *   3. it doesn't overlap (incl. buffer) any manual block, imported calendar
+ *      busy time, or session of another experience / another start time in
+ *      the same resource group (one host = one calendar);
+ *   4. sessions are shared: bookings of the same experience at the same start
+ *      time fill one session, which stays open until maxGuests seats are taken;
+ *   5. when Cal.com is connected, Cal.com also offers it — Cal.com checks the
  *      shared Google Calendar, which Airbnb Experiences syncs into.
+ *
+ * shortcut: Cal.com holds one event per start time, so only the first booking of a
+ * shared session is reserved there; later guests skip the Cal.com check and their
+ * calendar write logs a calendar_error. Upgrade to seated Cal.com events before connecting it.
  */
 import "server-only";
 import { and, eq, gt, inArray, isNull, lt, or } from "drizzle-orm";
@@ -19,7 +25,7 @@ import { calAvailableStarts } from "@/lib/integrations/calcom";
 import { addDaysKey, dateRange, fromLocal, localDateKey, overlaps, weekdayOf } from "@/lib/time";
 import { pickPriceRule } from "./pricing";
 
-export type Interval = { start: Date; end: Date; kind?: "booking" | "hold" | "block" };
+export type Interval = { start: Date; end: Date; kind?: "booking" | "hold" | "block"; experienceId?: string; guests?: number };
 
 export type Slot = {
   start: string; // ISO
@@ -28,6 +34,8 @@ export type Slot = {
   reason?: "past" | "notice" | "booked" | "blocked" | "calendar" | "too_far";
   /** Smart pricing change for an open slot. Unset = list price. */
   adjustPercent?: number;
+  /** Seats still open in a session other guests have already joined. Unset = nobody booked yet. */
+  seatsLeft?: number;
 };
 
 export type DayAvailability = { date: string; open: boolean; slots: Slot[] };
@@ -35,7 +43,8 @@ export type DayAvailability = { date: string; open: boolean; slots: Slot[] };
 type ScheduleExperience = Pick<
   Experience,
   "schedule" | "slotStepMinutes" | "bufferMinutes" | "leadTimeHours" | "maxAdvanceDays"
->;
+> &
+  Partial<Pick<Experience, "id" | "minGuests" | "maxGuests">>;
 
 /** Pure: candidate slots for one local day given busy intervals. Unit-tested. */
 export function computeDaySlots(opts: {
@@ -46,6 +55,8 @@ export function computeDaySlots(opts: {
   now: Date;
   /** Cal.com-approved starts (epoch ms). null = Cal.com not in use. */
   externalStarts?: Set<number> | null;
+  /** Seats the party needs. Defaults to the experience minimum. */
+  guests?: number;
 }): DayAvailability {
   const { experience: e, dateKey, durationMinutes, busy, now } = opts;
   const windows = e.schedule[String(weekdayOf(dateKey))] ?? [];
@@ -62,17 +73,31 @@ export function computeDaySlots(opts: {
       const start = new Date(t);
       const end = new Date(t + durationMinutes * 60_000);
       let reason: Slot["reason"];
+      let seatsLeft: number | undefined;
       if (start <= now) reason = "past";
       else if (start < earliest) reason = "notice";
       else if (dateKey > latestDay) reason = "too_far";
       else {
-        const hit = busy.find((b) =>
+        const hits = busy.filter((b) =>
           overlaps(new Date(start.getTime() - bufferMs), new Date(end.getTime() + bufferMs), b.start, b.end),
         );
-        if (hit) reason = hit.kind === "block" ? "blocked" : "booked";
-        else if (opts.externalStarts && !opts.externalStarts.has(start.getTime())) reason = "calendar";
+        // Same experience, same start = the same shared session: it takes seats instead of blocking.
+        const joins = (b: Interval) => Boolean(e.id) && b.kind !== "block" && b.experienceId === e.id && b.start.getTime() === t;
+        const blocker = hits.find((b) => !joins(b));
+        const taken = hits.reduce((n, b) => n + (b.guests ?? 0), 0);
+        if (blocker) reason = blocker.kind === "block" ? "blocked" : "booked";
+        else if (taken > 0) {
+          seatsLeft = Math.max(0, (e.maxGuests ?? 0) - taken);
+          if (seatsLeft < (opts.guests ?? e.minGuests ?? 1)) reason = "booked";
+        } else if (opts.externalStarts && !opts.externalStarts.has(start.getTime())) reason = "calendar";
       }
-      slots.push({ start: start.toISOString(), end: end.toISOString(), available: !reason, ...(reason ? { reason } : {}) });
+      slots.push({
+        start: start.toISOString(),
+        end: end.toISOString(),
+        available: !reason,
+        ...(reason ? { reason } : {}),
+        ...(seatsLeft !== undefined && !reason ? { seatsLeft } : {}),
+      });
     }
   }
   return { date: dateKey, open: windows.length > 0, slots };
@@ -91,6 +116,8 @@ export async function loadBusy(
       endAt: bookings.endAt,
       status: bookings.status,
       holdExpiresAt: bookings.holdExpiresAt,
+      experienceId: bookings.experienceId,
+      guests: bookings.guests,
     })
     .from(bookings)
     .where(
@@ -118,7 +145,13 @@ export async function loadBusy(
   return [
     ...rows
       .filter((r) => r.id !== opts.ignoreBookingId)
-      .map((r) => ({ start: r.startAt, end: r.endAt, kind: r.status === "pending_payment" ? ("hold" as const) : ("booking" as const) })),
+      .map((r) => ({
+        start: r.startAt,
+        end: r.endAt,
+        kind: r.status === "pending_payment" ? ("hold" as const) : ("booking" as const),
+        experienceId: r.experienceId,
+        guests: r.guests,
+      })),
     ...blockRows.map((b) => ({ start: b.startAt, end: b.endAt, kind: "block" as const })),
   ];
 }
@@ -146,6 +179,8 @@ export async function getAvailability(opts: {
   toKey: string;
   durationMinutes: number;
   ignoreBookingId?: string;
+  /** Seats the party needs (reschedules). Defaults to the experience minimum. */
+  guests?: number;
   now?: Date;
 }): Promise<{ days: DayAvailability[]; calendarError?: boolean }> {
   const db = await getDb();
@@ -179,7 +214,7 @@ export async function getAvailability(opts: {
   }
 
   const days = dateRange(opts.fromKey, opts.toKey).map((dateKey) =>
-    computeDaySlots({ experience: opts.experience, dateKey, durationMinutes: opts.durationMinutes, busy, now, externalStarts }),
+    computeDaySlots({ experience: opts.experience, dateKey, durationMinutes: opts.durationMinutes, busy, now, externalStarts, guests: opts.guests }),
   );
   const rules = await loadPriceRules(db);
   for (const s of days.flatMap((d) => d.slots)) {
@@ -192,8 +227,8 @@ export async function getAvailability(opts: {
 /** Re-check a single slot inside a transaction (call after taking the advisory lock). */
 export async function isSlotFree(
   tx: Tx,
-  opts: { experience: Experience; start: Date; durationMinutes: number; ignoreBookingId?: string; now?: Date; skipNotice?: boolean },
-): Promise<{ ok: true } | { ok: false; reason: NonNullable<Slot["reason"]> | "outside_hours" }> {
+  opts: { experience: Experience; start: Date; durationMinutes: number; guests?: number; ignoreBookingId?: string; now?: Date; skipNotice?: boolean },
+): Promise<{ ok: true; shared: boolean } | { ok: false; reason: NonNullable<Slot["reason"]> | "outside_hours" }> {
   const now = opts.now ?? new Date();
   const dateKey = localDateKey(opts.start);
   const busy = await loadBusy(tx, {
@@ -205,9 +240,9 @@ export async function isSlotFree(
     now,
   });
   const exp = opts.skipNotice ? { ...opts.experience, leadTimeHours: 0, maxAdvanceDays: 3650 } : opts.experience;
-  const day = computeDaySlots({ experience: exp, dateKey, durationMinutes: opts.durationMinutes, busy, now });
+  const day = computeDaySlots({ experience: exp, dateKey, durationMinutes: opts.durationMinutes, busy, now, guests: opts.guests });
   const slot = day.slots.find((s) => new Date(s.start).getTime() === opts.start.getTime());
   if (!slot) return { ok: false, reason: "outside_hours" };
   if (!slot.available) return { ok: false, reason: slot.reason ?? "booked" };
-  return { ok: true };
+  return { ok: true, shared: slot.seatsLeft !== undefined };
 }

@@ -1,6 +1,6 @@
 /**
  * Read-only queries for public pages. Return plain serialisable objects that
- * are safe to pass to client components (no private address, no tokens).
+ * are safe to pass to client components (no tokens). Addresses are public: the client lists them on the site.
  */
 import "server-only";
 import { and, asc, avg, count, desc, eq, gte } from "drizzle-orm";
@@ -8,12 +8,14 @@ import { getDb } from "@/lib/db";
 import { addons, eventRsvps, events, experiences, pricingRules, reviews, type Experience } from "@/lib/db/schema";
 import { BUSINESS } from "@/lib/config";
 import { todayKey } from "@/lib/time";
+import { passOnCents, withPassOn } from "@/lib/booking/pricing";
+import { passOnBps } from "@/lib/platform";
 
 export type PublicExperience = Pick<
   Experience,
   | "id" | "slug" | "name" | "shortName" | "tagline" | "summary" | "description" | "theme" | "highlights" | "includes"
   | "goodToKnow" | "media" | "pricingMode" | "durationOptions" | "includedGuests" | "extraGuestCents" | "minGuests"
-  | "maxGuests" | "minAge" | "locationArea" | "cancellationHours" | "leadTimeHours" | "maxAdvanceDays" | "isPlaceholder" | "airbnbUrl"
+  | "maxGuests" | "minAge" | "locationArea" | "address" | "cancellationHours" | "leadTimeHours" | "maxAdvanceDays" | "isPlaceholder" | "airbnbUrl"
 > & {
   addons: { id: string; name: string; description: string; priceCents: number; pricing: "per_booking" | "per_guest" }[];
   /** A live smart pricing rule covers this experience, so a flat headline price would be untrue. */
@@ -27,7 +29,7 @@ function toPublic(e: Experience, addonRows: (typeof addons.$inferSelect)[], rule
     description: e.description, theme: e.theme, highlights: e.highlights, includes: e.includes, goodToKnow: e.goodToKnow,
     media: e.media, pricingMode: e.pricingMode, durationOptions: e.durationOptions, includedGuests: e.includedGuests,
     extraGuestCents: e.extraGuestCents, minGuests: e.minGuests, maxGuests: e.maxGuests, minAge: e.minAge,
-    locationArea: e.locationArea, cancellationHours: e.cancellationHours, leadTimeHours: e.leadTimeHours,
+    locationArea: e.locationArea, address: e.address, cancellationHours: e.cancellationHours, leadTimeHours: e.leadTimeHours,
     maxAdvanceDays: e.maxAdvanceDays, isPlaceholder: e.isPlaceholder, airbnbUrl: e.airbnbUrl,
     priceVaries: rules.some((r) => (!r.experienceIds?.length || r.experienceIds.includes(e.id)) && (!r.dateTo || r.dateTo >= today)),
     addons: addonRows
@@ -44,7 +46,9 @@ export async function getActiveExperiences(): Promise<PublicExperience[]> {
     db.select().from(addons).where(eq(addons.active, true)),
     db.select({ experienceIds: pricingRules.experienceIds, dateTo: pricingRules.dateTo }).from(pricingRules).where(eq(pricingRules.active, true)),
   ]);
-  return rows.map((e) => toPublic(e, addonRows, rules));
+  const feeBps = await passOnBps();
+  const priced = addonRows.map((a) => ({ ...a, priceCents: passOnCents(a.priceCents, feeBps) }));
+  return rows.map((e) => toPublic(withPassOn(e, feeBps), priced, rules));
 }
 
 export async function getPublicExperience(slug: string): Promise<PublicExperience | null> {

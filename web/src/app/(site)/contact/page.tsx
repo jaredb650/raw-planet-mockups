@@ -27,7 +27,7 @@ export default async function ContactPage() {
       />
       <PageHeader
         crumbs={[{ name: "Contact" }]}
-        title="Ask us anything."
+        title="Contact"
         lede="A question before you book, a special request or an idea for a collab. Alex reads every message and replies personally, in English or Spanish."
       />
       <section className={styles.section} aria-label="Contact options">
@@ -54,7 +54,7 @@ export default async function ContactPage() {
             </div>
             <div className={styles.tile}>
               <h2 className={styles.h3}>Planning for a group?</h2>
-              <p>Parties, team days and sound baths for 10 or more get their own request form.</p>
+              <p>Private sessions, parties and team days get their own request form.</p>
               <Link href="/groups#request" className="btn btn--ghost btn--sm">
                 Group request
               </Link>

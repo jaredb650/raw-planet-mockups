@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { BUSINESS } from "@/lib/config";
 
-export const alt = `${BUSINESS.name}: private music production, DJ and sound meditation sessions in New York City`;
+export const alt = `${BUSINESS.name}: music production, DJ and meditation experiences in New York City`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -36,26 +36,26 @@ export default async function OpengraphImage() {
   const display = font ? "Big Shoulders" : undefined;
   return new ImageResponse(
     (
-      <div style={{ width: "100%", height: "100%", display: "flex", background: "#fffaf1", color: "#3a2212", fontFamily: display }}>
+      <div style={{ width: "100%", height: "100%", display: "flex", background: "#fffcf7", color: "#0e1e48", fontFamily: display }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "64px 56px 56px 72px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 30, fontWeight: 800, letterSpacing: 1, fontFamily: display }}>
-            <div style={{ width: 30, height: 30, borderRadius: 30, background: "#b8482e" }} />
+            <div style={{ width: 30, height: 30, borderRadius: 30, background: "#ee5622" }} />
             RAW PLANET
           </div>
           <div style={{ display: "flex", flexDirection: "column", fontFamily: display, fontWeight: 800, fontSize: font ? 100 : 80, lineHeight: 0.9 }}>
-            <span>MAKE IT LOUD.</span>
-            <span style={{ color: "#b8482e" }}>MAKE IT YOURS.</span>
+            <span>MUSIC EXPERIENCES</span>
+            <span style={{ color: "#ee5622" }}>IN NEW YORK CITY</span>
           </div>
           <div style={{ display: "flex", gap: 12, fontSize: font ? 30 : 24 }}>
-            {["Music production", "DJ", "Sound meditation"].map((t, i) => (
+            {["Music production", "Learn to DJ", "Meditation"].map((t, i) => (
               <div
                 key={t}
                 style={{
                   display: "flex",
                   padding: "10px 20px",
                   borderRadius: 999,
-                  background: ["#e0a030", "#e8703a", "#8db66f"][i],
-                  color: "#3a2212",
+                  background: ["#4fb3d9", "#f47a3a", "#8cb54a"][i],
+                  color: "#0e1e48",
                   fontWeight: 700,
                 }}
               >

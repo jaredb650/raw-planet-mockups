@@ -64,6 +64,7 @@ One endpoint runs everything, in this order. `?job=reminders,followups` runs a s
 | `weeklyReport` | Last Monday to Sunday for the host (once per week, from 7am NY on Monday; a missed Monday catches up on the next run) |
 | `campaignQueue` | Sends the next batch of any campaign still going out, so a long list survives the 60-second limit |
 | `winBack` | Off by default (Settings). One rebook email per guest per 180 days, to opted-in guests whose last session was 120+ days ago |
+| `hqReport` | Connect sites only. Sends yesterday's totals to HQ, signed, with no guest details, and stores the fee rate and account HQ answers with |
 
 **Auth:** `Authorization: Bearer $CRON_SECRET`, or a signed-in admin, or local
 dev with no `CRON_SECRET` set. A lease in `settings.cronLock` stops overlapping

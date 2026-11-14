@@ -115,6 +115,8 @@ export function BookingPicker({
   const state = day ? dayState(day) : "unavailable";
   const start = pickedStart && day?.slots.some((s) => s.start === pickedStart && s.available) ? pickedStart : null;
   const startSlot = start ? day?.slots.find((s) => s.start === start) : undefined;
+  // A session other guests already joined only has its remaining seats to offer.
+  const seatsOf = (iso: string | null) => (iso ? day?.slots.find((s) => s.start === iso)?.seatsLeft : undefined);
 
   if (!exp) return <p className="muted">No experiences are open for booking right now.</p>;
 
@@ -287,7 +289,11 @@ export function BookingPicker({
             <SlotPicker
               slots={day?.slots ?? []}
               selected={start}
-              onSelect={setPickedStart}
+              onSelect={(iso) => {
+                setPickedStart(iso);
+                const left = seatsOf(iso);
+                if (left && guests > left) setGuests(left);
+              }}
               loading={loading}
               priceOf={
                 priced
@@ -309,9 +315,9 @@ export function BookingPicker({
           <GuestStepper
             value={guests}
             min={exp.minGuests}
-            max={exp.maxGuests}
+            max={Math.min(exp.maxGuests, startSlot?.seatsLeft ?? exp.maxGuests)}
             onChange={setGuests}
-            hint={groupHint(exp)}
+            hint={startSlot?.seatsLeft ? `${startSlot.seatsLeft} ${startSlot.seatsLeft === 1 ? "spot" : "spots"} left at this time` : groupHint(exp)}
           />
 
           <div className={styles.summary} data-sticky={!compact || undefined}>
@@ -321,10 +327,11 @@ export function BookingPicker({
             <div className={styles.total}>
               <span>
                 {fromCents === null ? "Total" : "From"}
-                {quote && exp.pricingMode === "per_person" && guests > 1 && !priced ? (
+                {quote && exp.pricingMode === "per_person" && (guests > 1 || quote.extraTimeCents > 0) && !priced ? (
                   <small className="muted">
                     {" "}
-                    {formatMoney(quote.baseCents / guests)} × {guests}
+                    {formatMoney((quote.baseCents - quote.extraTimeCents) / guests)} × {guests}
+                    {quote.extraTimeCents > 0 ? ` + ${formatMoney(quote.extraTimeCents)}` : ""}
                   </small>
                 ) : null}
               </span>

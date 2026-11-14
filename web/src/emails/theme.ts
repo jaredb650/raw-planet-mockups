@@ -3,19 +3,19 @@
  * so everything here is a literal value used in inline styles.
  */
 export const C = {
-  brick: "#B8482E",
-  brickDark: "#9A3B25",
-  ochre: "#E0A030",
-  orange: "#E8703A",
-  green: "#8DB66F",
-  powder: "#C9DCE3",
-  cream: "#F7E7C6",
-  cocoa: "#3A2212",
-  paper: "#FFFDF8",
-  mist: "#FBF3E4",
-  line: "#EAD9BB",
-  inkSoft: "#6E5747",
-  inkFaint: "#8F7B6B",
+  brick: "#EE5622",
+  brickDark: "#C9431A",
+  ochre: "#4FB3D9",
+  orange: "#F47A3A",
+  green: "#8CB54A",
+  powder: "#CFE8F3",
+  cream: "#FBEEDB",
+  cocoa: "#0E1E48",
+  paper: "#FFFCF7",
+  mist: "#F7EFE2",
+  line: "#E6DCCB",
+  inkSoft: "#4A5475",
+  inkFaint: "#7C86A0",
   white: "#FFFFFF",
   success: "#3F7D3A",
   successSoft: "#E3F0DC",
@@ -26,12 +26,12 @@ export const C = {
 
 export type ThemeKey = "production" | "dj" | "wellness" | "brand";
 
-/** Accent per experience. `soft` is a pale tint for panels; text on either stays cocoa. */
+/** Accent per experience. `soft` is a pale tint for panels; text on either stays cocoa (navy). */
 export const ACCENTS: Record<ThemeKey, { strong: string; soft: string; emoji: string }> = {
-  production: { strong: C.ochre, soft: "#FBECC9", emoji: "🎙" },
-  dj: { strong: C.orange, soft: "#FBE1D3", emoji: "🎛" },
-  wellness: { strong: C.green, soft: "#E8F1DF", emoji: "🔔" },
-  brand: { strong: C.brick, soft: "#F6DFD6", emoji: "✦" },
+  production: { strong: C.ochre, soft: "#DBF0F8", emoji: "🎙" },
+  dj: { strong: C.orange, soft: "#FFE3D3", emoji: "🎛" },
+  wellness: { strong: C.green, soft: "#E7F1D6", emoji: "🔔" },
+  brand: { strong: C.brick, soft: "#FDE1D5", emoji: "✦" },
 };
 
 export function accentFor(theme: string | null | undefined) {

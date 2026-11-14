@@ -34,7 +34,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ template: s
       }),
     );
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Email previews</title>
-<style>body{font:15px/1.5 system-ui,sans-serif;margin:0;padding:24px 16px;background:#F7E7C6;color:#3A2212}main{max-width:1100px;margin:auto}table{border-collapse:collapse;width:100%;background:#FFFDF8;border-radius:12px;overflow:hidden}td,th{padding:10px 12px;border-bottom:1px solid #EAD9BB;text-align:left;vertical-align:top}a{color:#B8482E;font-weight:600}small{color:#6E5747}nav a{margin-right:12px}</style></head>
+<style>body{font:15px/1.5 system-ui,sans-serif;margin:0;padding:24px 16px;background:#fbeedb;color:#0e1e48}main{max-width:1100px;margin:auto}table{border-collapse:collapse;width:100%;background:#fffcf7;border-radius:12px;overflow:hidden}td,th{padding:10px 12px;border-bottom:1px solid #e6dccb;text-align:left;vertical-align:top}a{color:#ee5622;font-weight:600}small{color:#4a5475}nav a{margin-right:12px}</style></head>
 <body><main><h1>Email previews</h1><nav>Theme: <a href="?theme=production">production</a><a href="?theme=dj">dj</a><a href="?theme=wellness">wellness</a></nav><p>${Object.keys(TEMPLATES).length} templates. Subjects shown EN / ES.</p>
 <table><thead><tr><th>Key</th><th>Template</th><th>Open</th><th>Subject</th></tr></thead><tbody>${rows.join("")}</tbody></table></main></body></html>`;
     return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });

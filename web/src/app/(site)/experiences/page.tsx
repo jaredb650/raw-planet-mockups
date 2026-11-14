@@ -1,26 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ExperienceRow } from "@/components/site/ExperienceRow";
-import { ageLabel, durationLabel, groupLabel, priceLabel, themeOf } from "@/components/site/format";
+import { ExperienceRows } from "@/components/site/ExperienceRow";
+import { ageLabel, durationLabel, extraHourCents, groupLabel, priceLabel, themeOf } from "@/components/site/format";
 import { JsonLd } from "@/components/site/JsonLd";
 import { PageHeader } from "@/components/site/PageHeader";
 import { breadcrumbJsonLd } from "@/components/site/schema";
-import { MOODS } from "@/content/site";
 import { siteUrl } from "@/lib/config";
+import { formatMoney } from "@/lib/money";
 import { getActiveExperiences } from "@/lib/queries/public";
 import styles from "./experiences.module.css";
 
 export const metadata: Metadata = {
   title: "Experiences",
-  description: "Music production, DJ and sound meditation sessions in New York City. Private, beginner-friendly and hosted by producer Alex Gentil.",
+  description: "Music production, DJ and meditation experiences in New York City. Two hours, beginner-friendly and hosted by producer Alex Gentil.",
   alternates: { canonical: "/experiences" },
   openGraph: { url: "/experiences" },
 };
 
 const TAKE_HOME: Record<string, string> = {
-  production: "Your finished track",
-  dj: "Your first real set",
-  wellness: "A slower heartbeat",
+  production: "A bounced audio file of your music, plus pictures",
+  dj: "A recording of the mix you create",
+  wellness: "The full meditation recording and original compositions",
 };
 
 export default async function ExperiencesPage() {
@@ -42,9 +42,9 @@ export default async function ExperiencesPage() {
       />
       <PageHeader
         crumbs={[{ name: "Experiences" }]}
-        eyebrow="Private sessions in New York City"
-        title="Three rooms. Three ways in."
-        lede="Make a track, play your first DJ set or lie back inside the sound. Every session is hosted by Alex, and you don't need to know anything before you arrive."
+        eyebrow="New York City"
+        title="Experiences"
+        lede="Produce a track, learn to DJ or join a guided sound meditation. Every experience is 2 hours, open to individual and group bookings, and needs no experience."
       />
 
       <section className={styles.compareWrap} aria-labelledby="compare-title">
@@ -61,7 +61,6 @@ export default async function ExperiencesPage() {
                   </th>
                   {experiences.map((e) => (
                     <th key={e.slug} scope="col" data-theme={themeOf(e)}>
-                      <span className={styles.colLabel}>{MOODS[themeOf(e)]?.label ?? e.shortName}</span>
                       <Link href={`/experiences/${e.slug}`}>{e.shortName}</Link>
                     </th>
                   ))}
@@ -83,6 +82,13 @@ export default async function ExperiencesPage() {
                   ))}
                 </tr>
                 <tr>
+                  <th scope="row">Extra hours</th>
+                  {experiences.map((e) => {
+                    const extra = extraHourCents(e);
+                    return <td key={e.slug}>{extra ? `${formatMoney(extra)} per hour` : "Not offered"}</td>;
+                  })}
+                </tr>
+                <tr>
                   <th scope="row">Who</th>
                   {experiences.map((e) => (
                     <td key={e.slug}>
@@ -94,7 +100,7 @@ export default async function ExperiencesPage() {
                 <tr>
                   <th scope="row">Where</th>
                   {experiences.map((e) => (
-                    <td key={e.slug}>{e.locationArea}</td>
+                    <td key={e.slug}>{e.address || e.locationArea}</td>
                   ))}
                 </tr>
                 <tr>
@@ -123,9 +129,7 @@ export default async function ExperiencesPage() {
 
       <section className={styles.rows} aria-label="The experiences">
         <div className="wrap">
-          {experiences.map((e, i) => (
-            <ExperienceRow key={e.slug} e={e} index={i} />
-          ))}
+          <ExperienceRows experiences={experiences} />
         </div>
       </section>
 
@@ -138,7 +142,7 @@ export default async function ExperiencesPage() {
               Ask Alex
             </Link>
             <Link href="/groups" className="btn btn--ghost">
-              Planning for a group
+              Private sessions
             </Link>
           </div>
         </div>

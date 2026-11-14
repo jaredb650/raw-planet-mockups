@@ -21,13 +21,13 @@ export type LayoutProps = {
 
 const footerCopy = {
   en: {
-    tagline: "Private music production, DJ and sound meditation sessions in New York City.",
+    tagline: "Music production, DJ and meditation experiences in New York City.",
     reply: "Questions? Just reply to this email. It goes straight to Alex.",
     manage: "Manage your booking",
     langs: "Sessions in English & Spanish",
   },
   es: {
-    tagline: "Sesiones privadas de producción musical, DJ y meditación con sonido en Nueva York.",
+    tagline: "Experiencias de producción musical, DJ y meditación en Nueva York.",
     reply: "¿Dudas? Responde a este correo y le llega directo a Alex.",
     manage: "Gestionar tu reserva",
     langs: "Sesiones en inglés y español",

@@ -3,10 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { cardPhotoFor, SITE_MEDIA } from "@/components/site/media";
 import { JsonLd } from "@/components/site/JsonLd";
-import { themeOf } from "@/components/site/format";
+import { priceLabel, themeOf } from "@/components/site/format";
 import { breadcrumbJsonLd } from "@/components/site/schema";
 import { Stars } from "@/components/site/Stars";
-import { HOST, MOODS } from "@/content/site";
+import { COHOSTS, HOST } from "@/content/site";
 import { BUSINESS, siteUrl } from "@/lib/config";
 import { getActiveExperiences, getPublishedReviews, getRatingSummary } from "@/lib/queries/public";
 import { Breadcrumbs } from "@/components/site/PageHeader";
@@ -15,7 +15,7 @@ import styles from "./about.module.css";
 export const metadata: Metadata = {
   title: "About Alex",
   description:
-    "Alex Gentil is a New York DJ, producer and audio engineer from Colombia with more than ten years in the studio. He hosts every Raw Planet session, in English or Spanish.",
+    "Alex Gentil is a New York DJ, producer and audio engineer from Colombia with more than ten years in the studio. He leads every Raw Planet experience, in English or Spanish.",
   alternates: { canonical: "/about" },
   openGraph: { url: "/about", type: "profile" },
 };
@@ -25,6 +25,7 @@ export default async function AboutPage() {
   const aboutAlex = reviews.filter((r) => /alex|cristian|host/i.test(r.body) && r.body.length < 260).slice(0, 3);
   const portrait = SITE_MEDIA.host;
   const second = SITE_MEDIA.hostAlt;
+  const coHosted = experiences.filter((e) => COHOSTS[e.theme]?.count);
 
   return (
     <>
@@ -80,9 +81,6 @@ export default async function AboutPage() {
                 <Image src={second.src} alt={second.alt} fill sizes="(max-width: 900px) 40vw, 220px" className={styles.cover} />
               </div>
             ) : null}
-            <div className={styles.sticker} aria-hidden="true">
-              Hablamos español
-            </div>
           </div>
         </div>
       </section>
@@ -107,16 +105,56 @@ export default async function AboutPage() {
         </div>
       </section>
 
+      {coHosted.length ? (
+        <section className={styles.team} aria-labelledby="team-title">
+          <div className={`wrap ${styles.whyGrid}`}>
+            <h2 id="team-title">Co-hosts</h2>
+            <div>
+              <ul className={styles.teamList}>
+                {coHosted.map((e) => {
+                  const { count, people } = COHOSTS[e.theme];
+                  return (
+                    <li key={e.slug}>
+                      <strong>{e.name}</strong>
+                      <span>
+                        Alex is joined by {count === 1 ? "one co-host" : count === 2 ? "two co-hosts" : `${count} co-hosts`}
+                        {people.length ? `: ${people.map((p) => p.name).join(" and ")}` : ""}.
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className={styles.teamGrid}>
+                {coHosted.flatMap((e) =>
+                  COHOSTS[e.theme].people.map((p) => (
+                    <article key={`${e.slug}-${p.name}`} className={styles.teamCard}>
+                      {p.photo ? (
+                        <div className={styles.teamImg}>
+                          <Image src={p.photo.src} alt={p.photo.alt} fill sizes="(max-width: 900px) 92vw, 280px" className={styles.cover} />
+                        </div>
+                      ) : null}
+                      <h3>{p.name}</h3>
+                      <p className="eyebrow">{e.name}</p>
+                      <p>{p.bio}</p>
+                    </article>
+                  )),
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <section className={styles.why} aria-labelledby="why-title">
         <div className={`wrap ${styles.whyGrid}`}>
           <h2 id="why-title">Why Raw Planet?</h2>
           <div>
             <p className="lede">
               Most people never get to stand in a real studio and hear their own idea come out of the big speakers. Raw Planet exists to make that easy:
-              private sessions, no jargon, and a host who has spent a career making other people sound good.
+              no jargon, and a host who has spent a career making other people sound good.
             </p>
             <p>
-              Sessions are private, so it&rsquo;s just you and your people. You don&rsquo;t need to sing, play an instrument or know any software. Alex
+              Sessions are open to individual and group bookings. You don&rsquo;t need to sing, play an instrument or know any software. Alex
               handles the technical side, so you can focus on the fun part.
             </p>
           </div>
@@ -126,7 +164,7 @@ export default async function AboutPage() {
       <section className={styles.rooms} aria-labelledby="rooms-title">
         <div className="wrap">
           <h2 id="rooms-title" className={styles.h2}>
-            Three ways to work with Alex
+            The experiences
           </h2>
           <div className={styles.roomGrid}>
             {experiences.map((e) => {
@@ -137,9 +175,10 @@ export default async function AboutPage() {
                   <div className={styles.roomImg}>
                     <Image src={ph.src} alt="" fill sizes="(max-width: 900px) 92vw, 380px" className={styles.cover} />
                   </div>
-                  <span className={styles.roomLabel}>{MOODS[t]?.label ?? e.shortName}</span>
-                  <strong>{e.shortName}</strong>
-                  <span className="muted">{e.tagline}</span>
+                  <strong>{e.name}</strong>
+                  <span className="muted">
+                    {priceLabel(e)} · {e.locationArea}
+                  </span>
                 </Link>
               );
             })}
@@ -175,7 +214,7 @@ export default async function AboutPage() {
 
       <section className={styles.follow} aria-labelledby="follow-title">
         <div className={`wrap ${styles.followGrid}`}>
-          <h2 id="follow-title">Hear more.</h2>
+          <h2 id="follow-title">Listen and follow</h2>
           <ul className={styles.links}>
             <li>
               <a href={BUSINESS.soundcloud} target="_blank" rel="noopener">

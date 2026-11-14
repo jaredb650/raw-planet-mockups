@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { BookingSlot } from "@/components/site/BookingSlot";
 import { FaqList } from "@/components/site/FaqList";
 import { resolveFaq } from "@/components/site/faq";
-import { ageLabel, durationLabel, groupLabel, priceLabel, priceUnit, themeOf } from "@/components/site/format";
+import { ageLabel, durationLabel, extraHourCents, groupLabel, priceLabel, priceUnit, themeOf } from "@/components/site/format";
 import { Gallery } from "@/components/site/Gallery";
 import { JsonLd } from "@/components/site/JsonLd";
 import { cardPhotoFor, photosFor, reelFor, SITE_MEDIA } from "@/components/site/media";
@@ -15,11 +15,10 @@ import { ReviewCard } from "@/components/site/ReviewCard";
 import { breadcrumbJsonLd, experienceJsonLd } from "@/components/site/schema";
 import { RatingBadge } from "@/components/site/Stars";
 import { StickyBookBar } from "@/components/site/StickyBookBar";
-import { EXPERIENCE_FAQ, HOST, MOODS, PERFECT_FOR, SESSION_FLOW_TITLE, SLOGANS } from "@/content/site";
+import { EXPERIENCE_FAQ, HOST, hostsLine, PERFECT_FOR, PRIVATE_SESSION_CENTS, SESSION_FLOW_TITLE } from "@/content/site";
 import { BUSINESS } from "@/lib/config";
 import { formatMoney } from "@/lib/money";
 import { getActiveExperiences, getPublishedReviews, getRatingSummary } from "@/lib/queries/public";
-import { fmtDuration } from "@/lib/time";
 import { Breadcrumbs } from "@/components/site/PageHeader";
 import styles from "./experience.module.css";
 
@@ -60,14 +59,16 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
   const isGroupOnly = e.minGuests >= 5;
   const paragraphs = (e.description || e.summary).split(/\n{2,}/).filter(Boolean);
   const age = ageLabel(e);
-  const sortedOptions = [...e.durationOptions].sort((a, b) => a.minutes - b.minutes);
+  const extraHour = extraHourCents(e);
+  const privateCents = PRIVATE_SESSION_CENTS[theme];
   const nameBySlug = Object.fromEntries(experiences.map((x) => [x.slug, x.shortName]));
 
   const facts: { k: string; v: string; ph?: boolean }[] = [
     { k: "Length", v: durationLabel(e), ph: e.isPlaceholder },
     { k: "Group", v: groupLabel(e) },
     ...(age ? [{ k: "Ages", v: age.replace("Ages ", "") }] : []),
-    { k: "Where", v: e.locationArea },
+    { k: "Where", v: e.address || e.locationArea },
+    { k: "Hosts", v: hostsLine(theme) },
     { k: "Language", v: "English or Spanish" },
   ];
 
@@ -85,16 +86,16 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
       />
 
       {/* Title + gallery */}
-      <section className={styles.top} aria-labelledby="exp-title">
+      <section data-band="navy" className={styles.top} aria-labelledby="exp-title">
         <div className="wrap">
           <Breadcrumbs crumbs={[{ name: "Experiences", href: "/experiences" }, { name: e.shortName }]} />
           <div className={styles.titleRow}>
             <div>
               <p className={styles.kicker}>
-                <span className={styles.swatch} aria-hidden="true" /> {e.name}
+                <span className={styles.swatch} aria-hidden="true" /> {durationLabel(e)} · {priceLabel(e)}
               </p>
               <h1 id="exp-title" className={styles.title}>
-                {e.tagline || e.name}
+                {e.name}
               </h1>
             </div>
             <div className={styles.titleMeta}>
@@ -158,12 +159,12 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
               <div className={styles.reelCopy}>
                 <p className="eyebrow">{theme === "wellness" ? "Watch before you book" : "From the studio"}</p>
                 <h2 id="reel-title" className={styles.h2}>
-                  {theme === "wellness" ? "See and hear the room." : "Watch a session come together."}
+                  {theme === "wellness" ? "See and hear a session" : "Watch a session"}
                 </h2>
                 <p className="muted">
                   {theme === "wellness"
                     ? "Turn the sound on. This is a real session: crystal bowls, live soundscapes and projected visuals, filmed in the room."
-                    : "Studio b-roll, Alex at the desk and what guests said afterwards, in under half a minute."}
+                    : "Studio footage, Alex at the desk and what guests said afterwards, in under half a minute."}
                 </p>
               </div>
               <div className={styles.reel}>
@@ -193,7 +194,7 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
                   <li>
                     Free cancellation up to {e.cancellationHours} hours before. <Link href="/policies" className="link">Policies</Link>
                   </li>
-                  <li>The exact address arrives with your confirmation.</li>
+                  {e.address ? <li>Address: {e.address}</li> : null}
                 </ul>
               </div>
             ) : null}
@@ -211,11 +212,11 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
               </ul>
               {isGroupOnly ? (
                 <p className={styles.groupNote}>
-                  This one is for groups of {e.minGuests} or more.{" "}
+                  The minimum booking is {e.minGuests} guests, and a session holds up to {e.maxGuests}. For a private session or a larger group,{" "}
                   <Link href={`/groups?experience=${e.slug}`} className="link">
-                    Send a group request
-                  </Link>{" "}
-                  and we&rsquo;ll plan the date, the length and the room with you.
+                    send us a request
+                  </Link>
+                  .
                 </p>
               ) : null}
             </section>
@@ -226,9 +227,9 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
               <Image src={SITE_MEDIA.host.src} alt={SITE_MEDIA.host.alt} fill sizes="120px" className={styles.cover} style={{ objectPosition: "28% 40%" }} />
             </div>
             <div>
-              <p className="eyebrow">Your host</p>
+              <p className="eyebrow">{hostsLine(theme) === HOST.name ? "Your host" : "Your hosts"}</p>
               <h2 id="host-title" className={styles.h3}>
-                {HOST.name}
+                {hostsLine(theme)}
               </h2>
               <p className="muted">{HOST.paragraphs[0]}</p>
               <Link href="/about" className="link">
@@ -245,16 +246,26 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
               {e.isPlaceholder ? <span className="tag-ph">to confirm</span> : null}
             </p>
             <p className={styles.unit}>{priceUnit(e)}</p>
-            {sortedOptions.length > 1 ? (
-              <ul className={styles.options} aria-label="Session lengths">
-                {sortedOptions.map((o) => (
-                  <li key={o.minutes}>
-                    <span>{fmtDuration(o.minutes)}</span>
-                    <strong className="tabular">{formatMoney(o.priceCents)}</strong>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+            <ul className={styles.options} aria-label="Session details">
+              <li>
+                <span>Length</span>
+                <strong className="tabular">{durationLabel(e)}</strong>
+              </li>
+              <li>
+                <span>Group size</span>
+                <strong className="tabular">{groupLabel(e)}</strong>
+              </li>
+              {extraHour ? (
+                <li>
+                  <span>Extra hours</span>
+                  <strong className="tabular">{formatMoney(extraHour)} per hour</strong>
+                </li>
+              ) : null}
+              <li>
+                <span>Private session</span>
+                <strong className="tabular">{privateCents ? formatMoney(privateCents) : "Ask us"}</strong>
+              </li>
+            </ul>
             <a href="#book" className="btn btn--accent btn--block">
               Check dates
             </a>
@@ -267,14 +278,10 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
               <Link href="/gift-cards" className="link">
                 Give it as a gift
               </Link>
-              {isGroupOnly ? null : (
-                <>
-                  {" · "}
-                  <Link href={`/groups?experience=${e.slug}`} className="link">
-                    Bigger group?
-                  </Link>
-                </>
-              )}
+              {" · "}
+              <Link href={`/groups?experience=${e.slug}`} className="link">
+                Private session
+              </Link>
             </p>
           </div>
         </aside>
@@ -286,7 +293,7 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
           <div className={styles.bookHead}>
             <div>
               <p className="eyebrow">Find your time</p>
-              <h2 id="book-title">{isGroupOnly ? "Pick a date for your group." : SLOGANS.booking}</h2>
+              <h2 id="book-title">{isGroupOnly ? "Pick a date for your group" : "Pick a date and time"}</h2>
             </div>
             <p>
               Times are shown in New York time. You&rsquo;ll see the total before you pay, and you can move or cancel from your confirmation email.
@@ -300,7 +307,7 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
       <section className={styles.reviews} id="reviews" aria-labelledby="reviews-title">
         <div className="wrap">
           <div className={styles.reviewsHead}>
-            <h2 id="reviews-title">{ownReviews.length ? "What guests say" : "From Alex’s other sessions"}</h2>
+            <h2 id="reviews-title">{ownReviews.length ? "What guests say" : "Reviews from Alex’s sessions"}</h2>
             {rating ? <RatingBadge score={rating.score} count={rating.count} /> : null}
           </div>
           {!ownReviews.length ? (
@@ -359,8 +366,7 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
                       <Image src={photo.src} alt="" fill sizes="(max-width: 700px) 92vw, 560px" className={styles.cover} />
                     </div>
                     <div className={styles.otherBody}>
-                      <span className={styles.otherLabel}>{MOODS[ot]?.label ?? o.shortName}</span>
-                      <strong>{o.shortName}</strong>
+                      <strong>{o.name}</strong>
                       <span className="muted">
                         {durationLabel(o)} · {priceLabel(o)}
                       </span>

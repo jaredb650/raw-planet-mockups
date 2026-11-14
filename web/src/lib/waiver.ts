@@ -7,7 +7,7 @@
  */
 export type WaiverLang = "en" | "es";
 
-export const WAIVER_VERSION = "2026-11-v1";
+export const WAIVER_VERSION = "2026-11-v2";
 
 /** Room above the guest count for a swapped-in friend or a parent signing as well. */
 const SIGNER_SLACK = 2;
@@ -19,7 +19,7 @@ export const WAIVER_COPY = {
     sections: [
       {
         heading: "Your session",
-        body: "I'm taking part in a private music session with Raw Planet in a working studio in New York. Depending on the experience, it can involve loud sound, studio equipment and cables, and movement or breathing exercises.",
+        body: "I'm taking part in a music session with Raw Planet in a working studio in New York. Depending on the experience, it can involve loud sound, studio equipment and cables, and movement or breathing exercises.",
       },
       {
         heading: "Looking after yourself and the studio",
@@ -76,7 +76,7 @@ export const WAIVER_COPY = {
     sections: [
       {
         heading: "Tu sesión",
-        body: "Voy a participar en una sesión privada de música con Raw Planet en un estudio en funcionamiento en Nueva York. Según la experiencia, puede incluir sonido fuerte, equipos de estudio y cables, y ejercicios de movimiento o respiración.",
+        body: "Voy a participar en una sesión de música con Raw Planet en un estudio en funcionamiento en Nueva York. Según la experiencia, puede incluir sonido fuerte, equipos de estudio y cables, y ejercicios de movimiento o respiración.",
       },
       {
         heading: "Cuidar de ti y del estudio",

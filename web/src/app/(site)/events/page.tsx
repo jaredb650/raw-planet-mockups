@@ -13,7 +13,7 @@ import styles from "./events.module.css";
 export const metadata: Metadata = {
   title: "Community events & meetups",
   description:
-    "Free biweekly meetups for people making music in New York City: listening sessions, feedback circles and good company, hosted by Raw Planet. Beginners welcome.",
+    "Free meetups every three weeks for electronic music producers, DJs and musicians in New York City: production talk, live demos and track feedback at Mercy Sound Studios.",
   alternates: { canonical: "/events" },
   openGraph: { url: "/events" },
 };
@@ -43,15 +43,12 @@ export default async function EventsPage() {
       <PageHeader
         crumbs={[{ name: "Events" }]}
         eyebrow="Community events & meetups"
-        title="Come hang out between sessions."
-        lede="Every other week we open the studio to people making music in New York. Listening sessions, feedback circles and good company. Free, and beginners are very welcome."
+        title="Community events"
+        lede="Every three weeks we host a free meetup at Mercy Sound Studios for electronic music producers, DJs and musicians in New York: production talk, live demos and track feedback. Beginners are welcome."
         aside={
           <div className={styles.headArt}>
             <div className={styles.headImg}>
               <Image src={img.src} alt={img.alt} fill preload sizes="(max-width: 900px) 92vw, 440px" className={styles.cover} />
-            </div>
-            <div className={styles.sticker} aria-hidden="true">
-              Every other week
             </div>
           </div>
         }
@@ -123,7 +120,7 @@ export default async function EventsPage() {
         <div className={`wrap ${styles.nextGrid}`}>
           <div>
             <h2 id="next-title">Want more than a meetup?</h2>
-            <p>Book a private session and make your own track, or play your first DJ set with Alex.</p>
+            <p>Book an experience and produce your own track, or learn to DJ with Alex.</p>
           </div>
           <div className={styles.nextBtns}>
             <Link href="/experiences" className="btn btn--light">

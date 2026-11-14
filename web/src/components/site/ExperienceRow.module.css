@@ -1,4 +1,5 @@
 .row {
+  position: relative; /* keeps absolutely placed sr-only labels inside the phone carousel */
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 72px;
@@ -27,22 +28,6 @@
   box-shadow: var(--shadow-lg);
   transform: rotate(4deg);
 }
-.slogan {
-  position: absolute;
-  left: -14px;
-  top: 28px;
-  max-width: 70%;
-  background: var(--accent);
-  color: var(--on-accent);
-  font: 900 clamp(1.1rem, 1.8vw, 1.5rem)/1 var(--display);
-  text-transform: uppercase;
-  padding: 10px 16px 9px;
-  border-radius: 8px;
-  transform: rotate(-3deg);
-  box-shadow: var(--shadow-sm);
-}
-.row[data-flip] .slogan { left: auto; right: -14px; transform: rotate(3deg); }
-
 .kicker {
   display: flex;
   align-items: center;
@@ -84,14 +69,76 @@
 }
 .ctas { display: flex; flex-wrap: wrap; gap: 12px; }
 
+.swipe { display: none; }
+
 @media (max-width: 980px) {
   .row { grid-template-columns: 1fr; gap: 40px; padding-bottom: 88px; }
   .row[data-flip] .media { order: 0; }
   .inset { right: -6px; bottom: -24px; width: 28%; border-width: 4px; }
-  .slogan, .row[data-flip] .slogan { left: -6px; right: auto; top: 18px; transform: rotate(-3deg); }
 }
-@media (max-width: 600px) {
-  .row { padding-bottom: 72px; gap: 36px; }
-  .media { margin: 0 -6px; }
+
+/* Phones: the experiences sit side by side and swipe left/right */
+@media (max-width: 760px) {
+  .track {
+    display: flex;
+    gap: 14px;
+    margin: 0 -18px;
+    padding: 4px 18px 20px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding: 0 18px;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .track::-webkit-scrollbar { display: none; }
+  .item { flex: 0 0 86%; scroll-snap-align: start; display: flex; }
+  .row {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    padding: 0;
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+  }
+  .media { flex: none; width: 100%; margin: 0; border-radius: 0; aspect-ratio: 4 / 3; }
+  .media > :first-child:not(.inset), .img { border-radius: 0; }
+  .inset, .flow { display: none; }
+  .body { display: flex; flex-direction: column; flex: 1; padding: 20px 18px 22px; }
+  .kicker { margin-bottom: 12px; font-size: 0.78rem; }
+  .num { width: 30px; height: 30px; font-size: 0.9rem; }
+  .title { font-size: 2.1rem; margin-bottom: 12px; }
+  .summary { font-size: 0.97rem; }
+  .facts { margin-bottom: 22px; gap: 6px; }
+  .facts li { font-size: 0.85rem; padding: 0.45em 0.85em; }
+  .ctas { margin-top: auto; }
   .ctas :global(.btn) { flex: 1 1 auto; }
+  .swipe {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 0 auto;
+    font: 700 0.8rem/1 var(--body);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
 }
+
+/* Bold look: each experience becomes a white card on the coloured band */
+@media (min-width: 761px) {
+  :global(:root[data-look="bold"]) .row {
+    padding: 36px;
+    margin-bottom: 28px;
+    gap: 56px;
+    background: var(--surface);
+    border: 2px solid var(--cocoa);
+    border-radius: var(--r-lg);
+    --ink-soft: #4a5475;
+  }
+}
+:global(:root[data-look="bold"]) .row { --ink-soft: #4a5475; }
+:global(:root[data-look="bold"]) .inset { border-color: var(--surface); }
+:global(:root[data-look="bold"]) .swipe { color: var(--ink); }

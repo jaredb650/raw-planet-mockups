@@ -9,14 +9,14 @@ import styles from "@/components/booking/pages.module.css";
 
 export const metadata: Metadata = {
   title: "Gift cards",
-  description: "Give a music production, DJ or sound meditation session in New York. Delivered by email, on the day you choose.",
+  description: "Give a music production, DJ or meditation experience in New York. Delivered by email, on the day you choose.",
   alternates: { canonical: "/gift-cards" },
 };
 
 export default async function GiftCardsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
   const experiences = await getActiveExperiences();
-  // Presets anchored to real prices: one guest and two guests for the shortest private session.
+  // Presets anchored to real prices: one guest and two guests for the standard session.
   const anchor = experiences.find((e) => e.minGuests <= 2) ?? experiences[0];
   const base = anchor ? Math.min(...anchor.durationOptions.map((o) => o.priceCents)) : 15000;
   const hours = anchor ? Math.min(...anchor.durationOptions.map((o) => o.minutes)) / 60 : 2;
@@ -42,7 +42,7 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
             <h1 className={styles.title}>Give them two hours to lose track</h1>
           </div>
           <p className="lede">
-            Good for any session: making a track, learning to DJ, or a sound bath with friends. From {formatMoney(GIFT_CARD_MIN_CENTS)}.
+            Good for any experience: music production, learning to DJ or meditation. From {formatMoney(GIFT_CARD_MIN_CENTS)}.
           </p>
         </header>
         <GiftCardForm presets={shown} minCents={GIFT_CARD_MIN_CENTS} maxCents={GIFT_CARD_MAX_CENTS} today={todayKey()} />

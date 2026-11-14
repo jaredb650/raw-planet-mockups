@@ -29,6 +29,7 @@ export type Quote = {
   baseCents: number;
   extraGuestsCents: number;
   subtotalCents: number; // base + extra guests, smart pricing included
+  extraTimeCents: number; // flat extra-hours share of baseCents
   priceAdjustCents: number; // smart pricing share of subtotalCents (negative = discount)
   priceRuleName: string | null;
   addonsCents: number;
@@ -42,10 +43,37 @@ export type Quote = {
 
 export class PricingError extends Error {}
 
-export function durationPrice(experience: QuoteInput["experience"], minutes: number): number {
+/** Whole cents owed to the platform on a card charge. */
+export function platformFeeCents(chargeCents: number, feeBps: number): number {
+  return Math.round((chargeCents * feeBps) / 10_000);
+}
+
+/** List price with the platform fee built in, so the client still nets the list price. Rounded to whole dollars. */
+export function passOnCents(cents: number, feeBps: number): number {
+  return feeBps > 0 && cents > 0 ? Math.round(cents / (1 - feeBps / 10_000) / 100) * 100 : cents;
+}
+
+export function withPassOn<T extends Pick<Experience, "durationOptions" | "extraGuestCents">>(e: T, feeBps: number): T {
+  if (feeBps <= 0) return e;
+  return {
+    ...e,
+    durationOptions: e.durationOptions.map((o) => ({
+      ...o,
+      priceCents: passOnCents(o.priceCents, feeBps),
+      ...(o.flatCents ? { flatCents: passOnCents(o.flatCents, feeBps) } : {}),
+    })),
+    extraGuestCents: passOnCents(e.extraGuestCents, feeBps),
+  };
+}
+
+function durationOption(experience: Pick<Experience, "durationOptions">, minutes: number) {
   const opt = experience.durationOptions.find((o) => o.minutes === minutes);
   if (!opt) throw new PricingError(`This experience can't be booked for ${minutes} minutes.`);
-  return opt.priceCents;
+  return opt;
+}
+
+export function durationPrice(experience: Pick<Experience, "durationOptions">, minutes: number): number {
+  return durationOption(experience, minutes).priceCents;
 }
 
 /** Lowest headline price ("from $X") for cards and SEO. */
@@ -118,10 +146,10 @@ export function computeQuote(input: QuoteInput): Quote {
         : `Choose between ${e.minGuests} and ${e.maxGuests} guests.`,
     );
 
-  const unit = durationPrice(e, durationMinutes);
+  const { priceCents: unit, flatCents: flat = 0 } = durationOption(e, durationMinutes);
   const lines: QuoteLine[] = [];
   const extra = e.pricingMode === "per_person" ? 0 : Math.max(0, guests - e.includedGuests);
-  let baseCents = e.pricingMode === "per_person" ? unit * guests : unit;
+  let baseCents = (e.pricingMode === "per_person" ? unit * guests : unit) + flat;
   let extraGuestsCents = e.extraGuestCents > 0 ? extra * e.extraGuestCents : 0;
 
   // Smart pricing is folded into the session lines: it is the price of this slot, never a fee line.
@@ -132,11 +160,13 @@ export function computeQuote(input: QuoteInput): Quote {
     extraGuestsCents = Math.round((extraGuestsCents * subtotalCents) / listCents / 100) * 100;
     baseCents = subtotalCents - extraGuestsCents;
   }
+  const extraTimeCents = flat > 0 ? Math.min(baseCents, adjustedCents(flat, input.priceRule?.adjustPercent ?? 0)) : 0;
   lines.push(
     e.pricingMode === "per_person"
-      ? { label: `${guests} × guest`, amountCents: baseCents, kind: "base" }
-      : { label: "Private session", amountCents: baseCents, kind: "base" },
+      ? { label: `${guests} × guest`, amountCents: baseCents - extraTimeCents, kind: "base" }
+      : { label: "Session", amountCents: baseCents - extraTimeCents, kind: "base" },
   );
+  if (extraTimeCents > 0) lines.push({ label: "Extra studio time", amountCents: extraTimeCents, kind: "base" });
   if (extraGuestsCents > 0) lines.push({ label: `${extra} extra guest${extra > 1 ? "s" : ""}`, amountCents: extraGuestsCents, kind: "guests" });
 
   const addonLines = (input.addons ?? []).map(({ addon, quantity }) => {
@@ -170,6 +200,7 @@ export function computeQuote(input: QuoteInput): Quote {
     baseCents,
     extraGuestsCents,
     subtotalCents,
+    extraTimeCents,
     priceAdjustCents,
     priceRuleName: priceAdjustCents !== 0 ? (input.priceRule?.name ?? null) : null,
     addonsCents,

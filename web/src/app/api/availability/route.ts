@@ -3,7 +3,7 @@
  *   [&booking=RP-XXXXXX&t=token]  (reschedule: ignore the guest's own booking)
  *
  * → { experience, duration, days: [{ date, open, available, slots }], calendarError? }
- * Slots carry priceCents (one guest, or one session before extra guests) and adjustPercent when
+ * Slots carry seatsLeft once other guests have joined that session, priceCents (one guest, or one session before extra guests) and adjustPercent when
  * smart pricing applies. Party totals round once on the whole subtotal, so the picker computes them
  * with computeQuote and adjustPercent. Reschedules keep the price paid, so their slots carry no price.
  * Range is capped at 62 days. Never cached: holds and bookings change by the second.
@@ -12,7 +12,8 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { getAvailability, getExperienceBySlugOrId } from "@/lib/booking/availability";
-import { adjustedCents, durationPrice } from "@/lib/booking/pricing";
+import { adjustedCents, durationPrice, withPassOn } from "@/lib/booking/pricing";
+import { passOnBps } from "@/lib/platform";
 import { getBookingForCustomer } from "@/lib/booking/service";
 import { addDaysKey } from "@/lib/time";
 import { LIMITS, clientIp, dateKeySchema, fieldErrors, jsonError, rateLimit, tooMany } from "../_lib/http";
@@ -46,9 +47,13 @@ export async function GET(req: NextRequest) {
   const toKey = q.to > addDaysKey(q.from, MAX_DAYS - 1) ? addDaysKey(q.from, MAX_DAYS - 1) : q.to;
 
   let ignoreBookingId: string | undefined;
+  let guests: number | undefined;
   if (q.booking && q.t) {
     const own = await getBookingForCustomer(q.booking, q.t);
-    if (own && own.experienceId === experience.id) ignoreBookingId = own.id;
+    if (own && own.experienceId === experience.id) {
+      ignoreBookingId = own.id;
+      guests = own.guests;
+    }
   }
 
   const { days, calendarError } = await getAvailability({
@@ -57,8 +62,9 @@ export async function GET(req: NextRequest) {
     toKey,
     durationMinutes: q.duration,
     ignoreBookingId,
+    guests,
   });
-  const unitCents = durationPrice(experience, q.duration);
+  const unitCents = durationPrice(withPassOn(experience, await passOnBps()), q.duration);
 
   return Response.json(
     {

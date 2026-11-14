@@ -149,8 +149,8 @@ export function giftCardRecipientEmail(v: GiftCardView): EmailOutput {
       <H1>{v.recipientName ? (es ? `${firstName(v.recipientName)}, esto es para ti` : `${firstName(v.recipientName)}, this is for you`) : es ? "Esto es para ti" : "This is for you"}</H1>
       <P>
         {es
-          ? `${v.purchaserName} te regaló ${v.amount} para una sesión privada con Alex en su estudio de Nueva York: crear tu propia canción, aprender a mezclar como DJ o bajar el ritmo con un baño de sonido. No necesitas experiencia.`
-          : `${v.purchaserName} gave you ${v.amount} toward a private session with Alex at his New York studio: make your own track, learn to mix like a DJ, or slow down with a sound bath. No experience needed.`}
+          ? `${v.purchaserName} te regaló ${v.amount} para una experiencia con Alex en su estudio de Nueva York: crear tu propia canción, aprender a mezclar como DJ o bajar el ritmo con un baño de sonido. No necesitas experiencia.`
+          : `${v.purchaserName} gave you ${v.amount} toward an experience with Alex at his New York studio: make your own track, learn to mix like a DJ, or slow down with a sound bath. No experience needed.`}
       </P>
       {v.message ? (
         <Panel bg={ACCENTS.production.soft}>

@@ -1,45 +1,10 @@
 /**
  * Static marketing copy for the public site. Facts here must match BRIEF.md
  * and the experience records in the database. Anything that depends on
- * admin-editable data (cancellation windows, group sizes, prices) is written
- * as a {{token}} and filled in from the DB at render time (see
+ * admin-editable data (cancellation windows, group sizes, prices, addresses)
+ * is written as a {{token}} and filled in from the DB at render time (see
  * src/components/site/faq.ts).
  */
-
-export const SLOGANS = {
-  hero: "Make it loud. Make it yours.",
-  production: "Build the track you hear.",
-  dj: "Play the room. No requests.",
-  wellness: "Slow down to the beat.",
-  booking: "Two hours to lose track.",
-} as const;
-
-/** Mood chooser copy, keyed by experience theme. */
-export const MOODS: Record<string, { label: string; blurb: string; picked: string }> = {
-  production: {
-    label: "Make a beat",
-    blurb: "Build a song from nothing and sing on it. Music production in the East Village.",
-    picked: "Music production it is.",
-  },
-  dj: {
-    label: "Mix like a DJ",
-    blurb: "Two decks, one crowd of your friends, your first real blend.",
-    picked: "A DJ session it is.",
-  },
-  wellness: {
-    label: "Slow down and listen",
-    blurb: "Lie back while live sound washes over the room. A guided sound meditation for groups.",
-    picked: "Sound meditation it is.",
-  },
-};
-
-export const WORRIES: { worry: string; answer: string }[] = [
-  { worry: "I can't sing.", answer: "You don't have to. Talk, whisper, clap, or hand the mic to a friend. It's your session." },
-  { worry: "I've never touched a music app.", answer: "Good. Alex starts from the very first button and goes at your pace." },
-  { worry: "I'll feel awkward in a real studio.", answer: "Sessions are private. Just you, your people, and someone whose whole job is making it easy." },
-  { worry: "I'm coming on my own.", answer: "Solo sessions are some of the best ones. You get Alex's full attention the whole time." },
-  { worry: "My English isn't great.", answer: "Alex hosts in English and Spanish. Hablamos español." },
-];
 
 export const HOST = {
   name: "Alex Gentil",
@@ -56,6 +21,31 @@ export const HOST = {
   ],
 };
 
+export type CoHost = { name: string; bio: string; photo?: { src: string; alt: string } };
+
+/**
+ * Co-hosts who assist Alex, keyed by experience theme. `count` is how many
+ * assist; `people` fills in as the client sends each photo and biography
+ * (their cards appear on the About page as soon as they are listed here).
+ */
+export const COHOSTS: Record<string, { count: number; people: CoHost[] }> = {
+  production: { count: 2, people: [] },
+  wellness: { count: 1, people: [] },
+};
+
+/** "Alex Gentil and two co-hosts" */
+export function hostsLine(theme: string): string {
+  const n = COHOSTS[theme]?.count ?? 0;
+  if (!n) return HOST.name;
+  return `${HOST.name} and ${n === 1 ? "one co-host" : n === 2 ? "two co-hosts" : `${n} co-hosts`}`;
+}
+
+/** Premium rate for a completely private session, keyed by theme. No entry = quoted on request. */
+export const PRIVATE_SESSION_CENTS: Record<string, number> = {
+  production: 65000,
+  dj: 45000,
+};
+
 export type FaqCategory = "experiences" | "booking" | "payment" | "changes" | "groups" | "visit";
 
 export const FAQ_CATEGORIES: { id: FaqCategory; title: string }[] = [
@@ -63,7 +53,7 @@ export const FAQ_CATEGORIES: { id: FaqCategory; title: string }[] = [
   { id: "booking", title: "Booking" },
   { id: "payment", title: "Payment & gift cards" },
   { id: "changes", title: "Cancelling & rescheduling" },
-  { id: "groups", title: "Groups & private events" },
+  { id: "groups", title: "Private sessions & groups" },
   { id: "visit", title: "Your visit" },
 ];
 
@@ -71,36 +61,56 @@ export type FaqEntry = { q: string; a: string; category: FaqCategory; home?: boo
 
 /**
  * Tokens available in answers:
- *   {{cancellation}}  "24 hours before for music production and DJ sessions, …"
- *   {{maxGuests}}     "up to 6 guests for music production and DJ sessions"
+ *   {{cancellation}}  "24 hours before for music production and learn to DJ, …"
+ *   {{prices}}        "$150 per person for the Music Production Experience, …"
+ *   {{capacity}}      "The Music Production Experience holds up to 15 guests, …"
+ *   {{locations}}     "Music Production Experience: 602 East 14th Street, …"
+ *   {{privateRates}}  "$650 for the Music Production Experience and …"
  */
 export const FAQ: FaqEntry[] = [
   {
     category: "experiences",
     home: true,
     q: "Do I need any musical experience?",
-    a: "None at all. Most guests have never made music before. Every session starts from zero and moves at your pace, and Alex does the technical heavy lifting so you can focus on the fun part.",
-  },
-  {
-    category: "experiences",
-    q: "“But I'm not musical.” Will I feel out of place?",
-    a: "That's who most of our guests are. You don't have to sing, play an instrument or know any software. Sessions are private, so it's just you, your people and a host whose job is making it easy.",
+    a: "None at all. Most guests have never made music before. Every session starts from zero and moves at your pace, and the hosts do the technical heavy lifting so you can focus on the fun part.",
   },
   {
     category: "experiences",
     home: true,
     q: "What do I take home?",
-    a: "From the music production session you leave with the track you made together; we send you the file after your visit. DJ sessions are about the experience of playing your first set, and sound meditation is about how you feel walking out.",
+    a: "Music Production Experience: at the end of the session you receive a bounced audio file of the music you created, plus pictures from your experience. Learn to DJ Experience: you receive a recording of the mix you create during the session. Meditation Experience: you receive access to the full meditation recording and to the original musical compositions created for the experience.",
   },
   {
     category: "experiences",
     q: "What's the difference between the three experiences?",
-    a: "Music production: build a beat from scratch, record vocals and leave with your song, in a historic East Village studio. DJ session: learn to blend two songs on pro Pioneer decks and play a short set. Sound meditation: a guided sound bath with live sound and projected visuals, booked by groups of 10 or more.",
+    a: "Music Production Experience: build a beat from scratch, record vocals and leave with your music, in a historic East Village studio. Learn to DJ Experience: learn to blend songs on pro Pioneer decks and record a mix of your own. Meditation Experience: a guided sound meditation with live sound and projected visuals.",
+  },
+  {
+    category: "experiences",
+    home: true,
+    q: "How long are the experiences?",
+    a: "Every experience is 2 hours long. For the Music Production and Learn to DJ experiences you can add extra hours at $150 per hour when you pick your time. Extra hours aren't offered for the Meditation Experience.",
   },
   {
     category: "experiences",
     q: "Who hosts the sessions?",
-    a: "Alex Gentil (some guests know him as Cristian), a New York-based DJ, producer and audio engineer with more than ten years of professional experience who has worked with artists like Jay Critch, Ron Suno, Ruben Blades and Making Movies.",
+    a: "Alex Gentil (some guests know him as Cristian), a New York-based DJ, producer and audio engineer with more than ten years of professional experience who has worked with artists like Jay Critch, Ron Suno, Ruben Blades and Making Movies. Two co-hosts assist with the Music Production Experience and one co-host assists with the Meditation Experience.",
+  },
+  {
+    category: "experiences",
+    q: "What do I need to prepare for the Learn to DJ Experience?",
+    a: "Each participant prepares 5 songs for their personal recorded mix. After you book, your confirmation email asks for each participant's contact details, ideally a phone number, so we can coordinate the songs with you before the experience.",
+  },
+  {
+    category: "visit",
+    home: true,
+    q: "What if I'm running late?",
+    a: "Please arrive on time. If you're running late, let us know as soon as you can. Sessions are scheduled and reserved in advance, so we can't guarantee extra time or extensions for late arrivals.",
+  },
+  {
+    category: "visit",
+    q: "Where are the experiences?",
+    a: "{{locations}}. Arrival instructions are in your confirmation email.",
   },
   {
     category: "visit",
@@ -110,19 +120,13 @@ export const FAQ: FaqEntry[] = [
   },
   {
     category: "visit",
-    home: true,
     q: "Can kids join?",
-    a: "Music production is open to ages 10 and up, which makes it a favourite for birthdays. For the DJ session and sound meditation, get in touch before booking if anyone in your group is under 18.",
+    a: "The Music Production Experience is open to ages 10 and up. For the Learn to DJ and Meditation experiences, get in touch before booking if anyone in your group is under 18.",
   },
   {
     category: "visit",
     q: "What should I bring?",
-    a: "Nothing but yourself. All gear is included. If you like, bring a song you love, a voice memo of an idea or some lyrics on your phone. For DJ sessions you're welcome to bring a playlist. For sound meditation, wear comfortable clothes.",
-  },
-  {
-    category: "visit",
-    q: "Where are the studios?",
-    a: "Each experience has its own room. Music production is in a historic studio in the East Village (NYC 10009). The exact address and arrival instructions are sent in your confirmation email. At the East Village studio, press the buzzer and Alex will bring you upstairs.",
+    a: "All gear is included. For the Learn to DJ Experience, each participant brings 5 songs for their recorded mix. For the Music Production Experience you're welcome to bring a song you love, a voice memo of an idea or some lyrics. For the Meditation Experience, wear comfortable clothes.",
   },
   {
     category: "visit",
@@ -137,13 +141,14 @@ export const FAQ: FaqEntry[] = [
   {
     category: "booking",
     home: true,
-    q: "How many people can come?",
-    a: "Sessions are private: just you and your group. You can book {{maxGuests}} online. For larger groups, parties or company events, send us a group request and we'll plan it with you.",
+    q: "How much does it cost?",
+    a: "{{prices}}. Extra hours for the Music Production and Learn to DJ experiences are $150 per hour.",
   },
   {
     category: "booking",
-    q: "Can I book a longer session?",
-    a: "Yes. Music production can be booked for 2, 3 or 4 hours. Longer sessions give you more time to finish and polish your track. You'll see every option and its price when you pick a time.",
+    home: true,
+    q: "How many people can come?",
+    a: "All sessions are public: book for yourself or for your group, and you may share the session with other guests. {{capacity}}. If you'd like the room to yourselves, ask us about a private session.",
   },
   {
     category: "booking",
@@ -152,7 +157,6 @@ export const FAQ: FaqEntry[] = [
   },
   {
     category: "payment",
-    home: true,
     q: "How do I pay?",
     a: "You pay online when you book. Payment is handled by Stripe, so your card details go straight to them and never touch our servers. Have a gift card or promo code? Enter it at checkout.",
   },
@@ -178,31 +182,31 @@ export const FAQ: FaqEntry[] = [
     a: "Open the “Manage your booking” link in your confirmation email. From there you can pick a new time or cancel. Lost the email? Use the Manage booking page and we'll send the link again.",
   },
   {
-    category: "changes",
-    q: "What if I'm running late?",
-    a: "Reply to your confirmation email or message us as soon as you know. Sessions after yours may be booked, so we can't always extend, but we'll always make the most of the time you have.",
+    category: "groups",
+    q: "Can I book a completely private session?",
+    a: "Yes, at a premium rate: {{privateRates}}. For a private Meditation Experience, reach out and we'll put a quote together. For any private session, send us a request and we'll confirm the date and details with you.",
   },
   {
     category: "groups",
     q: "Do you host birthdays, bachelorettes and team outings?",
-    a: "All the time. Birthdays, anniversaries, bachelorette parties, team outings and visiting friends are some of our favourite sessions. Small groups can book online; for bigger groups or anything custom, send a group request.",
+    a: "All the time. Groups can book a public session online, up to the session's capacity. For a private session or anything custom, send us a request.",
   },
   {
     category: "groups",
-    q: "How does sound meditation for groups work?",
-    a: "Sound meditation is booked by groups of 10 or more, which makes it a great fit for team offsites, wellness days and celebrations. Send a group request with your date and headcount and we'll confirm the details.",
+    q: "How does the Meditation Experience work for groups?",
+    a: "The Meditation Experience has a minimum booking of 6 guests and holds up to 15. Book online, or send us a request for a private session or a larger group.",
   },
   {
     category: "groups",
     q: "Do you do corporate events?",
-    a: "Yes. Music production, DJ sessions and sound meditation all work for teams. Tell us your group size, dates and what you have in mind and we'll put together a plan and a quote.",
+    a: "Yes. The Music Production, Learn to DJ and Meditation experiences all work for teams. Tell us your group size, dates and what you have in mind and we'll put together a plan and a quote.",
   },
 ];
 
 /** "Perfect for" chips on each experience page, keyed by theme. */
 export const PERFECT_FOR: Record<string, string[]> = {
   production: ["Birthdays (ages 10+)", "Couples and date nights", "Friends visiting NYC", "Teams who have never made music", "Curious solo visitors"],
-  dj: ["A night out with friends", "Birthdays", "Anyone who has wanted to try the decks", "Music lovers with a playlist ready"],
+  dj: ["A night out with friends", "Birthdays", "Anyone who has wanted to try the decks", "Music lovers with 5 songs ready"],
   wellness: ["Corporate wellness days", "Offsites and retreats", "Birthday and celebration groups", "Yoga and wellness communities"],
 };
 
@@ -210,12 +214,12 @@ export const PERFECT_FOR: Record<string, string[]> = {
 export const SESSION_FLOW_TITLE: Record<string, string> = {
   production: "How the session goes",
   dj: "How the session goes",
-  wellness: "How the evening flows",
+  wellness: "How the session flows",
 };
 
 /** FAQ questions surfaced on each experience page (matched by question text). */
 export const EXPERIENCE_FAQ: Record<string, string[]> = {
-  production: ["Do I need any musical experience?", "What do I take home?", "Can kids join?", "Can I book a longer session?", "What should I bring?"],
-  dj: ["Do I need any musical experience?", "What do I take home?", "What should I bring?", "How many people can come?", "What if my plans change?"],
-  wellness: ["How does sound meditation for groups work?", "Do you do corporate events?", "What should I bring?", "Are sessions in Spanish?", "Is the studio accessible?"],
+  production: ["Do I need any musical experience?", "What do I take home?", "How long are the experiences?", "What if I'm running late?", "How many people can come?", "Can kids join?"],
+  dj: ["What do I need to prepare for the Learn to DJ Experience?", "What do I take home?", "How long are the experiences?", "What if I'm running late?", "How many people can come?", "What if my plans change?"],
+  wellness: ["What do I take home?", "How does the Meditation Experience work for groups?", "What if I'm running late?", "What should I bring?", "Are sessions in Spanish?", "Is the studio accessible?"],
 };

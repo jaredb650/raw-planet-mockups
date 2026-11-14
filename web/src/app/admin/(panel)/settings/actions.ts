@@ -27,6 +27,16 @@ export async function saveMarketingAction(_p: ActionResult, fd: FormData): Promi
   });
 }
 
+export async function savePlatformAction(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return adminAction(
+    async () => {
+      await setSetting("platformFeePassOn", bool(fd, "passOn"));
+      return "Saved. Prices on your site are updated.";
+    },
+    { revalidate: ["/"] },
+  );
+}
+
 export async function runAutomationsAction(): Promise<ActionResult> {
   return adminAction(async () => {
     const r = await runJobs();

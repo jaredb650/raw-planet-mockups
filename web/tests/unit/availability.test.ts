@@ -50,4 +50,36 @@ describe("computeDaySlots", () => {
     const far = computeDaySlots({ experience: { ...exp, maxAdvanceDays: 3 }, dateKey: "2026-11-10", durationMinutes: 120, busy: [], now: NOW });
     expect(far.slots.every((s) => s.reason === "too_far")).toBe(true);
   });
+  it("shares a session: same experience and start time fills seats instead of blocking", () => {
+    const shared = { ...exp, id: "prod", minGuests: 1, maxGuests: 15 };
+    const at = (t: string, guests: number, experienceId = "prod", hours = 2) => ({
+      start: fromLocal("2026-11-10", t),
+      end: new Date(fromLocal("2026-11-10", t).getTime() + hours * 3600_000),
+      kind: "booking" as const,
+      experienceId,
+      guests,
+    });
+    const slot = (busy: ReturnType<typeof at>[], guests?: number) =>
+      computeDaySlots({ experience: shared, dateKey: "2026-11-10", durationMinutes: 120, busy, now: NOW, guests }).slots[1]; // 12:00
+
+    expect(slot([at("12:00", 4), at("12:00", 6)])).toMatchObject({ available: true, seatsLeft: 5 });
+    expect(slot([at("12:00", 15)])).toMatchObject({ available: false, reason: "booked" });
+    expect(slot([at("12:00", 12)], 4)).toMatchObject({ available: false, reason: "booked" }); // 3 seats, party of 4
+    expect(slot([at("12:00", 12)], 3)).toMatchObject({ available: true, seatsLeft: 3 });
+    // Another experience, or the same one at another start, still takes the host.
+    expect(slot([at("12:00", 2, "dj")])).toMatchObject({ available: false, reason: "booked" });
+    expect(slot([at("10:00", 2, "prod", 3)])).toMatchObject({ available: false, reason: "booked" });
+    // An untouched session reports no seat count, and a minimum party needs room for the whole party.
+    expect(slot([]).seatsLeft).toBeUndefined();
+    const meditation = { ...shared, id: "med", minGuests: 6 };
+    const med = computeDaySlots({ experience: meditation, dateKey: "2026-11-10", durationMinutes: 120, busy: [at("12:00", 12, "med")], now: NOW });
+    expect(med.slots[1]).toMatchObject({ available: false, reason: "booked" });
+  });
+  it("a session other guests already joined skips the outside calendar check", () => {
+    const shared = { ...exp, id: "prod", minGuests: 1, maxGuests: 15 };
+    const start = fromLocal("2026-11-10", "12:00");
+    const busy = [{ start, end: new Date(start.getTime() + 2 * 3600_000), kind: "booking" as const, experienceId: "prod", guests: 2 }];
+    const d = computeDaySlots({ experience: shared, dateKey: "2026-11-10", durationMinutes: 120, busy, now: NOW, externalStarts: new Set<number>() });
+    expect(d.slots.filter((s) => s.available).map((s) => s.start)).toEqual([start.toISOString()]);
+  });
 });

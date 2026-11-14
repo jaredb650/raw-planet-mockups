@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Page not found" };
 
 /** Root 404: renders outside the (site) layout, so it brings its own header and footer. */
 export default async function NotFound() {
-  const experiences = (await getActiveExperiences().catch(() => [])).map((e) => ({ slug: e.slug, shortName: e.shortName, theme: e.theme }));
+  const experiences = (await getActiveExperiences().catch(() => [])).map((e) => ({ slug: e.slug, name: e.name, shortName: e.shortName, theme: e.theme }));
   return (
     <>
       <SiteHeader experiences={experiences} />
@@ -18,9 +18,7 @@ export default async function NotFound() {
           <div>
             <p className="eyebrow">404 · Page not found</p>
             <h1 className={styles.title}>
-              Wrong room.
-              <br />
-              <span>Right building.</span>
+              Page <span>not found</span>
             </h1>
             <p className="lede">That page has moved or never existed. Here&rsquo;s where most people are headed:</p>
             <ul className={styles.links}>

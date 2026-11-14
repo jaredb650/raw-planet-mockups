@@ -38,6 +38,8 @@ export type PricingMode = "per_person" | "per_session";
 export type DurationOption = {
   minutes: number;
   priceCents: number;
+  /** Added once per booking on top of priceCents, whatever the party size (extra studio hours). */
+  flatCents?: number;
   label?: string;
 };
 

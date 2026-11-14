@@ -30,111 +30,131 @@ const DEMO = process.argv.includes("--demo");
 const everyDay = (start: string, end: string): s.WeeklySchedule =>
   Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((d) => [String(d), [{ start, end }]]));
 
+/** A flat fee per extra hour on top of the 2-hour per-person price. */
+const withExtraHours = (priceCents: number, hourCents = 15000): s.DurationOption[] => [
+  { minutes: 120, priceCents },
+  { minutes: 180, priceCents, flatCents: hourCents },
+  { minutes: 240, priceCents, flatCents: hourCents * 2 },
+];
+
+const ON_TIME = "Please arrive on time. Sessions are scheduled and reserved in advance, so we can't guarantee extra time for late arrivals";
+
 const EXPERIENCES: (typeof s.experiences.$inferInsert)[] = [
   {
     slug: "music-production",
-    name: "Music Production Session",
+    name: "Music Production Experience",
     shortName: "Music production",
-    tagline: "Build the track you hear.",
+    tagline: "",
     summary:
-      "Two hours in a historic East Village recording studio. Build a beat from scratch, record your own vocals and walk out with a track that's actually yours.",
+      "Two hours in a historic East Village recording studio. Build a beat from scratch, record your own vocals and leave with the music you made.",
     description:
-      "Buzz in, head upstairs and step into the room where Jay Critch, Ron Suno, Ruben Blades and Making Movies have recorded. Alex gives you a tour of the studio, then hands you the controls. You'll pick sounds, build a beat from nothing, step into the vocal booth and learn the tricks producers use on real records. No experience needed — most guests have never made music before.",
+      "Buzz in, head upstairs and step into the room where Jay Critch, Ron Suno, Ruben Blades and Making Movies have recorded. Alex gives you a tour of the studio, then hands you the controls. You'll pick sounds, build a beat from nothing, step into the vocal booth and learn the tricks producers use on real records. No experience needed. Most guests have never made music before.",
     theme: "production",
     highlights: [
       "Tour a historic East Village studio",
       "Build a beat from scratch",
       "Record your own vocals in the booth",
       "Learn the tricks producers use on real records",
-      "Leave with your track",
+      "Leave with your music",
     ],
-    includes: ["All studio gear and software", "A private session with Alex", "Your finished track, sent after your visit"],
-    goodToKnow: ["Ages 10 and up", "Press the buzzer and Alex will bring you upstairs", "Sessions in English or Spanish"],
+    includes: ["All studio gear and software", "A bounced audio file of the music you create", "Pictures from your experience"],
+    goodToKnow: ["Ages 10 and up", "Shared session, up to 15 guests", "Extra hours are $150 per hour", ON_TIME, "Sessions in English or Spanish"],
     media: [],
     pricingMode: "per_person",
-    durationOptions: [
-      { minutes: 120, priceCents: 15000 },
-      { minutes: 180, priceCents: 21000 },
-      { minutes: 240, priceCents: 27000 },
-    ],
+    durationOptions: withExtraHours(15000),
     minGuests: 1,
-    maxGuests: 6,
+    maxGuests: 15,
     minAge: 10,
     schedule: everyDay("10:00", "22:00"),
     slotStepMinutes: 120,
     leadTimeHours: 12,
     cancellationHours: 24,
-    locationArea: "East Village, NYC 10009",
-    address: "East Village, New York, NY 10009 (exact address sent with your confirmation)",
-    arrivalInstructions: "Press the buzzer when you arrive and Alex will bring you upstairs.",
+    locationArea: "East Village, Manhattan",
+    address: "602 East 14th Street, New York, NY 10009",
+    arrivalInstructions: "Press the buzzer when you arrive and we'll bring you upstairs. Please arrive on time.",
     airbnbUrl: "https://www.airbnb.com/experiences/1326396",
+    isPlaceholder: false,
     sortOrder: 1,
   },
   {
     slug: "dj-session",
-    name: "DJ Session",
-    shortName: "DJ session",
-    tagline: "Play the room. No requests.",
+    name: "Learn to DJ Experience",
+    shortName: "Learn to DJ",
+    tagline: "",
     summary:
-      "Get behind pro Pioneer decks in a private NYC studio. Learn how DJs blend two songs into one, then play your first short set.",
+      "Get behind pro Pioneer decks in a Brooklyn studio. Learn how DJs blend two songs into one, then record a mix of your own to take home.",
     description:
-      "A private room with club-standard Pioneer CDJs and mixer, a proper sound system and nobody watching but your friends. Alex walks you through how DJs line up two songs so they sound like one — beatmatching, EQ, cutting and dropping on cue — and by the end you'll play a short set of your own.",
+      "Club-standard Pioneer CDJs and mixer and a proper sound system. Alex walks you through how DJs line up two songs so they sound like one: beatmatching, EQ, cutting and dropping on cue. Each participant brings 5 songs, and by the end you'll record a mix of your own.",
     theme: "dj",
     highlights: [
       "Pro Pioneer CDJs and club mixer",
       "Learn to beatmatch by ear",
       "Blend, cut and drop on cue",
-      "Play a short set to close the session",
+      "Record your own mix with the 5 songs you bring",
     ],
-    includes: ["All DJ gear and headphones", "A private session with Alex", "Music library — or bring your own playlist"],
-    goodToKnow: ["Sessions in English or Spanish", "Great for birthdays and groups of friends"],
+    includes: ["All DJ gear and headphones", "A recording of the mix you create"],
+    goodToKnow: ["Each participant prepares 5 songs for their recorded mix", "Shared session, up to 5 guests", "Extra hours are $150 per hour", ON_TIME, "Sessions in English or Spanish"],
     media: [],
     pricingMode: "per_person",
-    durationOptions: [
-      { minutes: 120, priceCents: 15000 },
-      { minutes: 180, priceCents: 21000 },
-      { minutes: 240, priceCents: 27000 },
-    ],
+    durationOptions: withExtraHours(13500),
     minGuests: 1,
-    maxGuests: 6,
+    maxGuests: 5,
     schedule: everyDay("10:00", "22:00"),
     slotStepMinutes: 120,
     leadTimeHours: 12,
     cancellationHours: 24,
-    locationArea: "Manhattan, NYC",
-    address: "Manhattan, New York, NY (exact address sent with your confirmation)",
-    arrivalInstructions: "Exact address and entry instructions are in your confirmation email.",
+    locationArea: "Bushwick, Brooklyn",
+    address: "96 Knickerbocker Ave, Brooklyn, NY 11237",
+    arrivalInstructions: "Please arrive on time, with your 5 songs ready.",
     airbnbUrl: "https://www.airbnb.com/experiences/6943916",
-    isPlaceholder: true,
+    isPlaceholder: false,
     sortOrder: 2,
   },
   {
     slug: "sound-meditation",
-    name: "Sound Meditation",
-    shortName: "Sound meditation",
-    tagline: "Slow down to the beat.",
+    name: "Meditation Experience",
+    shortName: "Meditation",
+    tagline: "",
     summary:
-      "An immersive, guided sound bath for groups: crystal bowls, live soundscapes and projected visuals while you lie back and let the city fall away.",
+      "An immersive, guided sound meditation: crystal bowls, live soundscapes and projected visuals while you lie back and let the city fall away.",
     description:
-      "Settle in, close your eyes and let a live, slowly shifting soundscape do the work. Crystal singing bowls, deep tones and immersive visuals fill the room while you rest. No meditation experience needed and nothing to get right. Sessions are booked by groups of 10 or more — perfect for team offsites, wellness days and celebrations.",
+      "Settle in, close your eyes and let a live, slowly shifting soundscape do the work. Crystal singing bowls, deep tones and immersive visuals fill the room while you rest. No meditation experience needed and nothing to get right. Bookings start at 6 guests, and a session holds up to 15.",
     theme: "wellness",
-    highlights: ["Live crystal bowls and soundscapes", "Immersive projected visuals", "A guided breath to land in the room", "Built for groups of 10+"],
-    includes: ["Mats and cushions", "Live sound by Alex", "Tea and a slow return to the city"],
-    goodToKnow: ["Group bookings only — minimum 10 guests", "Wear comfortable clothes"],
+    highlights: ["Live crystal bowls and soundscapes", "Immersive projected visuals", "A guided breath to land in the room", "Original music composed for the experience"],
+    includes: ["Mats and cushions", "Live sound", "Access to the full meditation recording", "The original musical compositions created for the experience"],
+    goodToKnow: ["Minimum booking of 6 guests", "Up to 15 guests per session", "Wear comfortable clothes", ON_TIME],
     media: [],
     pricingMode: "per_person",
-    durationOptions: [{ minutes: 90, priceCents: 4500 }],
-    minGuests: 10,
-    maxGuests: 30,
+    durationOptions: [{ minutes: 120, priceCents: 8500 }],
+    minGuests: 6,
+    maxGuests: 15,
     schedule: everyDay("10:00", "22:00"),
     slotStepMinutes: 120,
     leadTimeHours: 48,
     cancellationHours: 72,
-    locationArea: "New York, NY",
-    address: "Venue confirmed with your booking",
-    arrivalInstructions: "Arrive 10 minutes early to settle in.",
-    isPlaceholder: true,
+    locationArea: "Dumbo, Brooklyn",
+    address: "45 Main Street, Brooklyn, NY 11201",
+    arrivalInstructions: "Please arrive on time so the session can start together.",
+    isPlaceholder: false,
     sortOrder: 3,
+  },
+];
+
+/** Real community events from the Meetup group (meetup.com/raw-planet-nyc-electronic-music-producers). */
+const EVENTS: (typeof s.events.$inferInsert)[] = [
+  {
+    slug: "electronic-music-production-idea-to-track-2026-11-25",
+    title: "Electronic Music Production: From Idea to Track",
+    summary: "A free, beginner-friendly evening at Mercy Sound Studios on turning a musical idea into an electronic track.",
+    description:
+      "Join us at Mercy Sound Studios for an interactive gathering about electronic music production. We'll walk through how an idea becomes a track: creative workflows, arrangement, sound selection, synthesizers, drum programming and basic production techniques.\n\nShare your own music for feedback, try the synthesizers and drum machines, and meet other producers in New York. No experience required. Free admission with RSVP.",
+    startAt: fromLocal("2026-11-25", "18:30"),
+    endAt: fromLocal("2026-11-25", "20:30"),
+    venue: "Mercy Sound Studios",
+    address: "602 East 14th Street, New York, NY 10009",
+    meetupUrl: "https://www.meetup.com/raw-planet-nyc-electronic-music-producers/events/317391139/",
+    rsvpEnabled: true,
+    status: "published",
   },
 ];
 
@@ -164,6 +184,11 @@ async function main() {
       expIds[e.slug] = row.id;
       console.log(`+ experience ${e.slug}`);
     }
+  }
+
+  for (const ev of EVENTS) {
+    const added = await db.insert(s.events).values(ev).onConflictDoNothing({ target: s.events.slug }).returning();
+    if (added.length) console.log(`+ event ${ev.slug}`);
   }
 
   const addonCount = (await db.select().from(s.addons)).length;
@@ -232,7 +257,7 @@ async function seedDemo(db: Awaited<ReturnType<typeof createDb>>, expIds: Record
     [1, "18:00", "dj-session", 120, 1, "confirmed", "direct"],
     [3, "16:00", "music-production", 120, 3, "confirmed", "airbnb"],
     [5, "20:00", "dj-session", 120, 4, "confirmed", "direct"],
-    [8, "14:00", "sound-meditation", 90, 12, "confirmed", "manual"],
+    [8, "14:00", "sound-meditation", 120, 12, "confirmed", "manual"],
     [4, "10:00", "music-production", 120, 2, "cancelled", "direct"],
   ];
   for (let i = 0; i < plan.length; i++) {
@@ -281,21 +306,21 @@ async function seedDemo(db: Awaited<ReturnType<typeof createDb>>, expIds: Record
     ]);
   }
 
-  // Biweekly community meetup series (sample — edit or delete in admin)
+  // Sample community meetup series, every three weeks like the real group (edit or delete in admin)
   const series = newToken().slice(0, 8);
-  for (let k = 0; k < 4; k++) {
-    const date = addDaysKey(today, 6 + k * 14);
+  for (let k = 0; k < 3; k++) {
+    const date = addDaysKey(today, 27 + k * 21);
     await db.insert(s.events).values({
       slug: `producers-meetup-${date}`,
       title: "Raw Planet Producers Meetup",
-      summary: "Bring a beat, a laptop or just your ears. Feedback circle, listening session and good people.",
+      summary: "Bring a beat, a laptop or just your ears. Production talk, live demos and track feedback.",
       description:
-        "Our biweekly community night for music makers of every level. We play works-in-progress on the big speakers, trade tips, and meet other people making music in New York. Free — RSVP so we know how many chairs to put out.",
-      startAt: fromLocal(date, "19:00"),
-      endAt: fromLocal(date, "21:30"),
-      venue: "Raw Planet studio",
-      address: "East Village, New York, NY",
-      meetupUrl: "https://www.meetup.com/",
+        "Our community night for electronic music producers, DJs and musicians of every level. Production discussions, live demos of synths and hardware, track feedback and good people. Free with RSVP.",
+      startAt: fromLocal(date, "18:30"),
+      endAt: fromLocal(date, "20:30"),
+      venue: "Mercy Sound Studios",
+      address: "602 East 14th Street, New York, NY 10009",
+      meetupUrl: "https://www.meetup.com/raw-planet-nyc-electronic-music-producers/",
       rsvpEnabled: true,
       capacity: 25,
       seriesId: series,
@@ -303,7 +328,7 @@ async function seedDemo(db: Awaited<ReturnType<typeof createDb>>, expIds: Record
     });
   }
   await db.insert(s.inquiries).values([
-    { kind: "corporate", name: "Ana Ruiz", email: "ana@example.com", groupSize: 14, preferredDate: addDaysKey(today, 20), message: "Team offsite for our design team — could we do the sound meditation followed by drinks?" },
+    { kind: "corporate", name: "Ana Ruiz", email: "ana@example.com", groupSize: 14, preferredDate: addDaysKey(today, 20), message: "Team offsite for our design team. Could we do the meditation experience followed by drinks?" },
     { kind: "group", name: "Chris P.", email: "chris@example.com", groupSize: 8, message: "Bachelorette party, 8 of us, want to make a song for the bride!" },
   ]);
   await db.insert(s.promoCodes).values({ code: "WELCOME10", description: "10% off your first session", kind: "percent", value: 10 });

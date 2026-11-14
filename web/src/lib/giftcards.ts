@@ -20,6 +20,7 @@ import { newGiftCardCode, normalizeCode } from "@/lib/ids";
 import { formatMoney } from "@/lib/money";
 import { fromLocal, localDateKey } from "@/lib/time";
 import { createCheckoutSession } from "@/lib/integrations/stripe";
+import { paymentsReady } from "@/lib/platform";
 import * as notify from "@/lib/email/notify";
 
 export class GiftCardError extends Error {
@@ -101,7 +102,7 @@ export type GiftCardPurchaseInput = {
 };
 
 export async function createGiftCardPurchase(input: GiftCardPurchaseInput): Promise<{ url: string }> {
-  if (!integrations.stripe() && !integrations.testCheckout()) throw new GiftCardError("Online payments aren't set up yet. Please contact us.");
+  if ((!integrations.stripe() && !integrations.testCheckout()) || !(await paymentsReady())) throw new GiftCardError("Online payments aren't set up yet. Please contact us.");
   const amount = Math.round(input.amountCents);
   if (!Number.isInteger(amount) || amount < GIFT_CARD_MIN_CENTS || amount > GIFT_CARD_MAX_CENTS)
     throw new GiftCardError(`Choose an amount between ${formatMoney(GIFT_CARD_MIN_CENTS)} and ${formatMoney(GIFT_CARD_MAX_CENTS)}.`);

@@ -60,12 +60,13 @@ export function SlotPicker({
                 className={styles.slot}
                 aria-pressed={selected === s.start}
                 disabled={!s.available}
-                aria-label={s.available ? `${label} to ${end}${costText}` : `${label}, ${why}`}
+                aria-label={s.available ? `${label} to ${end}${costText}${s.seatsLeft ? `, ${s.seatsLeft} spots left` : ""}` : `${label}, ${why}`}
                 title={why || undefined}
                 onClick={() => onSelect(s.start)}
               >
                 <span>{label}</span>
                 <small aria-hidden="true">to {end}</small>
+                {s.available && s.seatsLeft ? <small aria-hidden="true">{s.seatsLeft === 1 ? "1 spot left" : `${s.seatsLeft} spots left`}</small> : null}
                 {cost ? (
                   <small aria-hidden="true" className={styles.slotPrice}>
                     {cost.price}

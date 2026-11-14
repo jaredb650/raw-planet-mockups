@@ -1,6 +1,8 @@
 /** Fills {{tokens}} in static FAQ copy from live experience data. */
-import { FAQ, type FaqEntry } from "@/content/site";
+import { FAQ, PRIVATE_SESSION_CENTS, type FaqEntry } from "@/content/site";
+import { formatMoney } from "@/lib/money";
 import type { PublicExperience } from "@/lib/queries/public";
+import { priceLabel } from "./format";
 
 const listJoin = (items: string[]) =>
   items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
@@ -20,17 +22,41 @@ export function cancellationPhrase(experiences: PublicExperience[]): string {
   return listJoin(groups.map(([h, es]) => `${h} hours before for ${listJoin(es.map(lower))}`));
 }
 
-export function maxGuestsPhrase(experiences: PublicExperience[]): string {
-  const small = experiences.filter((e) => e.minGuests < 5);
-  if (!small.length) return "your group";
-  const groups = [...groupBy(small, (e) => e.maxGuests).entries()];
-  return listJoin(groups.map(([n, es]) => `up to ${n} guests for ${listJoin(es.map(lower))}`));
+/** "$150 per person for the Music Production Experience, $135 per person for …" */
+export function pricesPhrase(experiences: PublicExperience[]): string {
+  const s = listJoin(
+    experiences.map((e) => `${priceLabel(e)} for the ${e.name}${e.minGuests > 1 ? ` (minimum booking of ${e.minGuests} guests)` : ""}`),
+  );
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** "The Music Production Experience holds up to 15 guests, the …" */
+export function capacityPhrase(experiences: PublicExperience[]): string {
+  const s = listJoin(
+    experiences.map((e) => `the ${e.name} holds up to ${e.maxGuests} guests${e.minGuests > 1 ? ` (minimum booking of ${e.minGuests})` : ""}`),
+  );
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** "Music Production Experience: 602 East 14th Street, New York, NY 10009. Learn to DJ Experience: …" */
+export function locationsPhrase(experiences: PublicExperience[]): string {
+  return experiences.map((e) => `${e.name}: ${e.address || e.locationArea}`).join(". ");
+}
+
+/** "$650 for the Music Production Experience and $450 for the Learn to DJ Experience" */
+export function privateRatesPhrase(experiences: PublicExperience[]): string {
+  return listJoin(
+    experiences.filter((e) => PRIVATE_SESSION_CENTS[e.theme]).map((e) => `${formatMoney(PRIVATE_SESSION_CENTS[e.theme])} for the ${e.name}`),
+  );
 }
 
 export function resolveFaq(experiences: PublicExperience[], entries: FaqEntry[] = FAQ): FaqEntry[] {
   const tokens: Record<string, string> = {
     cancellation: cancellationPhrase(experiences),
-    maxGuests: maxGuestsPhrase(experiences),
+    prices: pricesPhrase(experiences),
+    capacity: capacityPhrase(experiences),
+    locations: locationsPhrase(experiences),
+    privateRates: privateRatesPhrase(experiences),
   };
   return entries.map((f) => ({ ...f, a: f.a.replace(/\{\{(\w+)\}\}/g, (_, k: string) => tokens[k] ?? "") }));
 }

@@ -39,12 +39,12 @@ function page(lang: "en" | "es", title: string, body: string, status: number, fo
 <meta name="robots" content="noindex">
 <title>${title} · Raw Planet</title>
 <style>
-  body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 16px; box-sizing: border-box; background: #fffaf1; color: #3a2212; font: 16px/1.5 system-ui, sans-serif; }
+  body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 16px; box-sizing: border-box; background: #fffcf7; color: #0e1e48; font: 16px/1.5 system-ui, sans-serif; }
   main { max-width: 420px; }
   h1 { font-size: 28px; line-height: 1.15; margin: 0 0 12px; }
-  p { margin: 0 0 20px; color: #6e5747; }
-  button { min-height: 46px; padding: 0 24px; border: 0; border-radius: 999px; background: #b8482e; color: #fff; font: 700 16px system-ui, sans-serif; cursor: pointer; }
-  button:focus-visible { outline: 3px solid #3a2212; outline-offset: 2px; }
+  p { margin: 0 0 20px; color: #4a5475; }
+  button { min-height: 46px; padding: 0 24px; border: 0; border-radius: 999px; background: #ee5622; color: #0e1e48; font: 700 16px system-ui, sans-serif; cursor: pointer; }
+  button:focus-visible { outline: 3px solid #0e1e48; outline-offset: 2px; }
 </style>
 </head>
 <body><main><h1>${title}</h1><p>${body}</p>${form}</main></body>

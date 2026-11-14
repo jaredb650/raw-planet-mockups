@@ -7,7 +7,7 @@ import styles from "./site.module.css";
 export const dynamic = "force-dynamic";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
-  const experiences = (await getActiveExperiences()).map((e) => ({ slug: e.slug, shortName: e.shortName, theme: e.theme }));
+  const experiences = (await getActiveExperiences()).map((e) => ({ slug: e.slug, name: e.name, shortName: e.shortName }));
   return (
     <>
       <a href="#main" className={styles.skip}>

@@ -24,7 +24,7 @@ export function PageHeader({
   id?: string;
 }) {
   return (
-    <header className={styles.head} data-tone={tone}>
+    <header className={styles.head} data-tone={tone} data-band="navy">
       <div className={`wrap ${styles.grid}`} data-aside={aside ? "" : undefined}>
         <div className={styles.copy}>
           {crumbs?.length ? <Breadcrumbs crumbs={crumbs} /> : null}

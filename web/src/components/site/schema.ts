@@ -17,7 +17,7 @@ export function businessJsonLd(rating: { score: number; count: number }, image: 
     logo: siteUrl("/icon.svg"),
     email: BUSINESS.contactEmail,
     description:
-      "Private music production, DJ and sound meditation sessions in New York City with producer Alex Gentil. No experience needed.",
+      "Music production, DJ and meditation experiences in New York City with producer Alex Gentil. No experience needed.",
     areaServed: { "@type": "City", name: "New York" },
     address: { "@type": "PostalAddress", addressLocality: "New York", addressRegion: "NY", addressCountry: "US" },
     knowsLanguage: ["en", "es"],

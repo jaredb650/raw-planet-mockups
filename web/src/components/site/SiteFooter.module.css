@@ -12,7 +12,7 @@
   margin-bottom: 64px;
 }
 .big {
-  font: 900 clamp(4.4rem, 15vw, 13rem)/0.82 var(--display);
+  font: 900 clamp(2.9rem, 9.4vw, 8.4rem)/0.86 var(--display);
   text-transform: uppercase;
   letter-spacing: -0.015em;
   margin: 0;

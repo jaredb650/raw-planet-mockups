@@ -9,7 +9,8 @@ import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { bookings, giftCards, refunds, type Booking, type GiftCard } from "@/lib/db/schema";
 import { integrations } from "@/lib/config";
-import { stripe } from "@/lib/integrations/stripe";
+import { stripe, stripeOptions } from "@/lib/integrations/stripe";
+import { connectMode, getPlatform } from "@/lib/platform";
 import { expireBooking, fulfillBooking, getBooking, logEvent } from "@/lib/booking/service";
 import { expireGiftCardPurchase, fulfillGiftCard, getGiftCard, voidGiftCard } from "@/lib/giftcards";
 import { formatMoney } from "@/lib/money";
@@ -75,7 +76,7 @@ async function syncChargeRefunds(charge: Stripe.Charge): Promise<string> {
   let stripeRefunds: Stripe.Refund[] = charge.refunds?.data ?? [];
   if ((!charge.refunds || charge.refunds.has_more) && integrations.stripe()) {
     stripeRefunds = [];
-    for await (const r of stripe().refunds.list({ charge: charge.id, limit: 100 })) stripeRefunds.push(r);
+    for await (const r of stripe().refunds.list({ charge: charge.id, limit: 100 }, await stripeOptions())) stripeRefunds.push(r);
   }
 
   const [booking] = await db.select().from(bookings).where(eq(bookings.stripePaymentIntentId, paymentIntentId)).limit(1);
@@ -138,6 +139,8 @@ async function syncGiftCardRefund(card: GiftCard, charge: Stripe.Charge): Promis
 }
 
 export async function processStripeEvent(event: Stripe.Event): Promise<string> {
+  // Connect endpoints receive every client's events, so only this site's account may touch this site's bookings.
+  if (connectMode() && (!event.account || event.account !== (await getPlatform()).stripeAccountId)) return "ignored: another account";
   switch (event.type) {
     case "checkout.session.completed": {
       const s = event.data.object;
@@ -167,7 +170,7 @@ export async function reconcileBookingPayment(booking: Booking, sessionId?: stri
   const sid = booking.stripeCheckoutSessionId;
   if (!sid || (sessionId && sessionId !== sid)) return booking;
   try {
-    const s = await stripe().checkout.sessions.retrieve(sid);
+    const s = await stripe().checkout.sessions.retrieve(sid, undefined, await stripeOptions());
     if (s.status === "complete" && s.payment_status === "paid" && s.metadata?.refId === booking.id) {
       await completeSession(s);
       return (await getBooking(booking.id)) ?? booking;
@@ -183,7 +186,7 @@ export async function reconcileGiftCardPayment(card: GiftCard, sessionId?: strin
   const sid = card.stripeCheckoutSessionId;
   if (!sid || (sessionId && sessionId !== sid)) return card;
   try {
-    const s = await stripe().checkout.sessions.retrieve(sid);
+    const s = await stripe().checkout.sessions.retrieve(sid, undefined, await stripeOptions());
     if (s.status === "complete" && s.payment_status === "paid" && s.metadata?.refId === card.id) {
       await completeSession(s);
       return (await getGiftCard(card.id)) ?? card;

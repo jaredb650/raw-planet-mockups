@@ -53,7 +53,12 @@ test.describe("admin", () => {
   test("a guest signs the waiver and it appears on the booking", async ({ page, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto("/admin/bookings");
-    await page.locator('a[href^="/admin/bookings/"]:not([href$="/new"])').first().click();
+    // Each booking takes a limited number of signers, so repeat runs need one nobody has signed yet.
+    const links = await page.locator('a[href^="/admin/bookings/"]:not([href$="/new"])').evaluateAll((as) => as.map((a) => a.getAttribute("href")!));
+    for (const href of links) {
+      await page.goto(href);
+      if (await page.getByText(/^0 of \d+ signed$/).count()) break;
+    }
     await page.getByRole("button", { name: "Copy signing link" }).click();
     const link = await page.evaluate(() => navigator.clipboard.readText());
     expect(link).toMatch(/\/waiver\/.+\?t=/);

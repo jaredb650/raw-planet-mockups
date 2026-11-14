@@ -235,6 +235,22 @@ export function bookingConfirmationEmail(v: BookingView): EmailOutput {
       <CalendarButtons v={v} />
       <WaiverNote v={v} />
 
+      {v.theme === "dj" ? (
+        <Panel bg={accent.soft}>
+          <H2>{es(v) ? "Antes de venir: 5 canciones por persona" : "Before you come: 5 songs each"}</H2>
+          <P>
+            {es(v)
+              ? "Cada participante prepara 5 canciones para su mezcla grabada personal."
+              : "Each participant prepares 5 songs for their personal recorded mix."}
+          </P>
+          <P>
+            {es(v)
+              ? "Para coordinarlo antes de la experiencia, responde a este correo con el nombre y los datos de contacto de cada participante, idealmente un número de teléfono."
+              : "So we can coordinate this before the experience, please reply to this email with each participant's name and contact information, ideally a phone number."}
+          </P>
+        </Panel>
+      ) : null}
+
       {v.includes.length ? (
         <>
           <H2>{es(v) ? "Qué incluye" : "What's included"}</H2>
@@ -292,8 +308,8 @@ export function giftBookingRecipientEmail(
       </H1>
       <P>
         {es(v)
-          ? `${v.purchaserName} te reservó una ${v.experienceName.toLowerCase()} privada con Alex en Nueva York. No necesitas experiencia: solo ven con ganas.`
-          : `${v.purchaserName} booked you a private ${v.experienceName} with Alex in New York. No experience needed, just show up curious.`}
+          ? `${v.purchaserName} te reservó una ${v.experienceName.toLowerCase()} con Alex en Nueva York. No necesitas experiencia: solo ven con ganas.`
+          : `${v.purchaserName} booked you a ${v.experienceName} with Alex in New York. No experience needed, just show up curious.`}
       </P>
       {v.giftMessage ? (
         <Panel bg={accent.soft}>

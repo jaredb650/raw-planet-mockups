@@ -17,7 +17,7 @@ export const BUSINESS = {
   soundcloud: "https://soundcloud.com/alexander-gentil",
   facebook: "https://www.facebook.com/Alexander.gentil",
   website: "https://www.alexandergentil.net",
-  meetupGroupUrl: process.env.MEETUP_GROUP_URL ?? "",
+  meetupGroupUrl: process.env.MEETUP_GROUP_URL ?? "https://www.meetup.com/raw-planet-nyc-electronic-music-producers/",
   airbnbRating: { score: 4.98, count: 107 },
 } as const;
 

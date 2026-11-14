@@ -14,25 +14,8 @@
 /* Hero */
 .hero { padding: 40px 0 112px; overflow: clip; }
 .heroGrid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 56px; align-items: center; }
-.heroKicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-  font-size: 0.95rem;
-  margin: 0 0 24px;
-  padding: 8px 16px 8px 12px;
-  border: 1.5px solid var(--line);
-  border-radius: var(--r-pill);
-  background: var(--surface);
-}
-.liveDot { width: 10px; height: 10px; border-radius: 50%; background: var(--brick); box-shadow: 0 0 0 4px var(--accent-soft); }
-@media (prefers-reduced-motion: no-preference) {
-  .liveDot { animation: pulse 2.4s ease-in-out infinite; }
-}
-@keyframes pulse { 50% { box-shadow: 0 0 0 7px transparent; } }
-/* "Make it yours." measures 5.8em in Big Shoulders 800, so the size is capped to keep each slogan on one line. */
-.heroTitle { font-size: clamp(3rem, 7.1vw, 6.3rem); line-height: 0.86; margin-bottom: 28px; letter-spacing: -0.015em; }
+/* "Music experiences" is the longer line; the size is capped to keep each line whole. */
+.heroTitle { font-size: clamp(2.8rem, 5.2vw, 4.8rem); line-height: 0.88; margin-bottom: 28px; letter-spacing: -0.015em; }
 .heroTitle span { display: block; white-space: nowrap; }
 .heroTitleAccent { color: var(--brick); }
 .heroLede { margin-bottom: 36px; }
@@ -59,25 +42,6 @@
   overflow: hidden;
   background: var(--accent-soft);
 }
-.heroSticker {
-  position: absolute;
-  top: -26px;
-  right: -22px;
-  width: 148px;
-  height: 148px;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  padding: 18px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--on-accent);
-  font: 900 1.3rem/0.95 var(--display);
-  text-transform: uppercase;
-  transform: rotate(12deg);
-  transition: background-color 0.4s, color 0.4s;
-  box-shadow: var(--shadow-sm);
-}
 .snap {
   position: absolute;
   left: -56px;
@@ -85,68 +49,23 @@
   width: 44%;
   margin: 0;
   background: var(--surface);
-  padding: 10px 10px 14px;
+  padding: 10px;
   border-radius: 14px;
   box-shadow: var(--shadow-lg);
   transform: rotate(-5deg);
 }
 .snapImg { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; }
-.snap figcaption { font: 600 0.88rem/1.2 var(--body); margin-top: 10px; padding-left: 2px; }
-
-/* Mood */
-.mood { padding: 104px 0 96px; background: var(--mist); }
 
 /* Experiences */
-.exps { padding: 128px 0 16px; }
+.exps { padding: 112px 0 16px; background: var(--mist); }
 .expsHead { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 24px 48px; margin-bottom: 88px; }
 .expsHead :global(.lede) { margin: 0; max-width: 34ch; }
-.line { white-space: nowrap; }
-
-/* Worries */
-.worries { background: var(--ink); color: var(--cream); padding: 120px 0; }
-.worriesGrid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 72px; align-items: start; }
-.worriesIntro { position: sticky; top: 120px; }
-.worriesIntro h2 { font-size: clamp(3rem, 7vw, 6rem); }
-.worriesIntro :global(.lede) { color: color-mix(in srgb, var(--cream) 80%, transparent); margin-top: 28px; }
-.worryList { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-.worryList li {
-  background: color-mix(in srgb, var(--cream) 7%, transparent);
-  border: 1.5px solid color-mix(in srgb, var(--cream) 12%, transparent);
-  border-radius: var(--r-md);
-  padding: 24px 26px;
-}
-.worryList b {
-  display: block;
-  font: 800 1.7rem/1 var(--display);
-  text-transform: uppercase;
-  margin-bottom: 8px;
-  color: var(--ochre);
-}
-.worryList span { color: color-mix(in srgb, var(--cream) 82%, transparent); }
 
 /* Host */
 .host { padding: 128px 0; }
 .hostGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
 .hostPhoto { position: relative; }
 .hostImg { position: relative; aspect-ratio: 1; border-radius: var(--r-lg); overflow: hidden; }
-.hostSticker {
-  position: absolute;
-  bottom: -32px;
-  right: -24px;
-  width: 156px;
-  height: 156px;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  padding: 18px;
-  border-radius: 50%;
-  background: var(--green);
-  color: var(--cocoa);
-  font: 900 1.4rem/0.92 var(--display);
-  text-transform: uppercase;
-  transform: rotate(-9deg);
-  box-shadow: var(--shadow-sm);
-}
 .hostTitle { margin: 10px 0 28px; font-size: clamp(3rem, 6.4vw, 5.6rem); }
 .credits {
   margin: 28px 0;
@@ -203,11 +122,11 @@
 .extra h3 { font-size: clamp(2.4rem, 4vw, 3.4rem); margin-bottom: 16px; }
 .extra p { opacity: 0.92; }
 .extra :global(.btn) { align-self: flex-start; }
-.extraGift { background: var(--brick); color: #fff; }
+.extraGift { background: var(--brick); color: var(--cocoa); }
 .extraGroup { background: var(--ink); color: var(--cream); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 20px 0 0; padding: 0; }
 .chips li { background: rgba(255, 255, 255, 0.14); border-radius: var(--r-pill); padding: 0.45em 1em; font-weight: 700; font-size: 0.92rem; }
-.extra :focus-visible { outline-color: #fff; }
+.extra :focus-visible { outline-color: currentColor; }
 
 /* Community */
 .community { padding: 128px 0; }
@@ -225,34 +144,29 @@
 .faqGrid h2 { margin-bottom: 20px; }
 
 @media (max-width: 980px) {
-  .heroGrid, .worriesGrid, .hostGrid, .faqGrid, .extrasGrid, .communityGrid, .reviewsGrid { grid-template-columns: 1fr; }
-  .heroTitle { font-size: min(12vw, 6.3rem); }
+  .heroGrid, .hostGrid, .faqGrid, .extrasGrid, .communityGrid, .reviewsGrid { grid-template-columns: 1fr; }
+  .heroTitle { font-size: min(11vw, 5.7rem); }
   .heroArt { max-width: 560px; width: 100%; margin: 24px auto 40px; }
   .snap { left: -12px; }
-  .heroSticker { right: -8px; }
-  .worriesIntro { position: static; }
   .expsHead { grid-template-columns: 1fr; margin-bottom: 64px; }
   .hostGrid { gap: 64px; }
   .reelCol { max-width: 340px; }
 }
 @media (max-width: 600px) {
   .hero { padding: 20px 0 88px; }
-  .heroKicker { font-size: 0.85rem; margin-bottom: 18px; }
-  .heroTitle { font-size: 14.8vw; }
+  .heroTitle { font-size: 11.4vw; }
   .heroMeta { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 16px 22px; margin-top: 32px; font-size: 0.85rem; }
   .heroMeta strong { font-size: 1.45rem; }
   .heroMeta dd { line-height: 1.3; }
   .heroCtas :global(.btn) { flex: 1 1 auto; }
-  .heroSticker { width: 112px; height: 112px; font-size: 1rem; top: -16px; right: -4px; }
-  .hostSticker { width: 120px; height: 120px; font-size: 1.1rem; right: -4px; bottom: -24px; }
   .snap { width: 46%; bottom: -32px; left: -6px; }
-  .mood, .exps, .worries, .host, .reviews, .book, .faq, .community { padding-top: 80px; padding-bottom: 80px; }
-  .exps { padding-bottom: 8px; }
+  .exps, .host, .reviews, .book, .faq, .community { padding-top: 80px; padding-bottom: 80px; }
+  .exps { padding-bottom: 56px; }
+  .expsHead { margin-bottom: 32px; }
   .quotes { grid-template-columns: 1fr; gap: 32px; }
   .score strong { font-size: 3.8rem; }
   .leadQuote { margin-bottom: 48px; }
   .extra { padding: 30px 24px; min-height: 0; }
   .credits > div { grid-template-columns: 1fr; gap: 2px; }
-  .worryList li { padding: 20px; }
   .eventsEmpty { padding: 24px; }
 }

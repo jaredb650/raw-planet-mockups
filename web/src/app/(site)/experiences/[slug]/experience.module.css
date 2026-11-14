@@ -6,7 +6,7 @@
 .titleRow { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px 48px; flex-wrap: wrap; margin-bottom: 32px; }
 .kicker { display: flex; align-items: center; gap: 10px; font-weight: 700; margin: 0 0 14px; }
 .swatch { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); }
-.title { font-size: clamp(3rem, 7vw, 6.2rem); max-width: 13ch; }
+.title { font-size: clamp(2.8rem, 6vw, 5.2rem); max-width: 18ch; }
 .titleMeta { display: grid; gap: 8px; justify-items: end; text-align: right; }
 .ratingLink { text-decoration: none; }
 .ratingLink:hover { text-decoration: underline; text-underline-offset: 4px; }

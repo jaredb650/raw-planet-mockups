@@ -6,7 +6,7 @@ import { Button, Column, Heading, Hr, Link, Row, Section, Text } from "@react-em
 import type { CSSProperties, ReactNode } from "react";
 import { C, FONT_BODY, FONT_DISPLAY, FONT_MONO } from "../theme";
 
-export function Eyebrow({ children, color = C.brick }: { children: ReactNode; color?: string }) {
+export function Eyebrow({ children, color = C.brickDark }: { children: ReactNode; color?: string }) {
   return (
     <Text
       style={{
@@ -83,7 +83,7 @@ export function P({ children, muted, small, style }: { children: ReactNode; mute
   );
 }
 
-export function A({ href, children, color = C.brick }: { href: string; children: ReactNode; color?: string }) {
+export function A({ href, children, color = C.brickDark }: { href: string; children: ReactNode; color?: string }) {
   return (
     <Link href={href} style={{ color, textDecoration: "underline", fontWeight: 600 }}>
       {children}
@@ -99,7 +99,7 @@ export function Btn({ href, children, variant = "primary" }: { href: string; chi
       style={{
         display: "inline-block",
         backgroundColor: primary ? C.brick : C.paper,
-        color: primary ? C.white : C.cocoa,
+        color: C.cocoa,
         border: `2px solid ${primary ? C.brick : C.cocoa}`,
         borderRadius: "999px",
         padding: "13px 26px",

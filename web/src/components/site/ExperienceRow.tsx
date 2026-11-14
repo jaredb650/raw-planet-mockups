@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { MOODS } from "@/content/site";
 import type { PublicExperience } from "@/lib/queries/public";
 import { quickFacts, themeOf } from "./format";
 import { LoopVideo } from "./LoopVideo";
@@ -8,8 +7,30 @@ import { cardPhotoFor, loopFor } from "./media";
 import { PickExperienceLink } from "./MoodContext";
 import styles from "./ExperienceRow.module.css";
 
-/** Alternating image/text row from the "Open Door" layout. */
-export function ExperienceRow({ e, index, pickable }: { e: PublicExperience; index: number; pickable?: boolean }) {
+/**
+ * The experiences, one after another. Desktop: image and text alternate sides.
+ * Phones: a swipeable left/right carousel of cards (CSS scroll snap, no script).
+ */
+export function ExperienceRows({ experiences, pickable }: { experiences: PublicExperience[]; pickable?: boolean }) {
+  return (
+    <>
+      <div className={styles.track} role="list" aria-label="Experiences">
+        {experiences.map((e, i) => (
+          <div key={e.slug} role="listitem" className={styles.item}>
+            <ExperienceRow e={e} index={i} pickable={pickable} />
+          </div>
+        ))}
+      </div>
+      {experiences.length > 1 ? (
+        <p className={styles.swipe} aria-hidden="true">
+          Swipe to see all {experiences.length} <span>→</span>
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function ExperienceRow({ e, index, pickable }: { e: PublicExperience; index: number; pickable?: boolean }) {
   const theme = themeOf(e);
   const photo = cardPhotoFor(theme);
   const loop = loopFor(theme);
@@ -29,16 +50,13 @@ export function ExperienceRow({ e, index, pickable }: { e: PublicExperience; ind
             <LoopVideo src={loop.src} poster={loop.poster} label={loop.alt} className={styles.mediaFill} />
           </div>
         ) : null}
-        <span className={styles.slogan} aria-hidden="true">
-          {MOODS[theme]?.label ?? e.shortName}
-        </span>
       </div>
       <div className={styles.body}>
         <p className={styles.kicker}>
-          <span className={styles.num}>0{index + 1}</span> {e.shortName}
+          <span className={styles.num}>0{index + 1}</span> {e.locationArea}
         </p>
         <h3 id={`exp-${e.slug}`} className={styles.title}>
-          <Link href={`/experiences/${e.slug}`}>{e.tagline || e.name}</Link>
+          <Link href={`/experiences/${e.slug}`}>{e.name}</Link>
         </h3>
         <p className={styles.summary}>{e.summary}</p>
         <ul className={styles.flow}>
@@ -65,7 +83,7 @@ export function ExperienceRow({ e, index, pickable }: { e: PublicExperience; ind
             </Link>
           )}
           <Link href={`/experiences/${e.slug}`} className="btn btn--ghost">
-            What happens <span className="sr-only">in the {e.shortName} session</span>
+            Learn more <span className="sr-only">about the {e.name}</span>
           </Link>
         </div>
       </div>

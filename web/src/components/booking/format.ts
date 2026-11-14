@@ -27,21 +27,21 @@ export function sortedDurations(e: Pick<PublicExperience, "durationOptions">) {
   return [...e.durationOptions].sort((a, b) => a.minutes - b.minutes);
 }
 
-/** "$150 per guest" / "$300 per session" for the shortest option. */
+/** "$150 per person" / "$300 per session" for the shortest option. */
 export function fromPriceLabel(e: PublicExperience): string {
-  const opts = sortedDurations(e);
-  const min = Math.min(...opts.map((o) => o.priceCents));
-  const unit = e.pricingMode === "per_session" ? "per session" : "per guest";
-  return `${opts.length > 1 || e.priceVaries ? "From " : ""}${formatMoney(min)} ${unit}`;
+  const prices = e.durationOptions.map((o) => o.priceCents);
+  const unit = e.pricingMode === "per_session" ? "per session" : "per person";
+  return `${new Set(prices).size > 1 || e.priceVaries ? "From " : ""}${formatMoney(Math.min(...prices))} ${unit}`;
 }
 
-/** Chip label for a duration option: "2 hours · $150". */
+/** Chip label for a duration option: "2 hours · $150", or "3 hours · +$150" when the extra time is a flat fee. */
 export function durationChip(e: PublicExperience, minutes: number): { title: string; price: string } {
   const opt = e.durationOptions.find((o) => o.minutes === minutes);
-  return { title: opt?.label || fmtDuration(minutes), price: opt ? formatMoney(opt.priceCents) : "" };
+  const price = !opt ? "" : opt.flatCents ? `+${formatMoney(opt.flatCents)}` : formatMoney(opt.priceCents);
+  return { title: opt?.label || fmtDuration(minutes), price };
 }
 
-/** Sensible starting guest count: 2 for private sessions, the minimum for groups. */
+/** Sensible starting guest count: 2, or the minimum for groups. */
 export function defaultGuests(e: Pick<PublicExperience, "minGuests" | "maxGuests">): number {
   return Math.min(e.maxGuests, Math.max(e.minGuests, 2));
 }

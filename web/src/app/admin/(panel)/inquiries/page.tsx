@@ -23,7 +23,7 @@ const TABS = [
   { v: "all", label: "All" },
 ] as const;
 type Tab = (typeof TABS)[number]["v"];
-const KIND: Record<string, string> = { group: "Group", private_event: "Private event", corporate: "Team / corporate", general: "Question", press: "Press" };
+const KIND: Record<string, string> = { group: "Group", private_event: "Private session", corporate: "Team / corporate", general: "Question", press: "Press" };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export default async function InquiriesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
