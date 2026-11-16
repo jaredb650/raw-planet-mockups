@@ -185,7 +185,7 @@ export default async function EditExperiencePage({
 
         <Panel title="Opening hours (New York time)">
           <div className={`${a.panelBody} ${a.form}`}>
-            <p className={a.hint}>Guests can start a session any time inside these hours, as long as it ends before closing. Leave a day blank to close it. Add a second window for split days.</p>
+            <p className={a.hint}>Set the first and last start time for each day. The last start is the latest a session can begin (10pm means a 10pm start is fine, 10:01 is not); sessions can run past it. Leave a day blank to close it. Add a second window for split days.</p>
             <div className={e.hours}>
               {DAYS.map(([d, label]) => {
                 const w = x.schedule[String(d)] ?? [];
@@ -194,7 +194,7 @@ export default async function EditExperiencePage({
                     <span className={e.dayName}>{label}</span>
                     {[0, 1].map((k) => (
                       <div className={e.win} key={k}>
-                        <input name={`h_${d}_${k}_start`} type="time" step={900} className={`${a.input} ${a.inputSm}`} defaultValue={w[k]?.start ?? ""} aria-label={`${label} window ${k + 1} opens`} />
+                        <input name={`h_${d}_${k}_start`} type="time" step={900} className={`${a.input} ${a.inputSm}`} defaultValue={w[k]?.start ?? ""} aria-label={`${label} window ${k + 1} first start`} />
                         <span aria-hidden>–</span>
                         <input
                           name={`h_${d}_${k}_end`}
@@ -202,7 +202,7 @@ export default async function EditExperiencePage({
                           step={900}
                           className={`${a.input} ${a.inputSm}`}
                           defaultValue={w[k]?.end === "24:00" ? "00:00" : (w[k]?.end ?? "")}
-                          aria-label={`${label} window ${k + 1} closes`}
+                          aria-label={`${label} window ${k + 1} last start`}
                         />
                       </div>
                     ))}

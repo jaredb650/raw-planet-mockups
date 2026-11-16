@@ -33,8 +33,7 @@ import { CHECKOUT_HOLD_MINUTES, integrations, siteUrl } from "@/lib/config";
 import { newBookingCode, newToken, normalizeCode } from "@/lib/ids";
 import { formatMoney } from "@/lib/money";
 import { fmtDateShort, fmtDuration, fmtTimeRange, localDateKey } from "@/lib/time";
-import { computeQuote, pickPriceRule, refundForCancellation, type Quote, passOnCents, withPassOn } from "./pricing";
-import { passOnBps, paymentsReady } from "@/lib/platform";
+import { computeQuote, pickPriceRule, refundForCancellation, type Quote } from "./pricing";
 import { isSlotFree, loadPriceRules } from "./availability";
 import {
   CalcomError,
@@ -198,12 +197,11 @@ export async function buildQuote(
   }
 
   const now = new Date();
-  const feeBps = await passOnBps();
   const quote = computeQuote({
-    experience: withPassOn(experience, feeBps),
+    experience,
     durationMinutes: req.durationMinutes,
     guests: req.guests,
-    addons: addonRows.map((a) => ({ addon: { ...a, priceCents: passOnCents(a.priceCents, feeBps) } })),
+    addons: addonRows.map((a) => ({ addon: a })),
     promo: promo ?? null,
     giftCardBalanceCents: giftCard?.balanceCents ?? 0,
     priceRule: pickPriceRule(await loadPriceRules(db), experience.id, new Date(req.start), now),
@@ -252,7 +250,6 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   if (giftCardError) throw new BookingError(giftCardError);
   if (input.expectedTotalCents != null && input.expectedTotalCents !== quote.totalCents)
     throw new BookingError(`The price for this time just changed to ${formatMoney(quote.totalCents)}. Please check it and confirm again.`, "price_changed");
-  if (quote.totalCents > 0 && !(await paymentsReady())) throw new BookingError("Online payments aren't set up yet. Please contact us to book.", "policy");
   const end = new Date(start.getTime() + input.durationMinutes * 60_000);
   const holdExpiresAt = new Date(Date.now() + CHECKOUT_HOLD_MINUTES * 60_000);
 

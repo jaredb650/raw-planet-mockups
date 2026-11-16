@@ -12,8 +12,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { getAvailability, getExperienceBySlugOrId } from "@/lib/booking/availability";
-import { adjustedCents, durationPrice, withPassOn } from "@/lib/booking/pricing";
-import { passOnBps } from "@/lib/platform";
+import { adjustedCents, durationPrice } from "@/lib/booking/pricing";
 import { getBookingForCustomer } from "@/lib/booking/service";
 import { addDaysKey } from "@/lib/time";
 import { LIMITS, clientIp, dateKeySchema, fieldErrors, jsonError, rateLimit, tooMany } from "../_lib/http";
@@ -64,7 +63,7 @@ export async function GET(req: NextRequest) {
     ignoreBookingId,
     guests,
   });
-  const unitCents = durationPrice(withPassOn(experience, await passOnBps()), q.duration);
+  const unitCents = durationPrice(experience, q.duration);
 
   return Response.json(
     {

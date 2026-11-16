@@ -8,14 +8,11 @@
  * lease (`cronLock`) also stops whole runs from overlapping.
  */
 import "server-only";
-import { and, eq, gt, gte, inArray, isNull, lt, lte, sql } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { bookingEvents, bookings, emailLog, giftCards, reviews } from "@/lib/db/schema";
 import { expireStaleHolds, logEvent } from "@/lib/booking/service";
-import { addDaysKey, fromLocal, localDateKey, todayKey } from "@/lib/time";
-import { getReport } from "@/lib/admin/reports";
-import { platformFeeCents } from "@/lib/booking/pricing";
-import { connectMode, getPlatform, sendReport } from "@/lib/platform";
+import { localDateKey } from "@/lib/time";
 import { syncCalendarFeeds } from "@/lib/feeds";
 import { weekStartKey } from "@/lib/admin/dashboard";
 import { finishCampaigns, sendWinBacks } from "@/lib/admin/campaigns";
@@ -58,7 +55,7 @@ export type JobResult = {
   error?: string;
 };
 
-export const JOBS = ["expireHolds", "syncFeeds", "giftCardDelivery", "reminders", "abandonedCheckouts", "followups", "reviewNudges", "hostDigest", "weeklyReport", "campaignQueue", "winBack", "hqReport"] as const;
+export const JOBS = ["expireHolds", "syncFeeds", "giftCardDelivery", "reminders", "abandonedCheckouts", "followups", "reviewNudges", "hostDigest", "weeklyReport", "campaignQueue", "winBack"] as const;
 export type JobName = (typeof JOBS)[number];
 
 type Tally = { sent: number; skipped: number; failed: number; detail?: unknown };
@@ -284,40 +281,6 @@ async function weeklyReport(now: Date): Promise<Tally> {
   return t;
 }
 
-/** Yesterday's totals to HQ, which answers with this site's fee and account. Re-sending a day is safe: HQ upserts it. */
-async function hqReport(now: Date): Promise<Tally> {
-  if (!connectMode()) return tally();
-  const date = addDaysKey(todayKey(now), -1);
-  const db = await getDb();
-  const [report, { feeBps }, [made], [upcoming], [failed]] = await Promise.all([
-    getReport({ from: date, to: date, preset: null }, now),
-    getPlatform(),
-    db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(bookings)
-      .where(and(gte(bookings.createdAt, fromLocal(date)), lt(bookings.createdAt, fromLocal(todayKey(now))), inArray(bookings.status, ["confirmed", "completed", "no_show", "cancelled"]))),
-    db.select({ n: sql<number>`count(*)::int` }).from(bookings).where(and(eq(bookings.status, "confirmed"), gt(bookings.startAt, now))),
-    db.select({ n: sql<number>`count(*)::int` }).from(emailLog).where(and(eq(emailLog.status, "failed"), gte(emailLog.createdAt, fromLocal(date)))),
-  ]);
-  const { openHours, bookedHours } = report.occupancy;
-  const cardCents = report.revenue.sessionCents + report.revenue.giftCardCents;
-  await sendReport({
-    date,
-    bookings: Number(made?.n ?? 0),
-    sessions: report.rates.sessions,
-    grossCents: cardCents,
-    refundedCents: report.revenue.refundCents,
-    giftCardsSoldCents: report.revenue.giftCardCents,
-    // Estimate for the site view only. HQ's ledger of actual Stripe fees is the source of truth.
-    platformFeeCents: platformFeeCents(cardCents, feeBps),
-    occupancyPct: openHours > 0 ? Math.min(100, Math.round((bookedHours / openHours) * 100)) : 0,
-    upcomingSessions: Number(upcoming?.n ?? 0),
-    failedEmails: Number(failed?.n ?? 0),
-    appVersion: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev",
-  });
-  return { ...tally(), sent: 1 };
-}
-
 const RUNNERS: Record<JobName, (now: Date) => Promise<Tally>> = {
   expireHolds: async (now) => ({ ...tally(), detail: { expired: await expireStaleHolds(now) } }),
   syncFeeds: async () => {
@@ -333,7 +296,6 @@ const RUNNERS: Record<JobName, (now: Date) => Promise<Tally>> = {
   weeklyReport,
   campaignQueue,
   winBack,
-  hqReport,
 };
 
 const LOCK = "cronLock";

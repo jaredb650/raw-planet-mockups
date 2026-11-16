@@ -22,6 +22,9 @@
 .teamGrid:empty { display: none; }
 .teamCard h3 { font-size: 1.8rem; margin: 14px 0 6px; }
 .teamImg { position: relative; aspect-ratio: 4 / 5; border-radius: var(--r-lg); overflow: hidden; background: var(--accent-soft); }
+/* Empty profile picture until the co-host's photo arrives. */
+.teamAvatar { width: 88px; height: 88px; border-radius: 50%; overflow: hidden; background: var(--accent-soft); display: grid; place-items: end center; }
+.teamBlank { width: 70%; height: 80%; fill: var(--ink-soft); opacity: 0.35; }
 .why { padding: 112px 0; }
 .whyGrid { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 64px; align-items: start; }
 .whyGrid :global(.lede) { color: var(--ink); max-width: 52ch; margin-bottom: 20px; }

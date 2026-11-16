@@ -58,10 +58,6 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             <h1 id="hero-title" className={styles.heroTitle}>
               <span>Music experiences</span> <span className={styles.heroTitleAccent}>in New York City</span>
             </h1>
-            <p className={`lede ${styles.heroLede}`}>
-              Two hours in a real studio with a working producer. Produce a track, learn to DJ or join a guided sound meditation. No
-              experience needed.
-            </p>
             <div className={styles.heroCtas}>
               <a href="#experiences" className="btn btn--accent">
                 See the experiences

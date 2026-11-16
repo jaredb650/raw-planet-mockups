@@ -3,7 +3,7 @@
  *
  * A start time is bookable when ALL of these hold:
  *   1. it falls inside the experience's weekly schedule (business-local time)
- *      and the whole session ends before the window closes;
+ *      (the window end is the last start time; a session may run past it);
  *   2. it respects lead time (min notice) and the max-advance window;
  *   3. it doesn't overlap (incl. buffer) any manual block, imported calendar
  *      busy time, or session of another experience / another start time in
@@ -68,8 +68,8 @@ export function computeDaySlots(opts: {
 
   for (const w of windows) {
     const winStart = fromLocal(dateKey, w.start);
-    const winEnd = fromLocal(dateKey, w.end);
-    for (let t = winStart.getTime(); t + durationMinutes * 60_000 <= winEnd.getTime(); t += step * 60_000) {
+    const lastStart = fromLocal(dateKey, w.end).getTime();
+    for (let t = winStart.getTime(); t <= lastStart; t += step * 60_000) {
       const start = new Date(t);
       const end = new Date(t + durationMinutes * 60_000);
       let reason: Slot["reason"];

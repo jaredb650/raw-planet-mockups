@@ -8,8 +8,6 @@ import { getDb } from "@/lib/db";
 import { addons, eventRsvps, events, experiences, pricingRules, reviews, type Experience } from "@/lib/db/schema";
 import { BUSINESS } from "@/lib/config";
 import { todayKey } from "@/lib/time";
-import { passOnCents, withPassOn } from "@/lib/booking/pricing";
-import { passOnBps } from "@/lib/platform";
 
 export type PublicExperience = Pick<
   Experience,
@@ -46,9 +44,7 @@ export async function getActiveExperiences(): Promise<PublicExperience[]> {
     db.select().from(addons).where(eq(addons.active, true)),
     db.select({ experienceIds: pricingRules.experienceIds, dateTo: pricingRules.dateTo }).from(pricingRules).where(eq(pricingRules.active, true)),
   ]);
-  const feeBps = await passOnBps();
-  const priced = addonRows.map((a) => ({ ...a, priceCents: passOnCents(a.priceCents, feeBps) }));
-  return rows.map((e) => toPublic(withPassOn(e, feeBps), priced, rules));
+  return rows.map((e) => toPublic(e, addonRows, rules));
 }
 
 export async function getPublicExperience(slug: string): Promise<PublicExperience | null> {
@@ -60,21 +56,25 @@ export type PublicReview = {
   id: string; name: string; location: string | null; rating: number; body: string; source: string;
   experienceSlug: string | null; featured: boolean; hostReply: string | null; date: string | null;
   videoUrl: string | null;
+  /** The experience's Airbnb listing, for Airbnb reviews, so guests can check them there. */
+  sourceUrl: string | null;
 };
 
 export async function getPublishedReviews(opts: { experienceId?: string; limit?: number } = {}): Promise<PublicReview[]> {
   const db = await getDb();
   const rows = await db
-    .select({ r: reviews, slug: experiences.slug })
+    .select({ r: reviews, slug: experiences.slug, airbnbUrl: experiences.airbnbUrl })
     .from(reviews)
     .leftJoin(experiences, eq(reviews.experienceId, experiences.id))
     .where(and(eq(reviews.status, "published"), opts.experienceId ? eq(reviews.experienceId, opts.experienceId) : undefined))
     .orderBy(desc(reviews.featured), desc(reviews.createdAt))
     .limit(opts.limit ?? 200);
-  return rows.map(({ r, slug }) => ({
+  return rows.map(({ r, slug, airbnbUrl }) => ({
     id: r.id, name: r.name, location: r.location, rating: r.rating, body: r.body, source: r.source,
     experienceSlug: slug, featured: r.featured, hostReply: r.hostReply, videoUrl: r.videoUrl,
     date: (r.reviewDate ?? r.createdAt)?.toISOString() ?? null,
+    // shortcut: Airbnb has no per-review links, so this points at the listing's reviews.
+    sourceUrl: r.source === "airbnb" ? airbnbUrl : null,
   }));
 }
 

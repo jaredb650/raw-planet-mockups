@@ -24,6 +24,8 @@
 .loc { color: var(--ink-soft); }
 .loc::before { content: " · "; }
 .meta { display: block; color: var(--ink-faint); font-size: 0.85rem; }
+.source { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.source:hover { color: var(--ink); }
 .reply { border-left: 3px solid var(--accent); padding-left: 14px; font-size: 0.95rem; }
 .reply p { margin: 4px 0 0; color: var(--ink-soft); }
 

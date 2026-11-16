@@ -29,7 +29,14 @@ export type CoHost = { name: string; bio: string; photo?: { src: string; alt: st
  * (their cards appear on the About page as soon as they are listed here).
  */
 export const COHOSTS: Record<string, { count: number; people: CoHost[] }> = {
-  production: { count: 2, people: [] },
+  // Placeholder names and bios until the client sends the real ones and photos.
+  production: {
+    count: 2,
+    people: [
+      { name: "Co-host one", bio: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam." },
+      { name: "Co-host two", bio: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam." },
+    ],
+  },
   wellness: { count: 1, people: [] },
 };
 

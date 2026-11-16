@@ -43,29 +43,6 @@ export type Quote = {
 
 export class PricingError extends Error {}
 
-/** Whole cents owed to the platform on a card charge. */
-export function platformFeeCents(chargeCents: number, feeBps: number): number {
-  return Math.round((chargeCents * feeBps) / 10_000);
-}
-
-/** List price with the platform fee built in, so the client still nets the list price. Rounded to whole dollars. */
-export function passOnCents(cents: number, feeBps: number): number {
-  return feeBps > 0 && cents > 0 ? Math.round(cents / (1 - feeBps / 10_000) / 100) * 100 : cents;
-}
-
-export function withPassOn<T extends Pick<Experience, "durationOptions" | "extraGuestCents">>(e: T, feeBps: number): T {
-  if (feeBps <= 0) return e;
-  return {
-    ...e,
-    durationOptions: e.durationOptions.map((o) => ({
-      ...o,
-      priceCents: passOnCents(o.priceCents, feeBps),
-      ...(o.flatCents ? { flatCents: passOnCents(o.flatCents, feeBps) } : {}),
-    })),
-    extraGuestCents: passOnCents(e.extraGuestCents, feeBps),
-  };
-}
-
 function durationOption(experience: Pick<Experience, "durationOptions">, minutes: number) {
   const opt = experience.durationOptions.find((o) => o.minutes === minutes);
   if (!opt) throw new PricingError(`This experience can't be booked for ${minutes} minutes.`);

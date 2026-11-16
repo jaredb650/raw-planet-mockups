@@ -120,15 +120,3 @@ A free, usually invisible check on the booking, gift card, waitlist, RSVP, conta
 - Make one real booking with your own card on live keys, then cancel it from the
   manage link in the confirmation email. That proves payment, calendar sync, emails
   and automatic refunds end to end.
-
-## Platform fee (Stripe Connect)
-
-Leave `HQ_SITE_ID` unset to run plain Stripe with no platform fee. To run a client site through the platform:
-
-1. In HQ, add the site and finish the client's Stripe onboarding.
-2. Set `HQ_URL`, `HQ_SITE_ID` and `HQ_SECRET` from HQ, and use the platform's `STRIPE_SECRET_KEY`.
-3. In the platform's Stripe Dashboard, add a webhook endpoint for this site that listens to events on **connected accounts**, and put its signing secret in `STRIPE_WEBHOOK_SECRET`.
-4. Run the `hqReport` job (Admin → Settings → Run now). The site stores its account and rate from HQ's answer, and checkout won't open before that account is enabled.
-
-The rate is set in HQ and shown read-only in Settings. The client's only control is whether the fee is built into their prices.
-

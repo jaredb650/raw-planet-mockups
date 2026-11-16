@@ -45,9 +45,9 @@ function parseSchedule(fd: FormData): WeeklySchedule {
       const start = str(fd, `h_${d}_${w}_start`);
       const end = str(fd, `h_${d}_${w}_end`);
       if (!start && !end) continue;
-      if (!hhmm.test(start) || !hhmm.test(end)) throw new Error("Opening hours: fill both the start and end time.");
+      if (!hhmm.test(start) || !hhmm.test(end)) throw new Error("Opening hours: fill both the first and last start time.");
       const endNorm = end === "00:00" ? "24:00" : end;
-      if (endNorm <= start) throw new Error("Opening hours: a closing time is before its opening time.");
+      if (endNorm < start) throw new Error("Opening hours: a last start time is before its first start time.");
       wins.push({ start, end: endNorm });
     }
     if (wins.length) s[String(d)] = wins.sort((a, b) => a.start.localeCompare(b.start));

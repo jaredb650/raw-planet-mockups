@@ -20,7 +20,17 @@ export function ReviewCard({ review, experienceName, showStars = true }: { revie
           <strong>{review.name}</strong>
           {review.location ? <span className={styles.loc}>{review.location}</span> : null}
           <span className={styles.meta}>
-            {[experienceName, SOURCE[review.source] ?? review.source, review.date ? fmt(review.date, "MMM yyyy") : null].filter(Boolean).join(" · ")}
+            {[experienceName, review.sourceUrl ? null : (SOURCE[review.source] ?? review.source), review.date ? fmt(review.date, "MMM yyyy") : null]
+              .filter(Boolean)
+              .join(" · ")}
+            {review.sourceUrl ? (
+              <>
+                {" · "}
+                <a href={review.sourceUrl} target="_blank" rel="noopener noreferrer" className={styles.source}>
+                  Read on Airbnb<span className="sr-only"> (opens in a new tab)</span>
+                </a>
+              </>
+            ) : null}
           </span>
         </span>
       </figcaption>

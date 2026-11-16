@@ -128,11 +128,16 @@ export default async function AboutPage() {
                 {coHosted.flatMap((e) =>
                   COHOSTS[e.theme].people.map((p) => (
                     <article key={`${e.slug}-${p.name}`} className={styles.teamCard}>
-                      {p.photo ? (
-                        <div className={styles.teamImg}>
+                      <div className={p.photo ? styles.teamImg : styles.teamAvatar}>
+                        {p.photo ? (
                           <Image src={p.photo.src} alt={p.photo.alt} fill sizes="(max-width: 900px) 92vw, 280px" className={styles.cover} />
-                        </div>
-                      ) : null}
+                        ) : (
+                          <svg viewBox="0 0 24 24" aria-hidden className={styles.teamBlank}>
+                            <circle cx="12" cy="8.5" r="4" />
+                            <path d="M4 21c0-4.4 3.6-7.5 8-7.5s8 3.1 8 7.5z" />
+                          </svg>
+                        )}
+                      </div>
                       <h3>{p.name}</h3>
                       <p className="eyebrow">{e.name}</p>
                       <p>{p.bio}</p>
@@ -201,6 +206,14 @@ export default async function AboutPage() {
                   <figcaption>
                     {r.name}
                     {r.location ? <span>, {r.location}</span> : null}
+                    {r.sourceUrl ? (
+                      <>
+                        {" · "}
+                        <a href={r.sourceUrl} target="_blank" rel="noopener noreferrer">
+                          Read on Airbnb<span className="sr-only"> (opens in a new tab)</span>
+                        </a>
+                      </>
+                    ) : null}
                   </figcaption>
                 </figure>
               ))}

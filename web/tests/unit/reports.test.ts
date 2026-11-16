@@ -255,7 +255,7 @@ describe("weekGrid", () => {
   it("prices each slot with the rule a guest would get right now", () => {
     const rule = { id: "r", name: "Noon", experienceIds: null, weekdays: [2], startTime: "12:00", endTime: "14:00", dateFrom: null, dateTo: null, minHoursAhead: null, maxHoursAhead: null, adjustPercent: 15, priority: 0, active: true } as PricingRule;
     const g = weekGrid(exp, [rule], "2026-06-01", 120, new Date("2026-05-20T12:00:00Z"));
-    expect(g.times).toEqual(["10:00", "12:00"]);
+    expect(g.times).toEqual(["10:00", "12:00", "14:00"]); // 14:00 = the last start
     expect(g.cells["2026-06-02|10:00"]).toEqual({ cents: 15000, adjustPercent: 0 });
     expect(g.cells["2026-06-02|12:00"]).toEqual({ cents: 17300, adjustPercent: 15 });
     expect(g.cells["2026-06-03|10:00"]).toBeUndefined();
