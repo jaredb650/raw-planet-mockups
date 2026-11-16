@@ -1,0 +1,15 @@
+# Runs the site's scheduled jobs (calendar feed sync, reminders, holds) more often than
+# Vercel Hobby's once-a-day cron allows. Lives on main because GitHub only runs schedules there.
+# Every 30 min keeps Neon's free compute and GitHub's free minutes (if the repo goes private) in budget.
+name: Site cron
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - run: |
+          curl -fsS --max-time 90 -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" https://raw-planet-experiences.vercel.app/api/cron/run
