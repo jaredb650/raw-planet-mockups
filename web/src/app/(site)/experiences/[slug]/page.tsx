@@ -8,7 +8,7 @@ import { resolveFaq } from "@/components/site/faq";
 import { ageLabel, durationLabel, extraHourCents, groupLabel, priceLabel, priceUnit, themeOf } from "@/components/site/format";
 import { Gallery } from "@/components/site/Gallery";
 import { JsonLd } from "@/components/site/JsonLd";
-import { cardPhotoFor, photosFor, reelFor, SITE_MEDIA } from "@/components/site/media";
+import { cardPhotoFor, photosFor, reelsFor, SITE_MEDIA } from "@/components/site/media";
 import { getExperienceRating } from "@/components/site/queries";
 import { ReelPlayer } from "@/components/site/ReelPlayer";
 import { ReviewCard } from "@/components/site/ReviewCard";
@@ -51,7 +51,7 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
   const rating = theme === "production" ? overall : ownRating;
   const otherReviews = ownReviews.length ? [] : await getPublishedReviews({ limit: 3 });
   const photos = photosFor(e);
-  const reel = reelFor(theme);
+  const reels = reelsFor(theme);
   const faqWanted = EXPERIENCE_FAQ[theme] ?? [];
   const faq = resolveFaq(experiences).filter((f) => faqWanted.includes(f.q));
   faq.sort((a, b) => faqWanted.indexOf(a.q) - faqWanted.indexOf(b.q));
@@ -154,7 +154,7 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
             </section>
           ) : null}
 
-          {reel ? (
+          {reels.length === 1 ? (
             <section className={`${styles.block} ${styles.reelBlock}`} aria-labelledby="reel-title">
               <div className={styles.reelCopy}>
                 <p className="eyebrow">{theme === "wellness" ? "Watch before you book" : "From the studio"}</p>
@@ -168,7 +168,26 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
                 </p>
               </div>
               <div className={styles.reel}>
-                <ReelPlayer video={reel} title={reel.alt} />
+                <ReelPlayer video={reels[0]} title={reels[0].alt} />
+              </div>
+            </section>
+          ) : reels.length > 1 ? (
+            <section className={`${styles.block} ${styles.reelGallery}`} aria-labelledby="reel-title">
+              <div className={styles.reelCopy}>
+                <p className="eyebrow">{theme === "wellness" ? "Watch before you book" : "From the studio"}</p>
+                <h2 id="reel-title" className={styles.h2}>
+                  {theme === "wellness" ? "See and hear a session" : "Watch a session"}
+                </h2>
+                <p className="muted">
+                  {theme === "wellness"
+                    ? "Turn the sound on. Real sessions in the room — crystal bowls, live soundscapes, projected visuals and what guests had to say afterwards."
+                    : "Studio footage, Alex at the desk and what guests said afterwards."}
+                </p>
+              </div>
+              <div className={styles.reelGrid}>
+                {reels.map((v) => (
+                  <ReelPlayer key={v.src} video={v} title={v.alt} caption={v.caption} />
+                ))}
               </div>
             </section>
           ) : null}
@@ -233,7 +252,7 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
               </h2>
               <p className="muted">{HOST.paragraphs[0]}</p>
               <Link href="/about" className="link">
-                More about Alex
+                {hostsLine(theme) === HOST.name ? "More about Alex" : "More about Alex and the co-hosts"}
               </Link>
             </div>
           </section>

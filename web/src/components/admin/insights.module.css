@@ -3,7 +3,7 @@
 .bars li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 12px; font-size: 14px; }
 .barValue { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .barTrack { grid-column: 1 / -1; display: block; height: 8px; border-radius: 4px; background: var(--a-line); overflow: hidden; }
-.barFill { display: block; height: 100%; border-radius: 4px; background: var(--brick); }
+.barFill { display: block; height: 100%; border-radius: 4px; background: var(--purple); }
 .barFillNeg { background: var(--ink-faint); }
 
 .grid { width: 100%; border-collapse: separate; border-spacing: 2px; font-size: 13px; font-variant-numeric: tabular-nums; }

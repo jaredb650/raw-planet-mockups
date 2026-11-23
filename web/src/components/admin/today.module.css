@@ -1,10 +1,10 @@
 .sessions { list-style: none; margin: 0; padding: 0; }
 .session { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--a-line); }
 .session:last-child { border-bottom: 0; }
-.live { background: #fff6ee; box-shadow: inset 3px 0 0 var(--brick); }
+.live { background: #f6effc; box-shadow: inset 3px 0 0 var(--purple); }
 .time { display: grid; align-content: start; gap: 6px; }
 .timeMain { font: 700 20px/1.1 var(--display); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
-.nowTag { justify-self: start; font: 700 12px/1 var(--body); color: var(--brick); }
+.nowTag { justify-self: start; font: 700 12px/1 var(--body); color: var(--purple); }
 .body { min-width: 0; display: grid; gap: 4px; }
 .what { font-size: 14px; }
 .guest { font-weight: 700; font-size: 16.5px; text-decoration: none; color: var(--ink); justify-self: start; }

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "RP Admin", statusBarStyle: "default" },
 };
 
-export const viewport: Viewport = { themeColor: "#fffaf1" };
+export const viewport: Viewport = { themeColor: "#7e56a4" };
 
 export default function AdminRootLayout({ children }: { children: React.ReactNode }) {
   return children;

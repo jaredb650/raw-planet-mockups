@@ -142,11 +142,10 @@ export function Shell({ badges, logout, children }: { badges: NavBadges; logout:
         Skip to content
       </a>
       <aside className={s.sidebar}>
-        <Link href="/admin" className={s.brand}>
-          <Mark size={30} />
-          <span>
-            <span className={s.brandName}>Raw Planet</span>
-            <span className={s.brandSub}>Studio admin</span>
+        <Link href="/admin" className={s.brand} aria-label="Raw Planet Studio Admin">
+          <Mark variant="full" size={56} />
+          <span className={s.brandMeta}>
+            <span className={s.brandPill}>Studio admin</span>
           </span>
         </Link>
         {nav}
@@ -155,11 +154,11 @@ export function Shell({ badges, logout, children }: { badges: NavBadges; logout:
 
       <header className={s.topbar}>
         <Link href="/admin" className={s.topBrand} aria-label="Raw Planet admin home">
-          <Mark size={26} />
+          <Mark size={24} />
         </Link>
         <span className={s.topTitle} aria-hidden>Raw Planet</span>
         <CommandPalette />
-        <Link href="/admin/bookings/new" className={`${a.btn} ${a.btnSm} ${a.btnPrimary}`}>
+        <Link href="/admin/bookings/new" className={`${a.btn} ${a.btnSm} ${a.btnAccent}`}>
           <Icon name="plus" size={15} /> Booking
         </Link>
       </header>
@@ -194,9 +193,9 @@ export function Shell({ badges, logout, children }: { badges: NavBadges; logout:
       {menuOpen && (
         <div className={s.sheet} id="admin-more" role="dialog" aria-modal="true" aria-label="All sections">
           <div className={s.sheetHead}>
-            <span className={s.brand}>
-              <Mark size={26} />
-              <span className={s.brandName}>Raw Planet</span>
+            <span className={s.sheetBrand}>
+              <Mark size={24} />
+              <span className={s.brandPill}>Studio admin</span>
             </span>
             <button type="button" className={`${a.btn} ${a.iconBtn}`} onClick={() => setMenuOpen(false)} aria-label="Close menu" autoFocus>
               <Icon name="close" />

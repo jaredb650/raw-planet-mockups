@@ -58,5 +58,9 @@ export function reelFor(theme: Theme): VideoItem | undefined {
   return videos.find((v) => !v.loop && v.tags.includes(theme === "wellness" ? "meditation" : theme));
 }
 
+export function reelsFor(theme: Theme): VideoItem[] {
+  return videos.filter((v) => !v.loop && v.tags.includes(theme === "wellness" ? "meditation" : theme));
+}
+
 export const meditationReel = videos.find((v) => v.src === "/media/video/meditation.mp4");
 export const productionReel = videos.find((v) => v.src === "/media/video/production.mp4");

@@ -21,7 +21,13 @@ export const HOST = {
   ],
 };
 
-export type CoHost = { name: string; bio: string; photo?: { src: string; alt: string } };
+export type CoHost = {
+  name: string;
+  role?: string;
+  bio: string;
+  paragraphs?: string[];
+  photo?: { src: string; alt: string; objectPosition?: string };
+};
 
 /**
  * Co-hosts who assist Alex, keyed by experience theme. `count` is how many
@@ -29,21 +35,57 @@ export type CoHost = { name: string; bio: string; photo?: { src: string; alt: st
  * (their cards appear on the About page as soon as they are listed here).
  */
 export const COHOSTS: Record<string, { count: number; people: CoHost[] }> = {
-  // Placeholder names and bios until the client sends the real ones and photos.
   production: {
     count: 2,
     people: [
-      { name: "Co-host one", bio: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam." },
-      { name: "Co-host two", bio: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam." },
+      {
+        name: "Sidney Mills",
+        role: "Producer, Engineer & Remixer",
+        bio: "A seven-time Grammy-nominated British Jamaican musician and producer best known as the keyboardist and musical arranger of the roots reggae band Steel Pulse from 1988 to 2020 and among reggae’s most prominent musicians. Based in NYC since 1981, Sidney worked as a musician, producer, engineer, and owner of SPI Music Inc. (with Living Room Records, a vintage label subsidiary of SPI Music Inc.).",
+        paragraphs: [
+          "A seven-time Grammy-nominated British Jamaican musician and producer best known as the keyboardist and musical arranger of the roots reggae band Steel Pulse from 1988 to 2020 and among reggae’s most prominent musicians. Based in NYC since 1981, Sidney worked as a musician, producer, engineer, and owner of SPI Music Inc. (with Living Room Records, a vintage label subsidiary of SPI Music Inc.).",
+          "He has recorded and toured the world with some of the top reggae artists such as Shabba Ranks, Maxie Priest, Judy Mowatt, Dennis Brown, Aswad, The Meditations, Eek-A-Mouse, Shaggy, Ziggy Marley, Augustus Pablo, Sister Carol, Beres Hammond, Tenor Saw, Cocoa Tea, Junior Reid, Frankie Paul, Mikey Dread, Mutabaruka, Big Mountain, Dollarman, Larry McDonald, Morgan Heritage, Glen Washington, Super Cat, Shinehead, Toots Hibbert, and Sly & Robbie.",
+          "Sidney is a member of notable pioneers of hip-hop unit Boogie Down Productions (BDP), having produced, remixed, and engineered several of hip-hop’s most influential musical masterpieces. In addition, he’s collaborated with a diverse roster of artists from a wide range of genres such as Sting, KRS-One, Wyclef Jean, Smashing Pumpkins, Michael Stipe (R.E.M.), Ron Wood (The Rolling Stones), Kid Rock, The Neville Brothers, Queen Latifah, Garland Jeffreys, and Gwen Guthrie to name a few.",
+          "Sidney also performed with Steel Pulse at the White House—at U.S. President Bill Clinton’s request—as the first reggae band to perform for a presidential inauguration. On the film side, Sidney composed and produced the music for the film Fly By Night, was the music supervisor for Jamaica Beat, and co-produced and performed on the Steel Pulse song Can’t Stand The Heat for the Spike Lee film Do The Right Thing.",
+          "In recent years, Sidney has been active as a producer and session player on various projects and with developing artists such as JD Smoothe. He recently produced the new album by Worl-A-Girl and is also the producer and member of the up-and-coming Brooklyn reggae group SunDub.",
+        ],
+        photo: {
+          src: "/media/host/sidney-mills.jpg",
+          alt: "Sidney Mills smiling in a knit beanie and ribbed shirt inside a red-walled recording studio",
+          objectPosition: "50% 25%",
+        },
+      },
+      {
+        name: "Daniel Fox",
+        role: "Artist, Producer, DJ & Engineer",
+        bio: "New York–based artist, producer, DJ, and engineer Daniel Fox has spent much of his life immersed in music, moving between the city’s underground electronic scene and its professional recording studios.",
+        paragraphs: [
+          "New York–based artist, producer, DJ, and engineer Daniel Fox has spent much of his life immersed in music, moving between the city’s underground electronic scene and its professional recording studios.",
+          "Finding early success on SoundCloud as a teenager, Fox began performing at a young age, opening for The Chainsmokers at just 15 before becoming a presence in Manhattan’s downtown DJ scene.",
+          "His passion for music eventually led him behind the console at Brooklyn’s renowned Strange Weather recording studio, where he worked alongside and learned from accomplished engineers, producers, and musicians. During his time there, he contributed to recordings spanning a wide range of genres, working with artists and labels of all sizes.",
+          "Today, Fox is co-owner of Soundwork International, a New York production/mix studio, where he continues to work across recording, production, and mixing while developing his own artistic projects.",
+          "Drawing on years spent on both sides of the studio glass, his work bridges the technical craft of record-making with the raw energy and spontaneity of underground dance music.",
+        ],
+        photo: {
+          src: "/media/host/daniel-fox.jpg",
+          alt: "Black-and-white studio portrait of Daniel Fox seated at an analog mixing console with outboard gear behind him",
+          objectPosition: "55% 30%",
+        },
+      },
     ],
   },
   wellness: { count: 1, people: [] },
 };
 
-/** "Alex Gentil and two co-hosts" */
+/** "Alex Gentil, Sidney Mills and Daniel Fox" or "Alex Gentil and one co-host" */
 export function hostsLine(theme: string): string {
-  const n = COHOSTS[theme]?.count ?? 0;
+  const entry = COHOSTS[theme];
+  const n = entry?.count ?? 0;
   if (!n) return HOST.name;
+  if (entry.people.length === n) {
+    const names = [HOST.name, ...entry.people.map((p) => p.name)];
+    return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  }
   return `${HOST.name} and ${n === 1 ? "one co-host" : n === 2 ? "two co-hosts" : `${n} co-hosts`}`;
 }
 
@@ -101,7 +143,7 @@ export const FAQ: FaqEntry[] = [
   {
     category: "experiences",
     q: "Who hosts the sessions?",
-    a: "Alex Gentil (some guests know him as Cristian), a New York-based DJ, producer and audio engineer with more than ten years of professional experience who has worked with artists like Jay Critch, Ron Suno, Ruben Blades and Making Movies. Two co-hosts assist with the Music Production Experience and one co-host assists with the Meditation Experience.",
+    a: "Alex Gentil (some guests know him as Cristian), a New York-based DJ, producer and audio engineer with more than ten years of professional experience who has worked with artists like Jay Critch, Ron Suno, Ruben Blades and Making Movies. Two co-hosts (Sidney Mills and Daniel Fox) assist with the Music Production Experience and one co-host assists with the Meditation Experience.",
   },
   {
     category: "experiences",

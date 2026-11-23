@@ -15,11 +15,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <div className={`${a.root} ${s.wrap}`}>
       <main className={s.card}>
         <div className={s.brand}>
-          <Mark size={36} />
-          <div>
-            <p className={s.name}>Raw Planet</p>
-            <p className={s.sub}>Studio admin</p>
-          </div>
+          <Mark variant="full" size={64} />
+          <p className={s.sub}>Studio admin</p>
         </div>
         <h1 className={s.title}>Sign in</h1>
         <p className={s.lede}>Bookings, calendar and everything behind the website.</p>

@@ -11,8 +11,10 @@
  *   The two "new" Drive photos are lower-resolution copies of legacy shots and were NOT exported separately:
  *     00C0C_acYBqMvdJli.jpg (1200x800) == prod-02 (Alex at the desk with three guests)
  *     01414_lAqJk5v8gdh.jpg (1200x800) == prod-05 (guest recording vocals in the booth)
- * - Host: host/18.jpg -> alex-dark.jpg, host/AlexGentil-Rawphonics.jpg -> alex-light.jpg
- * - Meditation stills/poster: frames grabbed from meditation/Final1080.mp4 (no photos exist yet).
+ * - Host & co-hosts: host/18.jpg -> alex-dark.jpg, host/AlexGentil-Rawphonics.jpg -> alex-light.jpg,
+ *   plus co-host studio portraits (sidney-mills.jpg, daniel-fox.jpg).
+ * - Meditation stills/videos: stills & main reel from meditation/Final1080.mp4, plus live session clips
+ *   (meditation-guest-1.mp4, meditation-guest-2.mp4) with extracted poster frames.
  *
  * Tag "hero" marks the best lead image in each group.
  */
@@ -36,6 +38,8 @@ export interface VideoItem extends MediaItem {
   hasAudio: boolean;
   /** Muted, short version meant for autoplay/loop backgrounds. */
   loop: boolean;
+  /** Short caption shown beneath the player when multiple reels are displayed. */
+  caption?: string;
 }
 
 export interface ReelReview {
@@ -431,6 +435,24 @@ export const hostPhotos: MediaItem[] = [
     tags: ["host", "alex", "portrait", "dark"],
     source: "host/18.jpg",
   },
+  {
+    src: "/media/host/sidney-mills.jpg",
+    width: 564,
+    height: 704,
+    alt: "Sidney Mills smiling in a knit beanie and ribbed shirt inside a red-walled recording studio",
+    orientation: "portrait",
+    tags: ["cohost", "production", "sidney", "portrait"],
+    source: "WhatsApp Image 2026-11-16 at 13.43.39.jpeg (4:5 studio crop)",
+  },
+  {
+    src: "/media/host/daniel-fox.jpg",
+    width: 1134,
+    height: 1418,
+    alt: "Black-and-white studio portrait of Daniel Fox seated at an analog mixing console with outboard gear behind him",
+    orientation: "portrait",
+    tags: ["cohost", "production", "daniel", "portrait"],
+    source: "WhatsApp Image 2026-11-16 at 13.43.28.jpeg (4:5 studio crop)",
+  },
 ];
 
 export const meditationStills: MediaItem[] = [
@@ -475,7 +497,36 @@ export const videos: VideoItem[] = [
     durationSec: 53,
     hasAudio: true,
     loop: false,
+    caption: "Inside the session",
     source: "meditation/Final1080.mp4",
+  },
+  {
+    src: "/media/video/meditation-guest-1.mp4",
+    width: 528,
+    height: 944,
+    alt: "Guest sharing her reflection after a Meditation Experience session in front of glowing projected rings and crystal singing bowls",
+    orientation: "portrait",
+    tags: ["meditation", "reel", "audio", "guest"],
+    poster: "/media/video/meditation-guest-1-poster.jpg",
+    durationSec: 16,
+    hasAudio: true,
+    loop: false,
+    caption: "Guest reflection",
+    source: "WhatsApp Video 2026-11-16 at 12.16.01.mp4",
+  },
+  {
+    src: "/media/video/meditation-guest-2.mp4",
+    width: 464,
+    height: 832,
+    alt: "Live moment from the Meditation Experience in front of forest projections and crystal singing bowls, handing the mic to Alex",
+    orientation: "portrait",
+    tags: ["meditation", "reel", "audio", "guest"],
+    poster: "/media/video/meditation-guest-2-poster.jpg",
+    durationSec: 11,
+    hasAudio: true,
+    loop: false,
+    caption: "From the room",
+    source: "WhatsApp Video 2026-11-16 at 12.15.58.mp4",
   },
   {
     src: "/media/video/meditation-loop.mp4",

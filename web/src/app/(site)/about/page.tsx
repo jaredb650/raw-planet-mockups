@@ -126,23 +126,40 @@ export default async function AboutPage() {
               </ul>
               <div className={styles.teamGrid}>
                 {coHosted.flatMap((e) =>
-                  COHOSTS[e.theme].people.map((p) => (
-                    <article key={`${e.slug}-${p.name}`} className={styles.teamCard}>
-                      <div className={p.photo ? styles.teamImg : styles.teamAvatar}>
-                        {p.photo ? (
-                          <Image src={p.photo.src} alt={p.photo.alt} fill sizes="(max-width: 900px) 92vw, 280px" className={styles.cover} />
-                        ) : (
-                          <svg viewBox="0 0 24 24" aria-hidden className={styles.teamBlank}>
-                            <circle cx="12" cy="8.5" r="4" />
-                            <path d="M4 21c0-4.4 3.6-7.5 8-7.5s8 3.1 8 7.5z" />
-                          </svg>
-                        )}
-                      </div>
-                      <h3>{p.name}</h3>
-                      <p className="eyebrow">{e.name}</p>
-                      <p>{p.bio}</p>
-                    </article>
-                  )),
+                  COHOSTS[e.theme].people.map((p) => {
+                    const bioParagraphs = p.paragraphs?.length ? p.paragraphs : [p.bio];
+                    return (
+                      <article key={`${e.slug}-${p.name}`} className={styles.teamCard}>
+                        <div className={p.photo ? styles.teamImg : styles.teamAvatar}>
+                          {p.photo ? (
+                            <Image
+                              src={p.photo.src}
+                              alt={p.photo.alt}
+                              fill
+                              sizes="(max-width: 720px) 88vw, 220px"
+                              className={styles.cover}
+                              style={p.photo.objectPosition ? { objectPosition: p.photo.objectPosition } : undefined}
+                            />
+                          ) : (
+                            <svg viewBox="0 0 24 24" aria-hidden className={styles.teamBlank}>
+                              <circle cx="12" cy="8.5" r="4" />
+                              <path d="M4 21c0-4.4 3.6-7.5 8-7.5s8 3.1 8 7.5z" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className={styles.teamBody}>
+                          <p className="eyebrow">{e.name}</p>
+                          <h3>{p.name}</h3>
+                          {p.role ? <p className={styles.teamRole}>{p.role}</p> : null}
+                          <div className={styles.teamBio}>
+                            {bioParagraphs.map((para) => (
+                              <p key={para.slice(0, 28)}>{para}</p>
+                            ))}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  }),
                 )}
               </div>
             </div>

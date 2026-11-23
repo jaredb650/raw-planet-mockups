@@ -18,9 +18,15 @@
 .teamList li { display: grid; gap: 4px; padding-bottom: 16px; border-bottom: 2px solid var(--line); }
 .teamList strong { font: 800 1.6rem/1.05 var(--display); text-transform: uppercase; }
 .teamList span { color: var(--ink-soft); }
-.teamGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 24px; margin-top: 32px; }
+.teamGrid { display: grid; gap: 40px; margin-top: 36px; }
 .teamGrid:empty { display: none; }
-.teamCard h3 { font-size: 1.8rem; margin: 14px 0 6px; }
+.teamCard { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 28px; align-items: start; padding-top: 36px; border-top: 1.5px solid var(--line); }
+.teamCard:first-child { padding-top: 0; border-top: 0; }
+.teamBody :global(.eyebrow) { margin: 0 0 6px; }
+.teamCard h3 { font-size: 2rem; margin: 0 0 6px; }
+.teamRole { margin: 0 0 18px; font-weight: 700; font-size: 0.96rem; color: var(--ink-soft); }
+.teamBio { display: grid; gap: 14px; }
+.teamBio p { margin: 0; font-size: 0.98rem; line-height: 1.62; color: var(--ink); }
 .teamImg { position: relative; aspect-ratio: 4 / 5; border-radius: var(--r-lg); overflow: hidden; background: var(--accent-soft); }
 /* Empty profile picture until the co-host's photo arrives. */
 .teamAvatar { width: 88px; height: 88px; border-radius: 50%; overflow: hidden; background: var(--accent-soft); display: grid; place-items: end center; }
@@ -58,6 +64,8 @@
 @media (max-width: 600px) {
   .hero { padding: 24px 0 72px; }
   .creditGrid { grid-template-columns: 1fr; gap: 20px; }
+  .teamCard { grid-template-columns: 1fr; gap: 20px; }
+  .teamImg { max-width: 260px; }
   .why, .quotes { padding: 72px 0; }
   .team { padding-top: 72px; }
   .rooms { padding-bottom: 72px; }
