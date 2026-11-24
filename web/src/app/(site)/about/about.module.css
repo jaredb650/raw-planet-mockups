@@ -18,18 +18,30 @@
 .teamList li { display: grid; gap: 4px; padding-bottom: 16px; border-bottom: 2px solid var(--line); }
 .teamList strong { font: 800 1.6rem/1.05 var(--display); text-transform: uppercase; }
 .teamList span { color: var(--ink-soft); }
-.teamGrid { display: grid; gap: 40px; margin-top: 36px; }
+.teamGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-top: 24px; }
 .teamGrid:empty { display: none; }
-.teamCard { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 28px; align-items: start; padding-top: 36px; border-top: 1.5px solid var(--line); }
-.teamCard:first-child { padding-top: 0; border-top: 0; }
-.teamBody :global(.eyebrow) { margin: 0 0 6px; }
-.teamCard h3 { font-size: 2rem; margin: 0 0 6px; }
-.teamRole { margin: 0 0 18px; font-weight: 700; font-size: 0.96rem; color: var(--ink-soft); }
-.teamBio { display: grid; gap: 14px; }
-.teamBio p { margin: 0; font-size: 0.98rem; line-height: 1.62; color: var(--ink); }
-.teamImg { position: relative; aspect-ratio: 4 / 5; border-radius: var(--r-lg); overflow: hidden; background: var(--accent-soft); }
+.teamCard { display: grid; gap: 12px; padding: 14px; border: 1.5px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.teamHead { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 14px; align-items: center; }
+.teamMeta { min-width: 0; }
+.teamExp { margin: 0 0 4px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--purple); }
+.teamCard h3 { font-size: 1.35rem; margin: 0 0 2px; line-height: 1.05; }
+.teamRole { margin: 0; font-size: 0.85rem; line-height: 1.35; color: var(--ink-soft); }
+.teamImg { position: relative; width: 72px; aspect-ratio: 4 / 5; border-radius: 10px; overflow: hidden; background: var(--accent-soft); }
+.teamDetails { border-top: 1px solid var(--line); padding-top: 10px; }
+.teamToggle {
+  list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.86rem; font-weight: 700; color: var(--purple); user-select: none;
+}
+.teamToggle::-webkit-details-marker { display: none; }
+.teamToggle::after { content: "+"; font-size: 1.1rem; line-height: 1; font-weight: 600; }
+.teamDetails[open] .teamToggle::after { content: "–"; }
+.toggleClose { display: none; }
+.teamDetails[open] .toggleOpen { display: none; }
+.teamDetails[open] .toggleClose { display: inline; }
+.teamBio { display: grid; gap: 10px; margin-top: 12px; }
+.teamBio p { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--ink); }
 /* Empty profile picture until the co-host's photo arrives. */
-.teamAvatar { width: 88px; height: 88px; border-radius: 50%; overflow: hidden; background: var(--accent-soft); display: grid; place-items: end center; }
+.teamAvatar { width: 72px; height: 72px; border-radius: 50%; overflow: hidden; background: var(--accent-soft); display: grid; place-items: end center; }
 .teamBlank { width: 70%; height: 80%; fill: var(--ink-soft); opacity: 0.35; }
 .why { padding: 112px 0; }
 .whyGrid { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 64px; align-items: start; }
@@ -64,8 +76,7 @@
 @media (max-width: 600px) {
   .hero { padding: 24px 0 72px; }
   .creditGrid { grid-template-columns: 1fr; gap: 20px; }
-  .teamCard { grid-template-columns: 1fr; gap: 20px; }
-  .teamImg { max-width: 260px; }
+  .teamGrid { grid-template-columns: 1fr; }
   .why, .quotes { padding: 72px 0; }
   .team { padding-top: 72px; }
   .rooms { padding-bottom: 72px; }
@@ -75,5 +86,6 @@
 :global(:root[data-style="future"]) .rating strong { font-size: 2.4rem; }
 :global(:root[data-style="future"]) .creditGrid dd { font-size: 1rem; line-height: 1.25; }
 :global(:root[data-style="future"]) .teamList strong { font-size: 1.05rem; }
+:global(:root[data-style="future"]) .teamCard h3 { font-size: 1rem; }
 :global(:root[data-style="future"]) .room strong { font-size: 1.15rem; }
 :global(:root[data-style="future"]) .sticker { display: none; }
