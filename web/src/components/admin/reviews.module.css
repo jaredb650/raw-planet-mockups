@@ -1,0 +1,13 @@
+.card { padding: 14px 18px; display: grid; gap: 8px; }
+.featured { border-color: var(--ochre); box-shadow: inset 3px 0 0 var(--ochre); }
+.head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.who { font-weight: 700; }
+.stars { color: var(--ochre); letter-spacing: 1px; }
+.off { color: var(--a-line-strong); }
+.body { white-space: pre-wrap; font-size: 15px; }
+.reply { font-size: 14px; color: var(--ink-soft); background: var(--mist); padding: 8px 12px; border-radius: var(--a-radius-sm); }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-start; }
+.more > summary { list-style: none; }
+.more > summary::-webkit-details-marker { display: none; }
+.more[open] { flex-basis: 100%; order: 10; }
+.replyForm { display: grid; gap: 8px; margin-top: 8px; }

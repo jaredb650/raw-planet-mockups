@@ -1,0 +1,9 @@
+.card { padding: 14px 18px; display: grid; gap: 10px; scroll-margin-top: 70px; }
+.open { border-color: var(--brick); box-shadow: 0 0 0 1px var(--brick); }
+.head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.name { font-weight: 700; font-size: 16.5px; }
+.when { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.msg { white-space: pre-wrap; font-size: 15px; max-width: 70ch; }
+.contact { display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+@media (max-width: 520px) { .when { flex-direction: row-reverse; align-items: center; } }

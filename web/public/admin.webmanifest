@@ -1,0 +1,14 @@
+{
+  "name": "Raw Planet Admin",
+  "short_name": "RP Admin",
+  "id": "/admin",
+  "start_url": "/admin",
+  "scope": "/admin",
+  "display": "standalone",
+  "background_color": "#f8f5fb",
+  "theme_color": "#7e56a4",
+  "icons": [
+    { "src": "/admin-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/admin-icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
