@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { fmtTimeRange } from "@/lib/time";
+import { fmtTimeRange, localDateKey } from "@/lib/time";
 import { addDays, monthOf, shortDate, todayKey, type MonthKey } from "./dates";
 import { dayState, useAvailability } from "./useAvailability";
 import { MonthCalendar } from "./MonthCalendar";
@@ -31,8 +31,17 @@ export function RescheduleForm({
   maxAdvanceDays: number;
 }) {
   const today = todayKey();
+  const minMonth = monthOf(today);
+  const maxMonth = monthOf(addDays(today, maxAdvanceDays));
   const currentDate = currentStart ? new Date(currentStart) : null;
-  const [month, setMonth] = useState<MonthKey>(monthOf(today));
+  const initialMonth = (() => {
+    if (!currentDate || Number.isNaN(currentDate.getTime())) return minMonth;
+    const m = monthOf(localDateKey(currentDate));
+    if (m < minMonth) return minMonth;
+    if (m > maxMonth) return maxMonth;
+    return m;
+  })();
+  const [month, setMonth] = useState<MonthKey>(initialMonth);
   const [pickedDate, setPickedDate] = useState<string | null>(null);
   const [pickedStart, setPickedStart] = useState<string | null>(null);
   const [state, formAction, pending] = useActionState(action, { error: null });
@@ -80,6 +89,11 @@ export function RescheduleForm({
             onSelect={setPickedStart}
             loading={loading}
             emptyText={avail.status === "ready" ? "No open times this month. Try the next one." : undefined}
+            priceNote={
+              day?.slots.some((s) => s.reason === "peak")
+                ? "Crossed-out peak times are priced higher than your current booking — reply to your confirmation email if you'd like to upgrade."
+                : undefined
+            }
           />
           {avail.status === "error" ? <p className="notice notice--danger">{avail.error}</p> : null}
           <div className={widget.summary}>

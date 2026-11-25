@@ -46,7 +46,7 @@ export async function createCheckoutSession(opts: {
       description: opts.description,
       metadata: { kind: opts.kind, refId: opts.refId },
     },
-    expires_at: Math.floor(Date.now() / 1000) + Math.max(30, opts.expiresInMinutes) * 60,
+    expires_at: Math.ceil(Date.now() / 1000) + Math.max(30, opts.expiresInMinutes) * 60 + 60,
     success_url: opts.successUrl,
     cancel_url: opts.cancelUrl,
     allow_promotion_codes: false,
@@ -68,13 +68,17 @@ export async function refundPayment(opts: {
   amountCents: number;
   reason?: string;
   bookingId?: string;
+  idempotencyKey?: string;
 }): Promise<{ id: string } | null> {
   if (!integrations.stripe() || opts.amountCents <= 0) return null;
-  const r = await stripe().refunds.create({
-    payment_intent: opts.paymentIntentId,
-    amount: opts.amountCents,
-    reason: "requested_by_customer",
-    metadata: { note: (opts.reason ?? "").slice(0, 400), bookingId: opts.bookingId ?? "" },
-  });
+  const r = await stripe().refunds.create(
+    {
+      payment_intent: opts.paymentIntentId,
+      amount: opts.amountCents,
+      reason: "requested_by_customer",
+      metadata: { note: (opts.reason ?? "").slice(0, 400), bookingId: opts.bookingId ?? "" },
+    },
+    opts.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : undefined,
+  );
   return { id: r.id };
 }

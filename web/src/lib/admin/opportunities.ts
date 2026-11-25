@@ -1,6 +1,6 @@
 /** Today page "Opportunities": things worth a nudge, all computed from real data. Nothing here sends or changes anything. */
 import "server-only";
-import { and, asc, desc, eq, gt, gte, isNull, lte, notLike, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, isNull, lt, lte, notLike, or, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { bookings, customers, giftCards } from "@/lib/db/schema";
 import { loadBusy } from "@/lib/booking/availability";
@@ -26,7 +26,7 @@ async function emptyPrimeSlots(now: Date): Promise<Opportunity[]> {
   if (count < MIN_BOOKINGS || !prime.length || !exps.length) return [];
   const db = await getDb();
   const today = todayKey(now);
-  const busy = await loadBusy(db, { resourceGroup: exps[0].resourceGroup, from: now, to: new Date(now.getTime() + 8 * DAY), now });
+  const busyByExp = new Map<string, Awaited<ReturnType<typeof loadBusy>>>();
   const out: Opportunity[] = [];
   for (let i = 0; i <= 7 && out.length < 3; i++) {
     const dateKey = addDaysKey(today, i);
@@ -37,6 +37,11 @@ async function emptyPrimeSlots(now: Date): Promise<Opportunity[]> {
       if (!exp || !slot) continue;
       const start = new Date(slot.start);
       if (start.getTime() < now.getTime() + exp.leadTimeHours * 3600_000) continue;
+      let busy = busyByExp.get(exp.id);
+      if (!busy) {
+        busy = await loadBusy(db, { resourceGroup: exp.resourceGroup, experienceId: exp.id, from: now, to: new Date(now.getTime() + 8 * DAY), now });
+        busyByExp.set(exp.id, busy);
+      }
       if (busy.some((b) => overlaps(start, new Date(slot.end), b.start, b.end))) continue;
       out.push({
         key: `slot-${slot.start}`,
@@ -60,7 +65,7 @@ async function guestsDueNudge(now: Date): Promise<Opportunity[]> {
     .innerJoin(customers, eq(customers.id, bookings.customerId))
     .where(
       and(
-        eq(bookings.status, "completed"),
+        or(eq(bookings.status, "completed"), and(eq(bookings.status, "confirmed"), lt(bookings.endAt, now))),
         isNull(customers.unsubscribedAt),
         notLike(customers.email, "%.invalid"),
         sql`not exists (select 1 from bookings u where u.customer_id = ${customers.id} and u.status = 'confirmed' and u.start_at > ${now})`,

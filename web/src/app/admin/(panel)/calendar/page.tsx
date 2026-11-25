@@ -117,8 +117,20 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         >
           <div className={a.panelBody}>
             <p>
-              <strong>{fmt(selBlock.startAt, "EEE MMM d")}</strong>, {fmtTimeRange(selBlock.startAt, selBlock.endAt)}
-              {localDateKey(selBlock.startAt) !== localDateKey(new Date(selBlock.endAt.getTime() - 1)) && ` (until ${fmt(selBlock.endAt, "EEE MMM d")})`}
+              {selBlock.endAt.getTime() - selBlock.startAt.getTime() >= 20 * 3600_000 ? (
+                <>
+                  <strong>{fmt(selBlock.startAt, "EEE MMM d")}</strong>
+                  {localDateKey(selBlock.startAt) !== localDateKey(new Date(selBlock.endAt.getTime() - 1)) && (
+                    <> – <strong>{fmt(new Date(selBlock.endAt.getTime() - 1), "EEE MMM d")}</strong></>
+                  )}
+                  , All day
+                </>
+              ) : (
+                <>
+                  <strong>{fmt(selBlock.startAt, "EEE MMM d")}</strong>, {fmtTimeRange(selBlock.startAt, selBlock.endAt)}
+                  {localDateKey(selBlock.startAt) !== localDateKey(new Date(selBlock.endAt.getTime() - 1)) && ` (until ${fmt(selBlock.endAt, "EEE MMM d")})`}
+                </>
+              )}
               {selBlock.reason && <span className={a.muted}> · {selBlock.reason}</span>}
             </p>
             {selBlock.source === "manual" ? (
@@ -192,7 +204,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 /* ---------------------------------------------------------------- */
 
 function minutesInto(dayKey: string, iso: string) {
-  return (new Date(iso).getTime() - fromLocal(dayKey).getTime()) / 60000;
+  const k = localDateKey(new Date(iso));
+  if (k < dayKey) return -1;
+  if (k > dayKey) return 24 * 60;
+  return Number(fmt(iso, "H")) * 60 + Number(fmt(iso, "m"));
 }
 const isAllDay = (i: CalItem) => new Date(i.end).getTime() - new Date(i.start).getTime() >= 20 * 3600_000;
 
@@ -287,7 +302,7 @@ function TimeGrid({
                 href={`/admin/bookings/new?date=${d}&time=${String(h).padStart(2, "0")}:00`}
                 className={c.slotLink}
                 style={{ top: (h - minH) * HOUR_PX, height: HOUR_PX }}
-                aria-label={`New booking ${fmt(fromLocal(d, "12:00"), "EEE MMM d")} at ${h > 12 ? h - 12 : h}${h >= 12 ? "pm" : "am"}`}
+                aria-label={`New booking ${fmt(fromLocal(d, "12:00"), "EEE MMM d")} at ${h === 0 ? 12 : h > 12 ? h - 12 : h}${h >= 12 ? "pm" : "am"}`}
                 tabIndex={-1}
               />
             ))}

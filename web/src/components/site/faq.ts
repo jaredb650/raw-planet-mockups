@@ -38,15 +38,19 @@ export function capacityPhrase(experiences: PublicExperience[]): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** "Music Production Experience: 602 East 14th Street, New York, NY 10009. Learn to DJ Experience: …" */
+/** "Music Production Experience: East Village, New York. Learn to DJ Experience: …" */
 export function locationsPhrase(experiences: PublicExperience[]): string {
-  return experiences.map((e) => `${e.name}: ${e.address || e.locationArea}`).join(". ");
+  const list = experiences.map((e) => `${e.name}: ${e.locationArea}`).join(". ");
+  return list ? `${list}. Exact studio address and arrival details are sent in your confirmation email.` : "";
 }
 
 /** "$650 for the Music Production Experience and $450 for the Learn to DJ Experience" */
 export function privateRatesPhrase(experiences: PublicExperience[]): string {
   return listJoin(
-    experiences.filter((e) => PRIVATE_SESSION_CENTS[e.theme]).map((e) => `${formatMoney(PRIVATE_SESSION_CENTS[e.theme])} for the ${e.name}`),
+    experiences
+      .map((e) => ({ e, rate: e.meta ? e.meta.privateRateCents : (PRIVATE_SESSION_CENTS[e.theme] ?? null) }))
+      .filter((x): x is { e: PublicExperience; rate: number } => Boolean(x.rate && x.rate > 0))
+      .map(({ e, rate }) => `${formatMoney(rate)} for the ${e.name}`),
   );
 }
 

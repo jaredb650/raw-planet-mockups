@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeQuote, PricingError, refundForCancellation } from "@/lib/booking/pricing";
+import { computeQuote, isHigherPriceSlot, PricingError, refundForCancellation } from "@/lib/booking/pricing";
 
 const perPerson = {
   id: "exp1",
@@ -81,6 +81,31 @@ describe("computeQuote", () => {
     const q2 = computeQuote({ experience: perPerson, durationMinutes: 120, guests: 1, giftCardBalanceCents: 99999 });
     expect(q2.giftCardCents).toBe(15000);
     expect(q2.totalCents).toBe(0);
+  });
+  it("waives sub-$0.50 remainders down to $0 so Stripe never rejects checkout", () => {
+    const q = computeQuote({ experience: perPerson, durationMinutes: 120, guests: 1, giftCardBalanceCents: 14975 });
+    expect(q.giftCardCents).toBe(14975);
+    expect(q.totalCents).toBe(0);
+    expect(q.lines.some((l) => l.label === "Rounding adjustment" && l.amountCents === -25)).toBe(true);
+    // $0.50 exact stays payable (Stripe minimum is $0.50)
+    const q50 = computeQuote({ experience: perPerson, durationMinutes: 120, guests: 1, giftCardBalanceCents: 14950 });
+    expect(q50.totalCents).toBe(50);
+  });
+});
+
+describe("isHigherPriceSlot", () => {
+  it("blocks moving from a discounted slot to a normal or peak slot", () => {
+    // Base $150, booked at -20% ($120, priceAdjustCents = -3000)
+    expect(isHigherPriceSlot({ subtotalCents: 12000, priceAdjustCents: -3000 }, 0)).toBe(true);
+    expect(isHigherPriceSlot({ subtotalCents: 12000, priceAdjustCents: -3000 }, 20)).toBe(true);
+    // Moving to same or cheaper discount is allowed
+    expect(isHigherPriceSlot({ subtotalCents: 12000, priceAdjustCents: -3000 }, -20)).toBe(false);
+    expect(isHigherPriceSlot({ subtotalCents: 12000, priceAdjustCents: -3000 }, -30)).toBe(false);
+  });
+  it("blocks moving from a base-price slot to a peak slot", () => {
+    expect(isHigherPriceSlot({ subtotalCents: 15000, priceAdjustCents: 0 }, 15)).toBe(true);
+    expect(isHigherPriceSlot({ subtotalCents: 15000, priceAdjustCents: 0 }, 0)).toBe(false);
+    expect(isHigherPriceSlot({ subtotalCents: 15000, priceAdjustCents: 0 }, -10)).toBe(false);
   });
 });
 

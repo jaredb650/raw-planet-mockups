@@ -199,7 +199,7 @@ export default async function AboutPage() {
           <div className={styles.roomGrid}>
             {experiences.map((e) => {
               const t = themeOf(e);
-              const ph = cardPhotoFor(t);
+              const ph = cardPhotoFor(e);
               return (
                 <Link key={e.slug} href={`/experiences/${e.slug}`} className={styles.room} data-theme={t}>
                   <div className={styles.roomImg}>

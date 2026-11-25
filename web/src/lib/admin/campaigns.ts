@@ -134,8 +134,8 @@ export async function campaignPreviewHtml(c: Campaign): Promise<string> {
 }
 
 /** Always allowed, even with no mailing address yet. The "test" id makes the unsubscribe link a harmless demo. */
-export async function sendCampaignTest(c: Campaign): Promise<{ ok: boolean; to: string; error?: string }> {
-  const to = hostNotificationEmail();
+export async function sendCampaignTest(c: Campaign, toOverride?: string): Promise<{ ok: boolean; to: string; error?: string }> {
+  const to = toOverride?.trim() || hostNotificationEmail();
   const lang = langOf(c.segment.language);
   const address = await postalAddress();
   const res = await sendMarketing({
@@ -181,10 +181,11 @@ export async function sendCampaignBatch(id: string, budgetMs = SEND_BUDGET_MS): 
   if (!c || c.status !== "sending") return out;
   const pending = and(eq(campaignRecipients.campaignId, id), eq(campaignRecipients.status, "pending"));
   const address = await postalAddress();
+  if (!address) throw new Error(POSTAL_ADDRESS_MISSING);
   const stop = Date.now() + budgetMs;
   const live = integrations.resend();
 
-  while (address && Date.now() < stop) {
+  while (Date.now() < stop) {
     // Sends can span days: anyone who unsubscribed since the list was frozen drops off here.
     const stillOk = db.select({ id: customers.id }).from(customers).where(marketable());
     await db.delete(campaignRecipients).where(and(pending, isNull(campaignRecipients.sentAt), sql`(${campaignRecipients.customerId} is null or ${notInArray(campaignRecipients.customerId, stillOk)})`));
@@ -220,8 +221,9 @@ export async function sendCampaignBatch(id: string, budgetMs = SEND_BUDGET_MS): 
 
 /** Cron: finish whatever the in-request batches left. */
 export async function finishCampaigns(budgetMs: number) {
-  const db = await getDb();
   const total = { sent: 0, failed: 0, remaining: 0 };
+  if (!(await postalAddress())) return total;
+  const db = await getDb();
   const stop = Date.now() + budgetMs;
   for (const c of await db.select({ id: campaigns.id }).from(campaigns).where(eq(campaigns.status, "sending")).orderBy(asc(campaigns.createdAt))) {
     const r = await sendCampaignBatch(c.id, Math.max(0, stop - Date.now()));

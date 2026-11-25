@@ -5,8 +5,10 @@ type Cell = string | number | boolean | null | undefined | Date;
 function esc(v: Cell): string {
   if (v === null || v === undefined) return "";
   const s = v instanceof Date ? v.toISOString() : String(v);
-  // Neutralise spreadsheet formula injection.
-  const safe = typeof v === "string" && /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+  // Neutralise spreadsheet formula injection (including leading whitespace), while leaving negative numbers intact.
+  const trimmed = s.trimStart();
+  const isFormula = typeof v === "string" && /^[=+\-@\t\r]/.test(trimmed) && !/^-\d+(\.\d+)?$/.test(trimmed.trim());
+  const safe = isFormula ? `'${s}` : s;
   return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 

@@ -63,6 +63,29 @@ function whereValue(v: BookingView) {
   );
 }
 
+function waHref(raw: string): string {
+  const digits = raw.replace(/[^\d]/g, "");
+  return `https://wa.me/${digits.length === 10 ? `1${digits}` : digits}`;
+}
+
+function hostContactRow(v: BookingView) {
+  if (!v.hostPhone && !v.hostWhatsapp) return null;
+  return {
+    label: es(v) ? "Contacto de Alex" : "Reach Alex",
+    value: (
+      <>
+        {v.hostPhone ? (
+          <>
+            <A href={`tel:${v.hostPhone.replace(/[^\d+]/g, "")}`}>{v.hostPhone}</A>
+            {v.hostWhatsapp ? <br /> : null}
+          </>
+        ) : null}
+        {v.hostWhatsapp ? <A href={waHref(v.hostWhatsapp)}>WhatsApp</A> : null}
+      </>
+    ),
+  };
+}
+
 function sessionRows(
   v: BookingView,
   opts: { code?: boolean; notes?: boolean } = {},
@@ -79,6 +102,7 @@ function sessionRows(
           value: tr(v.arrivalInstructions, v.lang),
         }
       : null,
+    hostContactRow(v),
     v.occasion ? { label: t("occasion", v.lang), value: v.occasion } : null,
     opts.notes && v.notes
       ? {
@@ -556,30 +580,7 @@ export function bookingReminderEmail(
               }
             : null,
           { label: t("guests", v.lang), value: v.guestsLabel },
-          v.hostPhone || v.hostWhatsapp
-            ? {
-                label: es(v) ? "Contacto de Alex" : "Reach Alex",
-                value: (
-                  <>
-                    {v.hostPhone ? (
-                      <>
-                        <A href={`tel:${v.hostPhone.replace(/[^\d+]/g, "")}`}>
-                          {v.hostPhone}
-                        </A>
-                        {v.hostWhatsapp ? <br /> : null}
-                      </>
-                    ) : null}
-                    {v.hostWhatsapp ? (
-                      <A
-                        href={`https://wa.me/${v.hostWhatsapp.replace(/[^\d]/g, "")}`}
-                      >
-                        WhatsApp
-                      </A>
-                    ) : null}
-                  </>
-                ),
-              }
-            : null,
+          hostContactRow(v),
         ]}
       />
       <WaiverNote v={v} />

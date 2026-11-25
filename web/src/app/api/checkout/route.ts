@@ -13,6 +13,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { getExperienceBySlugOrId } from "@/lib/booking/availability";
 import { createBooking } from "@/lib/booking/service";
+import { cleanPhone, isValidPhone } from "@/lib/phone";
 import { LIMITS, clientIp, domainErrorResponse, fieldErrors, jsonError, rateLimit, readJson, tooMany } from "../_lib/http";
 
 const OCCASIONS = ["birthday", "date", "team", "just_because", "other"] as const;
@@ -40,11 +41,11 @@ const checkoutSchema = z
     email: z.email("Enter a valid email address.").max(200),
     phone: z
       .string()
-      .trim()
-      .max(40)
+      .max(60)
       .optional()
       .nullable()
-      .refine((v) => !v || /^[+()\-.\s\d]{7,}$/.test(v), "Enter a valid phone number, or leave it blank.")
+      .transform((v) => (v ? cleanPhone(v) : ""))
+      .refine((v) => isValidPhone(v), "Enter a valid phone number, or leave it blank.")
       .transform((v) => v || null),
     language: z.enum(["en", "es"]).default("en"),
     occasion: z.enum(OCCASIONS).optional().nullable(),

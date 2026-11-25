@@ -25,7 +25,14 @@ export default async function SettingsPage() {
   ]);
   const env = (k: string) => Boolean(process.env[k]);
   const checks: { name: string; on: boolean; what: string; off: string }[] = [
-    { name: "Stripe payments", on: integrations.stripe(), what: "Guests pay by card at checkout.", off: "Test checkout only. Add STRIPE_SECRET_KEY and the webhook secret." },
+    {
+      name: "Stripe payments",
+      on: integrations.stripe() && env("STRIPE_WEBHOOK_SECRET"),
+      what: "Guests pay by card at checkout.",
+      off: integrations.stripe()
+        ? "STRIPE_SECRET_KEY is set, but STRIPE_WEBHOOK_SECRET is missing (webhooks won’t verify)."
+        : "Test checkout only. Add STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET.",
+    },
     { name: "Cal.com + Google Calendar", on: integrations.calcom(), what: "Every booking checks and lands on your Google Calendar.", off: "Add CALCOM_API_KEY and each experience’s event type ID." },
     { name: "Email sending (Resend)", on: integrations.resend(), what: "Confirmations, reminders and follow-ups go out.", off: "Emails are only logged. Add RESEND_API_KEY." },
     { name: "Spam protection (Turnstile)", on: integrations.turnstile(), what: "Booking, gift card and contact forms check for bots.", off: "Forms only have rate limits. Add NEXT_PUBLIC_TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY." },
@@ -46,11 +53,11 @@ export default async function SettingsPage() {
               <div className={a.formRow}>
                 <div className={a.field}>
                   <label htmlFor="s-phone">Phone</label>
-                  <input id="s-phone" name="hostPhone" type="tel" className={a.input} defaultValue={hostPhone ?? ""} placeholder="+1 917 555 0100" />
+                  <input key={hostPhone ?? ""} id="s-phone" name="hostPhone" type="tel" inputMode="tel" className={a.input} defaultValue={hostPhone ?? ""} placeholder="+1 (917) 555-0100" />
                 </div>
                 <div className={a.field}>
                   <label htmlFor="s-wa">WhatsApp</label>
-                  <input id="s-wa" name="hostWhatsapp" type="tel" className={a.input} defaultValue={hostWhatsapp ?? ""} placeholder="Same as phone, or leave blank" />
+                  <input key={hostWhatsapp ?? ""} id="s-wa" name="hostWhatsapp" type="tel" inputMode="tel" className={a.input} defaultValue={hostWhatsapp ?? ""} placeholder="+1 (917) 555-0100 (optional)" />
                 </div>
               </div>
               <p className={a.hint}>
@@ -68,7 +75,7 @@ export default async function SettingsPage() {
             <ActionForm action={saveMarketingAction}>
               <div className={a.field}>
                 <label htmlFor="s-postal">Mailing address</label>
-                <textarea id="s-postal" name="postalAddress" className={a.textarea} rows={2} maxLength={300} defaultValue={postalAddress ?? ""} placeholder="Street or PO box, city, state, ZIP" />
+                <textarea key={postalAddress ?? ""} id="s-postal" name="postalAddress" className={a.textarea} rows={2} maxLength={300} defaultValue={postalAddress ?? ""} placeholder="Street or PO box, city, state, ZIP" />
                 <span className={a.hint}>US law (CAN-SPAM) requires a real postal address on every marketing email. Campaigns can’t go out until this is filled in. A PO box is fine.</span>
               </div>
               <label className={a.check}>

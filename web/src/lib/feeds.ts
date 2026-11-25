@@ -26,7 +26,7 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import "server-only";
-import { and, eq, gt, inArray, lt } from "drizzle-orm";
+import { and, eq, gt, inArray, lt, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { blocks, bookings, calendarFeeds, type CalendarFeed } from "@/lib/db/schema";
 import { parseIcsBusy } from "@/lib/ics";
@@ -182,7 +182,10 @@ async function syncOne(feed: CalendarFeed, now: Date): Promise<FeedSyncResult> {
             eq(bookings.resourceGroup, feed.resourceGroup),
             lt(bookings.startAt, new Date(now.getTime() + WINDOW_AHEAD_MS)),
             gt(bookings.endAt, new Date(now.getTime() - WINDOW_PAST_MS)),
-            inArray(bookings.status, ["confirmed", "completed", "pending_payment"]),
+            or(
+              inArray(bookings.status, ["confirmed", "completed"]),
+              and(eq(bookings.status, "pending_payment"), gt(bookings.holdExpiresAt, now)),
+            ),
           ),
         )
     : [];

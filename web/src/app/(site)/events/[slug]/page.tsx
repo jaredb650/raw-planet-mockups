@@ -96,20 +96,32 @@ export default async function EventPage({ params }: PageProps<"/events/[slug]">)
               </ul>
               {open ? (
                 <div className={styles.ctas}>
-                  {ev.rsvpEnabled && !full ? (
+                  {ev.rsvpEnabled && ev.priceCents === 0 && !full ? (
                     <a href="#rsvp" className="btn btn--accent">
                       RSVP here
                     </a>
                   ) : null}
-                  {ev.meetupUrl ? (
-                    <a href={ev.meetupUrl} className={`btn ${ev.rsvpEnabled && !full ? "btn--ghost" : "btn--accent"}`} target="_blank" rel="noopener">
-                      {ev.rsvpEnabled && !full ? "RSVP on Meetup" : full ? "Join the waitlist on Meetup" : "RSVP on Meetup"} <span aria-hidden="true">↗</span>
+                  {ev.externalTicketUrl ? (
+                    <a
+                      href={ev.externalTicketUrl}
+                      className={`btn ${ev.rsvpEnabled && ev.priceCents === 0 && !full ? "btn--ghost" : "btn--accent"}`}
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      Get tickets <span aria-hidden="true">↗</span>
                       <span className="sr-only">(opens in a new tab)</span>
                     </a>
                   ) : null}
-                  {ev.externalTicketUrl ? (
-                    <a href={ev.externalTicketUrl} className="btn btn--ghost" target="_blank" rel="noopener">
-                      Get tickets <span aria-hidden="true">↗</span>
+                  {ev.meetupUrl ? (
+                    <a
+                      href={ev.meetupUrl}
+                      className={`btn ${(ev.rsvpEnabled && ev.priceCents === 0 && !full) || ev.externalTicketUrl ? "btn--ghost" : "btn--accent"}`}
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      {ev.rsvpEnabled && ev.priceCents === 0 && !full ? "RSVP on Meetup" : full ? "Join the waitlist on Meetup" : "RSVP on Meetup"}{" "}
+                      <span aria-hidden="true">↗</span>
+                      <span className="sr-only">(opens in a new tab)</span>
                     </a>
                   ) : null}
                   <AddToCalendar ev={ev} />
@@ -117,7 +129,12 @@ export default async function EventPage({ params }: PageProps<"/events/[slug]">)
               ) : null}
             </div>
             <div className={styles.art}>
-              <Image src={image} alt="" fill preload sizes="(max-width: 900px) 92vw, 480px" className={styles.cover} />
+              {/^https?:\/\//i.test(image) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={image} alt="" className={styles.cover} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <Image src={image} alt="" fill preload sizes="(max-width: 900px) 92vw, 480px" className={styles.cover} />
+              )}
             </div>
           </div>
         </div>
@@ -127,8 +144,8 @@ export default async function EventPage({ params }: PageProps<"/events/[slug]">)
         <div className={`wrap ${styles.bodyGrid}`}>
           <div className={styles.desc}>
             <h2 className={styles.h2}>About this meetup</h2>
-            {paragraphs.map((p) => (
-              <p key={p.slice(0, 24)}>{p}</p>
+            {paragraphs.map((p, i) => (
+              <p key={i}>{p}</p>
             ))}
             <h3 className={styles.h3}>Good to know</h3>
             <ul className={styles.dots}>
@@ -137,7 +154,7 @@ export default async function EventPage({ params }: PageProps<"/events/[slug]">)
               <li>The exact entrance details are in your RSVP email.</li>
             </ul>
           </div>
-          {open && ev.rsvpEnabled ? (
+          {open && ev.rsvpEnabled && ev.priceCents === 0 ? (
             <div className={styles.rsvp} id="rsvp">
               <h2 className={styles.h2}>{full ? "This one is full" : "Save your spot"}</h2>
               {full ? (

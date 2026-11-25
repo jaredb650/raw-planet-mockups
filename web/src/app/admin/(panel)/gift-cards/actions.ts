@@ -7,8 +7,9 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { giftCards } from "@/lib/db/schema";
 import { adjustGiftCardBalance, issueGiftCard, voidGiftCard } from "@/lib/giftcards";
-import { sendGiftCardEmails } from "@/lib/email/notify";
+import { tryGiftCardEmails } from "@/lib/email/notify";
 import { adminAction, bool, cents, str } from "@/lib/admin/action";
+import { BUSINESS } from "@/lib/config";
 import { formatMoney } from "@/lib/money";
 import type { ActionResult } from "@/components/admin/types";
 
@@ -37,7 +38,7 @@ export async function issueGiftCardAction(_p: ActionResult, fd: FormData): Promi
     const card = await issueGiftCard({
       amountCents: amount,
       purchaserName: v.purchaserName,
-      purchaserEmail: v.purchaserEmail || "hello@rawplanetexperiences.com",
+      purchaserEmail: v.purchaserEmail || BUSINESS.contactEmail,
       recipientName: v.recipientName || undefined,
       recipientEmail: v.recipientEmail || undefined,
       message: v.message || undefined,
@@ -76,7 +77,8 @@ export async function resendGiftCardAction(_p: ActionResult, fd: FormData): Prom
     if (!card) throw new Error("Gift card not found.");
     if (card.status !== "active") throw new Error("Only active gift cards can be re-sent.");
     const toRecipient = Boolean(card.recipientEmail);
-    await sendGiftCardEmails(card.id, { purchaserReceipt: !toRecipient, recipient: toRecipient });
+    const status = await tryGiftCardEmails(card.id, { purchaserReceipt: !toRecipient, recipient: toRecipient, skipDedupe: true });
+    if (status !== "sent") throw new Error("Couldn’t send that email — check Emails for the error.");
     await db.update(giftCards).set({ deliveredAt: new Date() }).where(eq(giftCards.id, id));
     return `Sent to ${card.recipientEmail ?? card.purchaserEmail}.`;
   });

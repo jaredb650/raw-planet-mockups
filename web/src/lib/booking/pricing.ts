@@ -97,6 +97,21 @@ export function adjustedCents(cents: number, percent: number): number {
   return percent ? Math.round((cents * (100 + percent)) / 10_000) * 100 : cents;
 }
 
+/**
+ * True when moving an existing booking to a slot with `targetAdjustPercent`
+ * would step up to a higher-priced tier than the one the guest paid for.
+ * Evaluated against the booking's original list subtotal so later base-price
+ * edits never block normal-to-normal reschedules.
+ */
+export function isHigherPriceSlot(
+  booking: { subtotalCents: number; priceAdjustCents: number },
+  targetAdjustPercent: number,
+): boolean {
+  const list = booking.subtotalCents - booking.priceAdjustCents;
+  if (list <= 0) return targetAdjustPercent > 0;
+  return adjustedCents(list, targetAdjustPercent) > booking.subtotalCents;
+}
+
 export function validatePromo(
   promo: NonNullable<QuoteInput["promo"]>,
   experienceId: string,
@@ -173,6 +188,14 @@ export function computeQuote(input: QuoteInput): Quote {
   const giftCardCents = Math.max(0, Math.min(afterDiscount, input.giftCardBalanceCents ?? 0));
   if (giftCardCents > 0) lines.push({ label: "Gift card", amountCents: -giftCardCents, kind: "giftcard" });
 
+  let totalCents = afterDiscount - giftCardCents;
+  // Stripe rejects card charges under $0.50; waive tiny remainders so checkout never errors.
+  if (totalCents > 0 && totalCents < 50) {
+    discountCents += totalCents;
+    lines.push({ label: "Rounding adjustment", amountCents: -totalCents, kind: "discount" });
+    totalCents = 0;
+  }
+
   return {
     baseCents,
     extraGuestsCents,
@@ -185,7 +208,7 @@ export function computeQuote(input: QuoteInput): Quote {
     discountCents,
     promoError,
     giftCardCents,
-    totalCents: afterDiscount - giftCardCents,
+    totalCents,
     lines,
   };
 }

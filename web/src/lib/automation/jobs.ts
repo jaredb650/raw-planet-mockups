@@ -232,10 +232,11 @@ async function giftCardDelivery(now: Date): Promise<Tally> {
     if (!claimed) continue;
     const s = await tryGiftCardEmails(c.id, { purchaserReceipt: false, recipient: true });
     if (s === "failed") {
+      const since = new Date(now.getTime() - 7 * DAY);
       const [f] = await db
         .select({ n: sql<number>`count(*)::int` })
         .from(emailLog)
-        .where(and(eq(emailLog.template, "gift_card_recipient"), eq(emailLog.to, c.recipientEmail!), eq(emailLog.status, "failed")));
+        .where(and(eq(emailLog.template, "gift_card_recipient"), eq(emailLog.to, c.recipientEmail!), eq(emailLog.status, "failed"), gte(emailLog.createdAt, since)));
       if (Number(f?.n ?? 0) < MAX_SEND_ATTEMPTS) await db.update(giftCards).set({ deliveredAt: null }).where(eq(giftCards.id, c.id));
     }
     count(t, s);
@@ -256,16 +257,16 @@ async function hostDigest(now: Date): Promise<Tally> {
 }
 
 /** Finishes campaigns too big for the send request. Last in line so a long list can't starve the digest. */
-async function campaignQueue(): Promise<Tally> {
-  const r = await finishCampaigns(25_000);
+async function campaignQueue(_now: Date, budgetMs: number): Promise<Tally> {
+  const r = await finishCampaigns(Math.min(25_000, budgetMs));
   return { sent: r.sent, failed: r.failed, skipped: 0, detail: { remaining: r.remaining } };
 }
 
-async function winBack(now: Date): Promise<Tally> {
+async function winBack(now: Date, budgetMs: number): Promise<Tally> {
   // Wider than inSendingHours: the once-a-day cron lands at 8am New York in winter, which that would skip.
   const h = nyHour(now);
   if (h < 7 || h >= 20) return tally();
-  return { ...tally(), ...(await sendWinBacks(now, 15_000)) };
+  return { ...tally(), ...(await sendWinBacks(now, Math.min(15_000, budgetMs))) };
 }
 
 async function weeklyReport(now: Date): Promise<Tally> {
@@ -281,7 +282,7 @@ async function weeklyReport(now: Date): Promise<Tally> {
   return t;
 }
 
-const RUNNERS: Record<JobName, (now: Date) => Promise<Tally>> = {
+const RUNNERS: Record<JobName, (now: Date, budgetMs: number) => Promise<Tally>> = {
   expireHolds: async (now) => ({ ...tally(), detail: { expired: await expireStaleHolds(now) } }),
   syncFeeds: async () => {
     const res = await syncCalendarFeeds();
@@ -300,6 +301,7 @@ const RUNNERS: Record<JobName, (now: Date) => Promise<Tally>> = {
 
 const LOCK = "cronLock";
 const LOCK_TTL_MS = 9 * 60_000;
+const CRON_BUDGET_MS = 50_000;
 
 export type CronRun = { ok: boolean; startedAt: string; ms: number; locked?: boolean; jobs: JobResult[] };
 
@@ -307,6 +309,7 @@ export type CronRun = { ok: boolean; startedAt: string; ms: number; locked?: boo
 export async function runJobs(opts: { only?: JobName[]; now?: Date } = {}): Promise<CronRun> {
   const now = opts.now ?? new Date();
   const started = Date.now();
+  const deadline = started + CRON_BUDGET_MS;
   if (!(await acquireLease(LOCK, LOCK_TTL_MS, now).catch(() => false))) {
     return { ok: true, locked: true, startedAt: now.toISOString(), ms: Date.now() - started, jobs: [] };
   }
@@ -314,9 +317,11 @@ export async function runJobs(opts: { only?: JobName[]; now?: Date } = {}): Prom
   try {
     for (const job of JOBS) {
       if (opts.only && !opts.only.includes(job)) continue;
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 1500 && jobs.length > 0) break;
       const t0 = Date.now();
       try {
-        const r = await RUNNERS[job](now);
+        const r = await RUNNERS[job](now, Math.max(0, remainingMs));
         jobs.push({ job, ok: r.failed === 0, ms: Date.now() - t0, sent: r.sent, skipped: r.skipped, failed: r.failed, detail: r.detail });
       } catch (err) {
         console.error(`[cron] ${job} failed`, err);

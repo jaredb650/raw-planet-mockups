@@ -24,6 +24,20 @@
 }
 .media { display: flex; gap: 8px; flex-wrap: wrap; }
 .media img { width: 96px; height: 72px; object-fit: cover; border-radius: 6px; background: var(--mist); }
+.photoList { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.photoCard { border: 1px solid var(--a-line); border-radius: 8px; overflow: hidden; background: var(--a-panel); display: flex; flex-direction: column; }
+.photoThumbWrap { position: relative; aspect-ratio: 4 / 3; background: var(--mist); overflow: hidden; }
+.photoThumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+.coverTag { position: absolute; top: 6px; left: 6px; background: var(--ink); color: #fff; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; }
+.photoControls { padding: 8px; display: grid; gap: 6px; }
+.addBar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+.libGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+.libBtn { position: relative; padding: 0; border: 2px solid transparent; border-radius: 6px; overflow: hidden; aspect-ratio: 4 / 3; cursor: pointer; background: var(--mist); }
+.libBtn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.libBtnActive { border-color: var(--a-ink); }
+.libCheck { position: absolute; top: 3px; right: 3px; background: var(--ink); color: #fff; font-size: 11px; width: 18px; height: 18px; border-radius: 999px; display: grid; place-items: center; font-weight: 700; }
+.videoList { display: grid; gap: 8px; }
+.videoCard { border: 1px solid var(--a-line); border-radius: 8px; padding: 10px; display: grid; gap: 8px; background: var(--a-panel); }
 @media (max-width: 640px) {
   .durRow { grid-template-columns: 70px 80px 80px minmax(0, 1fr); }
   .hourRow { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 6px 0; border-bottom: 1px solid var(--a-line); }

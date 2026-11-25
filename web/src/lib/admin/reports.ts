@@ -5,7 +5,7 @@
  */
 import "server-only";
 import { TZDate } from "@date-fns/tz";
-import { and, asc, eq, gt, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { blocks, bookings, experiences, giftCards, giftCardTransactions, promoCodes, type Experience } from "@/lib/db/schema";
 import { SOURCE_LABEL } from "@/components/admin/format";
@@ -35,9 +35,15 @@ const isDateKey = (s: unknown): s is string => {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
 };
 
-/** ?preset= or ?from=&to= (inclusive local dates). Anything unusable falls back to the last 30 days. */
+/** ?preset= or ?from=&to= (inclusive local dates, max 730 days). Anything unusable falls back to the last 30 days. */
 export function parseRange(q: Record<string, string | string[] | undefined>, now = new Date()): ReportRange {
-  if (isDateKey(q.from) && isDateKey(q.to)) return q.from <= q.to ? { from: q.from, to: q.to, preset: null } : { from: q.to, to: q.from, preset: null };
+  if (isDateKey(q.from) && isDateKey(q.to)) {
+    let from = q.from <= q.to ? q.from : q.to;
+    const to = q.from <= q.to ? q.to : q.from;
+    const minFrom = addDaysKey(to, -730);
+    if (from < minFrom) from = minFrom;
+    return { from, to, preset: null };
+  }
   const today = todayKey(now);
   const year = today.slice(0, 4);
   const month = monthStartKey(today);
@@ -284,7 +290,7 @@ async function getOccupancy(from: string, to: string, fromAt: Date, toAt: Date):
   const db = await getDb();
   const [exps, blocked, booked] = await Promise.all([
     db.select({ schedule: experiences.schedule }).from(experiences).where(eq(experiences.active, true)),
-    db.select({ start: blocks.startAt, end: blocks.endAt }).from(blocks).where(and(lt(blocks.startAt, toAt), gt(blocks.endAt, fromAt))),
+    db.select({ start: blocks.startAt, end: blocks.endAt }).from(blocks).where(and(isNull(blocks.experienceId), lt(blocks.startAt, toAt), gt(blocks.endAt, fromAt))),
     db
       .select({ start: bookings.startAt, end: bookings.endAt })
       .from(bookings)
@@ -436,7 +442,7 @@ export function reportCsvRows(r: Report): (string | number | null)[][] {
     count("Guests", "Guests", r.repeat.guests),
     count("Guests", "Repeat guests", r.repeat.repeat),
     count("Guests", "Repeat guest rate", percent(r.repeat.rate), "percent"),
-    money("Bookings", "Average booking value", r.average.cents ?? 0),
+    ["Bookings", "Average booking value", r.average.cents === null ? null : dollars(r.average.cents), "USD"],
     money("Gift cards", "Sold", r.giftCards.soldCents),
     money("Gift cards", "Redeemed", r.giftCards.redeemedCents),
     money("Gift cards", "Outstanding today", r.giftCards.outstandingCents),

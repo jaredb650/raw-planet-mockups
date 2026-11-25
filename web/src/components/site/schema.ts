@@ -42,6 +42,9 @@ export function experienceJsonLd(
   opts: { images: string[]; rating: { score: number; count: number } | null; reviews: PublicReview[] },
 ) {
   const url = siteUrl(`/experiences/${e.slug}`);
+  const jsonImages = opts.images
+    .filter((i) => !i.startsWith("data:"))
+    .map((i) => (/^https?:\/\//i.test(i) ? i : siteUrl(i)));
   return {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -49,7 +52,7 @@ export function experienceJsonLd(
     name: e.name,
     description: e.summary || e.description,
     url,
-    image: opts.images.map((i) => siteUrl(i)),
+    ...(jsonImages.length ? { image: jsonImages } : {}),
     brand: { "@type": "Brand", name: BUSINESS.name },
     category: "Experience",
     offers: {

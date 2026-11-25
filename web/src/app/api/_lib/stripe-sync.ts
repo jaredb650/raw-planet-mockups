@@ -31,11 +31,10 @@ async function completeSession(session: Stripe.Checkout.Session): Promise<string
   if (kind === "booking") {
     const b = await getBooking(refId);
     if (!b) return "booking not found";
+    if (b.status === "confirmed" || b.status === "completed") return `booking already ${b.status}`;
     if (!PAYABLE.includes(b.status)) {
-      if (b.status !== "confirmed" && b.status !== "completed") {
-        await logEvent(await getDb(), b.id, "payment_warning", `Payment ${payment.paymentIntentId ?? session.id} arrived for a ${b.status} booking — refund it in Stripe if needed`);
-      }
-      return `booking already ${b.status}`;
+      await fulfillBooking(refId, payment);
+      return `booking ${b.status} — late payment refunded`;
     }
     await fulfillBooking(refId, payment);
     return "booking fulfilled";
@@ -163,7 +162,7 @@ export async function processStripeEvent(event: Stripe.Event): Promise<string> {
  * idempotent) and a no-op when Stripe isn't configured.
  */
 export async function reconcileBookingPayment(booking: Booking, sessionId?: string | null): Promise<Booking> {
-  if (!integrations.stripe() || booking.status !== "pending_payment") return booking;
+  if (!integrations.stripe() || (booking.status !== "pending_payment" && booking.status !== "expired")) return booking;
   const sid = booking.stripeCheckoutSessionId;
   if (!sid || (sessionId && sessionId !== sid)) return booking;
   try {
@@ -179,7 +178,8 @@ export async function reconcileBookingPayment(booking: Booking, sessionId?: stri
 }
 
 export async function reconcileGiftCardPayment(card: GiftCard, sessionId?: string | null): Promise<GiftCard> {
-  if (!integrations.stripe() || card.status !== "pending_payment") return card;
+  if (!integrations.stripe()) return card;
+  if (card.status !== "pending_payment" && !(card.status === "void" && !card.stripePaymentIntentId)) return card;
   const sid = card.stripeCheckoutSessionId;
   if (!sid || (sessionId && sessionId !== sid)) return card;
   try {

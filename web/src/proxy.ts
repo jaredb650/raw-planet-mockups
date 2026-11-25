@@ -10,7 +10,8 @@ export function proxy(req: NextRequest) {
   if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login") && !req.cookies.has("rp_admin")) {
     const url = req.nextUrl.clone();
     url.pathname = "/admin/login";
-    url.searchParams.set("next", pathname);
+    url.search = "";
+    url.searchParams.set("next", `${pathname}${req.nextUrl.search}`);
     return NextResponse.redirect(url);
   }
   return NextResponse.next();

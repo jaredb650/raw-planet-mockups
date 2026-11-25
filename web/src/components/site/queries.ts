@@ -42,6 +42,6 @@ export async function getExperienceSummary(id: string) {
 /** Whether a booking can leave a review yet: the session must have happened. */
 export function reviewEligibility(b: { status: string; endAt: Date }, now = new Date()): { ok: true } | { ok: false; reason: "not_yet" | "cancelled" } {
   if (b.status === "completed") return { ok: true };
-  if (b.status === "confirmed" || b.status === "no_show") return b.endAt <= now ? { ok: true } : { ok: false, reason: "not_yet" };
+  if (b.status === "confirmed") return b.endAt <= now ? { ok: true } : { ok: false, reason: "not_yet" };
   return { ok: false, reason: "cancelled" };
 }

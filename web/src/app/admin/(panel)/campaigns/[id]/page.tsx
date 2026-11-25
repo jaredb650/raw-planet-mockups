@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
@@ -11,11 +10,11 @@ import { hostNotificationEmail, integrations } from "@/lib/config";
 import { fmt } from "@/lib/time";
 import { formatMoney } from "@/lib/money";
 import { PageHeader, Panel } from "@/components/admin/PageHeader";
-import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/admin/ActionForm";
+import { ActionForm, SubmitButton } from "@/components/admin/ActionForm";
 import { CampaignEditor } from "@/components/admin/CampaignEditor";
 import { CampaignStatusPill, TestModeNotice } from "@/components/admin/CampaignBits";
 import { plural } from "@/components/admin/format";
-import { continueCampaignAction, saveCampaignAction, sendCampaignAction, testCampaignAction } from "../actions";
+import { continueCampaignAction, deleteCampaignAction, saveCampaignAction, sendCampaignAction, testCampaignAction } from "../actions";
 import a from "@/components/admin/admin.module.css";
 
 export const metadata = { title: "Campaign" };
@@ -44,58 +43,21 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
       <div className={a.page}>
         {header}
         {testMode && <TestModeNotice />}
-        <div className={a.split}>
-          <div className={a.stack}>
-            <Panel title="Write it">
-              <div className={a.panelBody}>
-                <CampaignEditor
-                  action={saveCampaignAction}
-                  campaign={c}
-                  tags={tags}
-                  experiences={exps.map((e) => ({ id: e.id, name: e.shortName }))}
-                />
-              </div>
-            </Panel>
-            {preview}
-          </div>
-          <div className={a.stack}>
-            <Panel title="Send a test">
-              <div className={a.panelBody}>
-                <ActionForm action={testCampaignAction}>
-                  <input type="hidden" name="id" value={c.id} />
-                  <p className={a.hint}>Goes only to {hostNotificationEmail()}, using the last saved version.</p>
-                  <div className={a.formFoot}>
-                    <SubmitButton className={a.btn} pendingText="Sending…">
-                      Send me a test
-                    </SubmitButton>
-                  </div>
-                </ActionForm>
-              </div>
-            </Panel>
-            <Panel title="Send it">
-              <div className={a.panelBody}>
-                {!address ? (
-                  <p className={`${a.notice} ${a.noticeWarn}`}>
-                    {POSTAL_ADDRESS_MISSING} <Link href="/admin/settings">Open Settings</Link>
-                  </p>
-                ) : count === 0 ? (
-                  <p className={a.hint}>Nobody matches this audience yet.</p>
-                ) : (
-                  <ActionForm action={sendCampaignAction}>
-                    <input type="hidden" name="id" value={c.id} />
-                    <input type="hidden" name="expected" value={count} />
-                    <p className={a.hint}>Sends the last saved version{testMode ? ". In test mode it’s only logged" : ""}. This can’t be undone.</p>
-                    <div className={a.formFoot}>
-                      <ConfirmSubmit className={`${a.btn} ${a.btnPrimary}`} confirmLabel={`Yes, send to ${plural(count, "person", "people")}`} question={`Send this to exactly ${plural(count, "person", "people")}?`}>
-                        Send campaign
-                      </ConfirmSubmit>
-                    </div>
-                  </ActionForm>
-                )}
-              </div>
-            </Panel>
-          </div>
-        </div>
+        <CampaignEditor
+          action={saveCampaignAction}
+          testAction={testCampaignAction}
+          sendAction={sendCampaignAction}
+          deleteAction={deleteCampaignAction}
+          campaign={c}
+          tags={tags}
+          experiences={exps.map((e) => ({ id: e.id, name: e.shortName }))}
+          initialCount={count}
+          defaultTestTo={hostNotificationEmail()}
+          hasPostalAddress={Boolean(address)}
+          postalAddressMissing={POSTAL_ADDRESS_MISSING}
+          testMode={testMode}
+          preview={preview}
+        />
       </div>
     );
   }

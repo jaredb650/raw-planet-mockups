@@ -9,6 +9,7 @@ import { blocks, bookings, experiences, type Experience, type PricingRule } from
 import { computeDaySlots, loadPriceRules } from "@/lib/booking/availability";
 import { adjustedCents, pickPriceRule } from "@/lib/booking/pricing";
 import { addDaysKey, fmt, fmtTime, fromLocal, overlaps, todayKey, weekdayOf } from "@/lib/time";
+import { getSetting } from "@/lib/automation/settings";
 import { median } from "./reports";
 
 const DAY = 86400_000;
@@ -17,6 +18,7 @@ export const MIN_BOOKINGS = 12;
 export const MIN_OPEN_WEEKS = 8;
 export const QUIET_RATE = 0.15;
 export const BUSY_RATE = 0.75;
+export const DISMISSED_SUGGESTIONS_KEY = "dismissedPricingSuggestions";
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 type SlotExperience = Pick<Experience, "id" | "schedule" | "slotStepMinutes" | "bufferMinutes" | "leadTimeHours" | "maxAdvanceDays" | "durationOptions">;
@@ -72,12 +74,13 @@ export function slotStats(input: {
 }
 
 export type RulePrefill = { name: string; experienceIds: string[]; weekday: number; startTime: string; endTime: string; adjustPercent: number };
-export type Suggestion = { kind: "quiet" | "busy"; title: string; evidence: string; prefill: RulePrefill };
-export type Suggestions = { enoughData: boolean; bookings: number; days: number; items: Suggestion[] };
+export type Suggestion = { key: string; kind: "quiet" | "busy"; title: string; evidence: string; prefill: RulePrefill };
+export type Suggestions = { enoughData: boolean; bookings: number; days: number; items: Suggestion[]; dismissedCount?: number };
 
 const addMinutes = (time: string, minutes: number) => {
   const [h, m] = time.split(":").map(Number);
-  const t = Math.min(h * 60 + m + minutes, 23 * 60 + 59);
+  const t = h * 60 + m + minutes;
+  if (t >= 24 * 60) return "";
   return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 };
 
@@ -108,6 +111,7 @@ export function suggestRules(stats: SlotStat[], opts: { bookings: number; days: 
         ? ` Usually booked ${Math.round(s.leadDays)} days ahead, against ${Math.round(typicalLead)} for a typical slot.`
         : "";
     out.items.push({
+      key: `busy:${s.weekday}:${s.time}`,
       kind: "busy",
       title: `${label(s)} fills up. You could charge a little more.`,
       evidence: describe(s) + lead,
@@ -116,6 +120,7 @@ export function suggestRules(stats: SlotStat[], opts: { bookings: number; days: 
   }
   for (const s of quiet)
     out.items.push({
+      key: `quiet:${s.weekday}:${s.time}`,
       kind: "quiet",
       title: `${label(s)} rarely fills. An off-peak price may help.`,
       evidence: describe(s),
@@ -147,16 +152,29 @@ export async function loadSlotHistory(now = new Date()) {
   return { exps, rules, stats, bookings: sessions.length, days: dates.length };
 }
 
+export type DismissedMap = Record<string, string | null>;
+
 export async function getSuggestions(now = new Date()): Promise<Suggestions> {
-  const { rules, stats, bookings: count, days } = await loadSlotHistory(now);
+  const [{ rules, stats, bookings: count, days }, dismissed] = await Promise.all([
+    loadSlotHistory(now),
+    getSetting<DismissedMap>(DISMISSED_SUGGESTIONS_KEY),
+  ]);
   // Probing two weeks out keeps last-minute rules from hiding a slot they don't really cover.
   const nextDate = (weekday: number) => {
     let k = addDaysKey(todayKey(now), 14);
     while (weekdayOf(k) !== weekday) k = addDaysKey(k, 1);
     return k;
   };
-  const covered = (s: SlotStat) => s.experienceIds.some((id) => pickPriceRule(rules, id, fromLocal(nextDate(s.weekday), s.time), now));
-  return suggestRules(stats, { bookings: count, days, covered });
+  const covered = (s: SlotStat) => s.experienceIds.every((id) => Boolean(pickPriceRule(rules, id, fromLocal(nextDate(s.weekday), s.time), now)));
+  const raw = suggestRules(stats, { bookings: count, days, covered });
+  const map = dismissed && typeof dismissed === "object" ? dismissed : {};
+  const isDismissed = (key: string) => {
+    if (!(key in map)) return false;
+    const until = map[key];
+    return until === null || new Date(until) > now;
+  };
+  const visible = raw.items.filter((i) => !isDismissed(i.key));
+  return { ...raw, items: visible, dismissedCount: raw.items.length - visible.length };
 }
 
 export type RuleInput = {
@@ -185,7 +203,8 @@ export function ruleProblem(r: RuleInput): string | null {
   if (r.dateFrom && r.dateTo && r.dateFrom > r.dateTo) return "The end date is before the start date.";
   if ((r.minHoursAhead ?? 0) < 0 || (r.maxHoursAhead ?? 0) < 0) return "Hours ahead can't be negative.";
   if (r.minHoursAhead != null && r.maxHoursAhead != null && r.minHoursAhead > r.maxHoursAhead) return "The minimum hours ahead is above the maximum.";
-  const unconditional = !r.weekdays?.length && !r.startTime && !r.endTime && !r.dateFrom && !r.dateTo && r.minHoursAhead == null && r.maxHoursAhead == null;
+  const allDays = !r.weekdays?.length || new Set(r.weekdays).size >= 7;
+  const unconditional = allDays && !r.startTime && !r.endTime && !r.dateFrom && !r.dateTo && r.minHoursAhead == null && r.maxHoursAhead == null;
   // It would make every "from $X" on the site untrue.
   if (unconditional && r.adjustPercent > 0) return "This would raise every price, every day. Change the price on the experience instead, or add a day, time or date.";
   return null;
@@ -197,7 +216,8 @@ export type WeekGrid = { dates: string[]; times: string[]; cells: Record<string,
 /** What a guest booking now would pay for one unit (a guest, or a session before extra guests) on each slot of a week. */
 export function weekGrid(e: SlotExperience, rules: PricingRule[], weekStart: string, durationMinutes: number, now: Date): WeekGrid {
   const dates = Array.from({ length: 7 }, (_, i) => addDaysKey(weekStart, i));
-  const unit = e.durationOptions.find((o) => o.minutes === durationMinutes)?.priceCents ?? 0;
+  const opt = e.durationOptions.find((o) => o.minutes === durationMinutes);
+  const unit = (opt?.priceCents ?? 0) + (opt?.flatCents ?? 0);
   const cells: WeekGrid["cells"] = {};
   const times = new Set<string>();
   for (const dateKey of dates) {

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, gt, gte, inArray, isNotNull, lt, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   bookingEvents,
@@ -13,6 +13,7 @@ import {
   reviews,
 } from "@/lib/db/schema";
 import { addDaysKey, fromLocal, localDateKey, todayKey, weekdayOf } from "@/lib/time";
+import { getDeliverableExperienceIds } from "@/lib/experience-meta-db";
 
 export type SessionRow = {
   id: string;
@@ -140,7 +141,7 @@ export async function getCashEntries(from: Date, to?: Date): Promise<CashEntry[]
     db
       .select({ at: giftCards.createdAt, cents: giftCards.initialCents })
       .from(giftCards)
-      .where(and(eq(giftCards.issuedByAdmin, false), ne(giftCards.status, "pending_payment"), gte(giftCards.createdAt, from), to ? lt(giftCards.createdAt, to) : undefined)),
+      .where(and(eq(giftCards.issuedByAdmin, false), inArray(giftCards.status, ["active", "depleted"]), gte(giftCards.createdAt, from), to ? lt(giftCards.createdAt, to) : undefined)),
   ]);
   return [
     ...paid.map((r) => ({ ...r, at: new Date(r.at), kind: "booking" as const })),
@@ -199,11 +200,11 @@ export async function getKpis(now = new Date()): Promise<Kpis> {
     db
       .select({ avg: sql<number | null>`avg(${bookings.guests})::float` })
       .from(bookings)
-      .where(and(inArray(bookings.status, [...live]), gte(bookings.startAt, since90))),
+      .where(and(inArray(bookings.status, [...live]), gte(bookings.startAt, since90), lte(bookings.startAt, now))),
     db
       .select({ source: bookings.source, n: sql<number>`count(*)::int` })
       .from(bookings)
-      .where(and(inArray(bookings.status, [...live]), gte(bookings.startAt, since90)))
+      .where(and(inArray(bookings.status, [...live]), gte(bookings.startAt, since90), lte(bookings.startAt, now)))
       .groupBy(bookings.source),
   ]);
 
@@ -236,14 +237,23 @@ export type Attention = {
 
 export async function getAttention(now = new Date()): Promise<Attention> {
   const db = await getDb();
+  const delivExpIds = await getDeliverableExperienceIds();
   const [deliv, calErr, inq, rev, mail, holds, feeds, unsigned] = await Promise.all([
-    db
-      .select({ id: bookings.id, code: bookings.code, name: bookings.contactName, startAt: bookings.startAt, status: bookings.deliverableStatus, experience: experiences.shortName })
-      .from(bookings)
-      .innerJoin(experiences, eq(experiences.id, bookings.experienceId))
-      .where(and(eq(bookings.status, "completed"), eq(experiences.theme, "production"), ne(bookings.deliverableStatus, "delivered")))
-      .orderBy(asc(bookings.startAt))
-      .limit(20),
+    delivExpIds.length
+      ? db
+          .select({ id: bookings.id, code: bookings.code, name: bookings.contactName, startAt: bookings.startAt, status: bookings.deliverableStatus, experience: experiences.shortName })
+          .from(bookings)
+          .innerJoin(experiences, eq(experiences.id, bookings.experienceId))
+          .where(
+            and(
+              or(eq(bookings.status, "completed"), and(eq(bookings.status, "confirmed"), lt(bookings.endAt, now))),
+              inArray(experiences.id, delivExpIds),
+              ne(bookings.deliverableStatus, "delivered"),
+            ),
+          )
+          .orderBy(asc(bookings.startAt))
+          .limit(20)
+      : Promise.resolve([]),
     db
       .select({ eventId: bookingEvents.id, bookingId: bookings.id, code: bookings.code, name: bookings.contactName, message: bookingEvents.message, at: bookingEvents.createdAt })
       .from(bookingEvents)

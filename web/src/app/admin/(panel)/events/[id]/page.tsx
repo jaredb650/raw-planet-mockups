@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, desc, eq, gt } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ne } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { eventRsvps, events } from "@/lib/db/schema";
@@ -32,7 +32,9 @@ export default async function EventPage({
     db.select().from(eventRsvps).where(eq(eventRsvps.eventId, e.id)).orderBy(desc(eventRsvps.createdAt)),
     e.seriesId ? db.select({ id: events.id, startAt: events.startAt, status: events.status }).from(events).where(eq(events.seriesId, e.seriesId)).orderBy(asc(events.startAt)) : Promise.resolve([]),
   ]);
-  const later = e.seriesId ? (await db.select({ id: events.id }).from(events).where(and(eq(events.seriesId, e.seriesId), gt(events.startAt, e.startAt)))).length : 0;
+  const later = e.seriesId
+    ? (await db.select({ id: events.id }).from(events).where(and(eq(events.seriesId, e.seriesId), gte(events.startAt, e.startAt), ne(events.id, e.id)))).length
+    : 0;
   const going = rsvps.filter((r) => r.status === "going");
   const people = going.reduce((n, r) => n + r.guests, 0);
 

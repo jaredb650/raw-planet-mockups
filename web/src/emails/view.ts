@@ -127,7 +127,7 @@ export function buildBookingView(input: BookingViewInput): BookingView {
     manageUrl: manage,
     bookUrl: siteUrl(`/book/${e.slug}`),
     reviewUrl: siteUrl(`/review/${b.code}?t=${reviewToken(b.id)}`),
-    waiverUrl: e.waiverRequired && ["direct", "manual", "phone"].includes(b.source) ? waiverUrlFor(b) : null,
+    waiverUrl: e.waiverRequired && ["direct", "manual", "phone", "cal"].includes(b.source) ? waiverUrlFor(b) : null,
     googleCalendarUrl: googleCalendarUrl({
       start: b.startAt,
       end: b.endAt,

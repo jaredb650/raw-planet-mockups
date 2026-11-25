@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isLocalAsset } from "@/lib/experience-meta";
 import type { Photo } from "./media";
 import styles from "./Gallery.module.css";
 
@@ -48,16 +49,21 @@ export function Gallery({ photos, title }: { photos: Photo[]; title: string }) {
     <div className={styles.gallery}>
       <ul className={styles.grid} data-count={Math.min(shown.length, 5)} aria-label={`${title} photos`}>
         {shown.map((p, i) => (
-          <li key={p.src} className={styles.tile}>
+          <li key={`${p.src.slice(0, 64)}-${i}`} className={styles.tile}>
             <button type="button" className={styles.tileBtn} onClick={() => open(i)} aria-label={`Open photo ${i + 1} of ${count}: ${p.alt}`}>
-              <Image
-                src={p.src}
-                alt=""
-                fill
-                sizes={i === 0 ? "(max-width: 760px) 86vw, 600px" : "(max-width: 760px) 86vw, 300px"}
-                preload={i === 0}
-                className={styles.img}
-              />
+              {isLocalAsset(p.src) ? (
+                <Image
+                  src={p.src}
+                  alt=""
+                  fill
+                  sizes={i === 0 ? "(max-width: 760px) 86vw, 600px" : "(max-width: 760px) 86vw, 300px"}
+                  preload={i === 0}
+                  className={styles.img}
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.src} alt="" className={styles.img} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} loading={i === 0 ? "eager" : "lazy"} />
+              )}
             </button>
           </li>
         ))}
@@ -104,7 +110,12 @@ export function Gallery({ photos, title }: { photos: Photo[]; title: string }) {
             </div>
             <figure className={styles.lbFigure}>
               <div className={styles.lbImgWrap}>
-                <Image key={current.src} src={current.src} alt={current.alt} fill sizes="100vw" className={styles.lbImg} />
+                {isLocalAsset(current.src) ? (
+                  <Image key={current.src} src={current.src} alt={current.alt} fill sizes="100vw" className={styles.lbImg} />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={current.src} src={current.src} alt={current.alt} className={styles.lbImg} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+                )}
               </div>
               <figcaption className={styles.lbCaption}>{current.alt}</figcaption>
             </figure>

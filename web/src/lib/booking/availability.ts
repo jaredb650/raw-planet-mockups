@@ -81,8 +81,9 @@ export function computeDaySlots(opts: {
         const hits = busy.filter((b) =>
           overlaps(new Date(start.getTime() - bufferMs), new Date(end.getTime() + bufferMs), b.start, b.end),
         );
-        // Same experience, same start = the same shared session: it takes seats instead of blocking.
-        const joins = (b: Interval) => Boolean(e.id) && b.kind !== "block" && b.experienceId === e.id && b.start.getTime() === t;
+        // Same experience, same start & end = the same shared session: it takes seats instead of blocking.
+        const joins = (b: Interval) =>
+          Boolean(e.id) && b.kind !== "block" && b.experienceId === e.id && b.start.getTime() === t && b.end.getTime() === end.getTime();
         const blocker = hits.find((b) => !joins(b));
         const taken = hits.reduce((n, b) => n + (b.guests ?? 0), 0);
         if (blocker) reason = blocker.kind === "block" ? "blocked" : "booked";

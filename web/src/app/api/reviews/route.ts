@@ -5,6 +5,7 @@ import { fail, json, limited, readBody, sameOrigin } from "@/components/site/ser
 import { getBookingForReview } from "@/lib/review-token";
 import { getDb } from "@/lib/db";
 import { reviews } from "@/lib/db/schema";
+import { sendHostReviewAlert } from "@/lib/email/notify";
 
 const Body = z.object({
   code: z.string().trim().min(1).max(40),
@@ -35,23 +36,27 @@ export async function POST(req: Request) {
   }
   const db = await getDb();
   // Lock per booking so a double-submit can't create two reviews (no unique index on reviews.booking_id yet).
-  const created = await db.transaction(async (tx) => {
+  const createdId = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`rp:review:${booking.id}`}))`);
     const [dupe] = await tx.select({ id: reviews.id }).from(reviews).where(eq(reviews.bookingId, booking.id)).limit(1);
-    if (dupe) return false;
-    await tx.insert(reviews).values({
-      bookingId: booking.id,
-      experienceId: booking.experienceId,
-      name: d.name,
-      location: d.location,
-      rating: d.rating,
-      body: d.body,
-      source: "direct",
-      status: "pending",
-      reviewDate: new Date(),
-    });
-    return true;
+    if (dupe) return null;
+    const [inserted] = await tx
+      .insert(reviews)
+      .values({
+        bookingId: booking.id,
+        experienceId: booking.experienceId,
+        name: d.name,
+        location: d.location,
+        rating: d.rating,
+        body: d.body,
+        source: "direct",
+        status: "pending",
+        reviewDate: new Date(),
+      })
+      .returning({ id: reviews.id });
+    return inserted?.id ?? null;
   });
-  if (!created) return fail("You've already left a review for this booking. Thank you!", 409);
+  if (!createdId) return fail("You've already left a review for this booking. Thank you!", 409);
+  await sendHostReviewAlert(createdId);
   return json({ ok: true }, 201);
 }

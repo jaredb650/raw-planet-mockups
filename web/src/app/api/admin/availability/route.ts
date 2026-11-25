@@ -9,6 +9,7 @@ const q = z.object({
   experienceId: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   duration: z.coerce.number().int().min(15).max(24 * 60),
+  guests: z.coerce.number().int().min(1).max(200).optional(),
   ignore: z.string().optional(),
 });
 
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
   const sp = Object.fromEntries(new URL(req.url).searchParams);
   const parsed = q.safeParse(sp);
   if (!parsed.success) return Response.json({ error: "Bad request" }, { status: 400 });
-  const { experienceId, date, duration, ignore } = parsed.data;
+  const { experienceId, date, duration, guests, ignore } = parsed.data;
   const db = await getDb();
   const experience = await getExperienceBySlugOrId(db, experienceId);
   if (!experience) return Response.json({ error: "Experience not found" }, { status: 404 });
@@ -29,6 +30,7 @@ export async function GET(req: Request) {
     fromKey: date,
     toKey: date,
     durationMinutes: duration,
+    guests,
     ignoreBookingId: ignore || undefined,
   });
   const day = res.days[0];

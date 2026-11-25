@@ -12,9 +12,9 @@
  */
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { and, eq } from "drizzle-orm";
-import { getDb } from "@/lib/db";
-import { giftCards, giftCardTransactions, type GiftCard } from "@/lib/db/schema";
+import { and, eq, sql } from "drizzle-orm";
+import { getDb, type Tx } from "@/lib/db";
+import { customers, giftCards, giftCardTransactions, type GiftCard } from "@/lib/db/schema";
 import { integrations, siteUrl } from "@/lib/config";
 import { newGiftCardCode, normalizeCode } from "@/lib/ids";
 import { formatMoney } from "@/lib/money";
@@ -167,6 +167,25 @@ export async function createGiftCardPurchase(input: GiftCardPurchaseInput): Prom
   return { url: session.url };
 }
 
+async function upsertGiftCardCustomer(
+  tx: Tx,
+  input: { email: string; name: string },
+): Promise<void> {
+  const email = input.email.trim().toLowerCase();
+  if (!email || !email.includes("@") || email.endsWith("@rawplanet.invalid")) return;
+  const name = input.name.trim() || email.split("@")[0] || "Guest";
+  await tx
+    .insert(customers)
+    .values({ email, name, language: "en", marketingOptIn: false })
+    .onConflictDoUpdate({
+      target: customers.email,
+      set: {
+        name: sql`case when trim(${customers.name}) = '' then excluded.name else ${customers.name} end`,
+        updatedAt: new Date(),
+      },
+    });
+}
+
 /**
  * Payment received → activate. Idempotent: calling it again for an active
  * card returns the card without re-sending emails.
@@ -195,6 +214,7 @@ export async function fulfillGiftCard(
           ? "Purchased"
           : `Purchased (paid ${formatMoney(payment.amountPaidCents)} for ${formatMoney(card.initialCents)} — check)`,
     });
+    await upsertGiftCardCustomer(tx, { email: card.purchaserEmail, name: card.purchaserName });
     return card;
   });
 
@@ -212,9 +232,9 @@ export async function fulfillGiftCard(
   }
 
   const sendRecipientNow = Boolean(activated.recipientEmail) && (!activated.deliverAt || activated.deliverAt <= new Date());
-  await notify.sendGiftCardEmails(activated.id, { purchaserReceipt: true, recipient: sendRecipientNow });
-  // Without a recipient email the purchaser's receipt carries the card, so it's delivered now.
-  if (sendRecipientNow || !activated.recipientEmail) {
+  const status = await notify.tryGiftCardEmails(activated.id, { purchaserReceipt: true, recipient: sendRecipientNow, skipDedupe: true });
+  // Without a recipient email the purchaser's receipt carries the card, so it's delivered now (if the email went out).
+  if ((sendRecipientNow || !activated.recipientEmail) && status === "sent") {
     const [u] = await db.update(giftCards).set({ deliveredAt: new Date() }).where(eq(giftCards.id, activated.id)).returning();
     return u;
   }
@@ -244,7 +264,8 @@ export async function issueGiftCard(input: {
   sendEmail?: boolean;
 }): Promise<GiftCard> {
   const amount = Math.round(input.amountCents);
-  if (!Number.isInteger(amount) || amount <= 0 || amount > 1_000_000) throw new GiftCardError("Enter a positive amount.");
+  if (!Number.isInteger(amount) || amount <= 0) throw new GiftCardError("Enter a positive amount.");
+  if (amount > 1_000_000) throw new GiftCardError("Maximum admin gift card amount is $10,000.");
   const db = await getDb();
   let card: GiftCard | undefined;
   for (let attempt = 0; attempt < 5 && !card; attempt++) {
@@ -267,6 +288,7 @@ export async function issueGiftCard(input: {
         .returning();
       if (!row) return undefined;
       await tx.insert(giftCardTransactions).values({ giftCardId: row.id, amountCents: amount, note: "Issued by admin" });
+      await upsertGiftCardCustomer(tx, { email: row.purchaserEmail, name: row.purchaserName });
       return row;
     });
   }
@@ -274,8 +296,10 @@ export async function issueGiftCard(input: {
 
   if (input.sendEmail) {
     const toRecipient = Boolean(card.recipientEmail);
-    await notify.sendGiftCardEmails(card.id, { purchaserReceipt: !toRecipient, recipient: toRecipient });
-    [card] = await db.update(giftCards).set({ deliveredAt: new Date() }).where(eq(giftCards.id, card.id)).returning();
+    const status = await notify.tryGiftCardEmails(card.id, { purchaserReceipt: !toRecipient, recipient: toRecipient, skipDedupe: true });
+    if (status === "sent") {
+      [card] = await db.update(giftCards).set({ deliveredAt: new Date() }).where(eq(giftCards.id, card.id)).returning();
+    }
   }
   return card;
 }

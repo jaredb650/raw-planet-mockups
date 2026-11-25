@@ -16,6 +16,7 @@ export function RescheduleForm({
   currentDate,
   currentDuration,
   durations,
+  guests,
   hasEmail,
 }: {
   action: FormAction;
@@ -24,6 +25,7 @@ export function RescheduleForm({
   currentDate: string;
   currentDuration: number;
   durations: number[];
+  guests?: number;
   hasEmail: boolean;
 }) {
   const [date, setDate] = useState(currentDate);
@@ -53,7 +55,7 @@ export function RescheduleForm({
       {!force ? (
         <div className={a.field}>
           <span className={a.label}>Start time</span>
-          <SlotPicker experienceId={experienceId} date={date} duration={duration} ignoreBookingId={bookingId} value={slot} onPick={setSlot} />
+          <SlotPicker experienceId={experienceId} date={date} duration={duration} guests={guests} ignoreBookingId={bookingId} value={slot} onPick={setSlot} />
           <input type="hidden" name="slot" value={slot ?? ""} />
         </div>
       ) : (
@@ -130,15 +132,19 @@ export function CancelForm({
               {giftCardCents ? ` + ${money(giftCardCents)} back on gift card` : ""}
             </span>
           </label>
-          <label className={a.check}>
-            <input type="radio" name="refund" value="custom" checked={mode === "custom"} onChange={() => setMode("custom")} />
-            <span>Part refund to card</span>
-          </label>
-          {mode === "custom" && (
-            <div className={a.field} style={{ maxWidth: 200, marginLeft: 27 }}>
-              <label htmlFor="cx-amt">Amount</label>
-              <input id="cx-amt" name="customAmount" inputMode="decimal" className={a.input} placeholder={`max ${money(remainingCents)}`} required />
-            </div>
+          {remainingCents > 0 && (
+            <>
+              <label className={a.check}>
+                <input type="radio" name="refund" value="custom" checked={mode === "custom"} onChange={() => setMode("custom")} />
+                <span>Part refund to card</span>
+              </label>
+              {mode === "custom" && (
+                <div className={a.field} style={{ maxWidth: 200, marginLeft: 27 }}>
+                  <label htmlFor="cx-amt">Amount</label>
+                  <input id="cx-amt" name="customAmount" inputMode="decimal" className={a.input} placeholder={`max ${money(remainingCents)}`} required />
+                </div>
+              )}
+            </>
           )}
           <label className={a.check}>
             <input type="radio" name="refund" value="none" checked={mode === "none"} onChange={() => setMode("none")} />

@@ -12,6 +12,7 @@ const REASON: Record<string, string> = {
   past: "already started",
   notice: "too soon to book",
   too_far: "too far ahead",
+  peak: "higher-priced time — reply to your confirmation email to upgrade",
 };
 
 /** Start times for one day. Taken times are struck through rather than hidden. */

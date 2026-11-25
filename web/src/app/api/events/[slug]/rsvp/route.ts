@@ -62,7 +62,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/events/[slug]/r
 
     if (existing) {
       // A cancelled RSVP coming back: reuse the row (unique on event + email).
-      await tx.update(eventRsvps).set({ status: "going", name, guests }).where(eq(eventRsvps.id, existing.id));
+      await tx.update(eventRsvps).set({ status: "going", name, guests, language: requestLang(req) }).where(eq(eventRsvps.id, existing.id));
       return { kind: "created", id: existing.id } as const;
     }
     const [row] = await tx.insert(eventRsvps).values({ eventId: ev.id, name, email, guests, status: "going", language: requestLang(req) }).returning({ id: eventRsvps.id });

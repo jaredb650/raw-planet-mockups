@@ -38,6 +38,8 @@ export function ActionForm({
   "aria-label"?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
+  const [dismissed, setDismissed] = useState<ActionResult>(null);
+  const visibleState = pending || !state || state === dismissed ? null : state;
   const ref = useRef<HTMLFormElement>(null);
   const onResultRef = useRef(onResult);
   useEffect(() => {
@@ -49,9 +51,13 @@ export function ActionForm({
     onResultRef.current?.(state);
   }, [state, resetOnSuccess]);
 
+  const clearFeedback = () => {
+    if (state && dismissed !== state) setDismissed(state);
+  };
+
   return (
     <PendingCtx.Provider value={pending}>
-      <StateCtx.Provider value={state}>
+      <StateCtx.Provider value={visibleState}>
       <form
         ref={ref}
         id={id}
@@ -59,6 +65,8 @@ export function ActionForm({
         className={className ?? a.form}
         action={formAction}
         aria-busy={pending}
+        onInput={clearFeedback}
+        onChange={clearFeedback}
         onSubmit={(e) => {
           // Submit through a transition so React doesn't auto-reset the form
           // (keeps what was typed if the server says no).
@@ -69,7 +77,7 @@ export function ActionForm({
         }}
       >
         {children}
-        {!hideMessage && <FormMessage state={state} />}
+        {!hideMessage && <FormMessage state={visibleState} />}
       </form>
       </StateCtx.Provider>
     </PendingCtx.Provider>

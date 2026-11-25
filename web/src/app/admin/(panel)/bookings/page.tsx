@@ -121,7 +121,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                     <td className={a.nowrap}>
                       <Link href={`/admin/bookings/${b.id}`} className={a.rowLink}>
                         {fmt(b.startAt, "EEE MMM d")}
-                        {b.startAt.getFullYear() !== new Date().getFullYear() ? fmt(b.startAt, ", yyyy") : ""}
+                        {fmt(b.startAt, "yyyy") !== fmt(new Date(), "yyyy") ? fmt(b.startAt, ", yyyy") : ""}
                       </Link>
                       <span className={a.cellSub}>{fmtTimeRange(b.startAt, b.endAt)}</span>
                     </td>

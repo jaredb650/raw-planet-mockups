@@ -63,8 +63,8 @@ export default async function ReviewPage({ params, searchParams }: PageProps<"/r
             : "Reviews are for sessions that went ahead. If that's not right, please get in touch."}
         </p>
         <div className={styles.ctas}>
-          <Link href={`/booking/${booking.code}?t=${encodeURIComponent(token)}`} className="btn btn--ghost">
-            View your booking
+          <Link href="/manage" className="btn btn--ghost">
+            Find your booking
           </Link>
         </div>
       </Shell>

@@ -319,3 +319,47 @@ export function hostWeeklyReportEmail(v: HostWeeklyReportView): EmailOutput {
   );
   return { subject, element };
 }
+
+export type HostReviewAlertView = {
+  guestName: string;
+  location: string | null;
+  rating: number;
+  body: string;
+  experienceName: string | null;
+  bookingCode: string | null;
+  reviewUrl: string;
+};
+
+export function hostReviewAlertEmail(v: HostReviewAlertView): EmailOutput {
+  const stars = "★".repeat(Math.max(1, Math.min(5, v.rating))) + "☆".repeat(Math.max(0, 5 - Math.max(1, Math.min(5, v.rating))));
+  const subject = `★ New ${v.rating}-star review from ${v.guestName} (waiting for approval)`;
+  const preview = `${stars} "${v.body.slice(0, 100)}"`;
+  const element = (
+    <Layout lang="en" audience="host" preview={preview}>
+      <div style={{ marginBottom: "12px" }}>
+        <Pill bg={C.warningSoft}>Pending review</Pill>{" "}
+        <Pill bg="#DCEFD5">
+          {v.rating} / 5 {stars}
+        </Pill>
+      </div>
+      <H1>New guest review</H1>
+      <P muted small>
+        {v.guestName}
+        {v.location ? ` · ${v.location}` : ""}
+        {v.experienceName ? ` · ${v.experienceName}` : ""}
+        {v.bookingCode ? ` (${v.bookingCode})` : ""}
+      </P>
+      <Panel bg={C.cream}>
+        <P style={{ margin: 0, whiteSpace: "pre-line" }}>“{v.body}”</P>
+      </Panel>
+      <P small muted>
+        New reviews stay hidden on the site until you publish them.
+      </P>
+      <Actions>
+        <Btn href={v.reviewUrl}>Review &amp; publish</Btn>
+      </Actions>
+    </Layout>
+  );
+  return { subject, element };
+}
+

@@ -93,7 +93,14 @@ export function EventForm({
         </div>
         <div className={a.field}>
           <label htmlFor="ev-price">Price ($)</label>
-          <input id="ev-price" name="price" inputMode="decimal" className={a.input} defaultValue={e?.priceCents ? (e.priceCents / 100).toFixed(0) : ""} placeholder="Free" />
+          <input
+            id="ev-price"
+            name="price"
+            inputMode="decimal"
+            className={a.input}
+            defaultValue={e?.priceCents ? (e.priceCents / 100).toFixed(e.priceCents % 100 ? 2 : 0) : ""}
+            placeholder="Free"
+          />
         </div>
         <div className={a.field}>
           <label htmlFor="ev-img">Image (optional)</label>
@@ -104,7 +111,7 @@ export function EventForm({
         <input type="checkbox" name="rsvpEnabled" defaultChecked={e?.rsvpEnabled ?? true} />
         <span>
           Let people RSVP on the website
-          <span className={a.cellSub}>Untick if RSVPs only happen on Meetup.</span>
+          <span className={a.cellSub}>For free events. Paid events use the ticket link above; untick if RSVPs only happen on Meetup.</span>
         </span>
       </label>
       {e ? (

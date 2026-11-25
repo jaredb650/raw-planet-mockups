@@ -7,12 +7,13 @@ import { fail, json, limited, readBody, sameOrigin } from "@/components/site/ser
 import { getDb } from "@/lib/db";
 import { experiences, inquiries } from "@/lib/db/schema";
 import { sendInquiryEmails } from "@/lib/email/notify";
+import { cleanPhone } from "@/lib/phone";
 
 const Body = z.object({
   kind: z.enum(["group", "private_event", "corporate", "general", "press"]).default("general"),
   name: z.string({ error: "Please add your name." }).trim().min(1, { error: "Please add your name." }).max(120),
   email: z.email({ error: "Please check your email address." }).trim().toLowerCase().max(200),
-  phone: z.string().trim().max(40).optional().transform((v) => v || null),
+  phone: z.string().max(60).optional().transform((v) => (v ? cleanPhone(v).slice(0, 40) || null : null)),
   experience: z.string().trim().max(80).optional(),
   preferredDate: z.string().trim().max(80).optional().transform((v) => v || null),
   groupSize: z

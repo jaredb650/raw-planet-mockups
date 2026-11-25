@@ -9,7 +9,10 @@ export const metadata = { title: "Sign in" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
-  const next = typeof sp.next === "string" && sp.next.startsWith("/admin") && !sp.next.startsWith("//") ? sp.next : "/admin";
+  const next =
+    typeof sp.next === "string" && sp.next.startsWith("/admin") && !sp.next.startsWith("//") && !sp.next.startsWith("/admin/login")
+      ? sp.next
+      : "/admin";
   if (await isAdmin()) redirect(next);
   return (
     <div className={`${a.root} ${s.wrap}`}>

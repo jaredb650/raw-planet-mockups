@@ -129,11 +129,16 @@ export default async function GiftCardPage({
             <Panel title="Actions">
               {g.status === "active" && (
                 <details className={a.disclosure}>
-                  <summary>Email it again</summary>
+                  <summary>{g.deliveredAt ? "Email it again" : "Email gift card"}</summary>
                   <div className={a.disclosureBody}>
                     <ActionForm action={resendGiftCardAction}>
                       <input type="hidden" name="id" value={g.id} />
-                      <p className={a.hint}>Sends the gift card to {g.recipientEmail ?? g.purchaserEmail}.</p>
+                      <p className={a.hint}>
+                        Sends the gift card to {g.recipientEmail ?? g.purchaserEmail}.
+                        {!g.deliveredAt && g.deliverAt && g.deliverAt > new Date()
+                          ? ` Note: this card is scheduled for ${fmt(g.deliverAt, "MMM d")} — sending now delivers it immediately.`
+                          : ""}
+                      </p>
                       <div className={a.formFoot}>
                         <SubmitButton className={a.btn} pendingText="Sending…">
                           Send

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { isLocalAsset, isOriginalExperienceSlug } from "@/lib/experience-meta";
 import type { PublicExperience } from "@/lib/queries/public";
 import { quickFacts, themeOf } from "./format";
 import { LoopVideo } from "./LoopVideo";
@@ -32,20 +33,24 @@ export function ExperienceRows({ experiences, pickable }: { experiences: PublicE
 
 function ExperienceRow({ e, index, pickable }: { e: PublicExperience; index: number; pickable?: boolean }) {
   const theme = themeOf(e);
-  const photo = cardPhotoFor(theme);
-  const loop = loopFor(theme);
+  const photo = cardPhotoFor(e);
+  const useLegacyLoop = isOriginalExperienceSlug(e.slug) && e.media.length === 0;
+  const loop = useLegacyLoop ? loopFor(theme) : undefined;
   const facts = quickFacts(e);
   const flip = index % 2 === 1;
 
   return (
     <article className={styles.row} data-theme={theme} data-flip={flip || undefined} aria-labelledby={`exp-${e.slug}`}>
       <div className={styles.media}>
-        {theme === "wellness" && loop ? (
+        {e.slug === "sound-meditation" && loop ? (
           <LoopVideo src={loop.src} poster={loop.poster} label={loop.alt} className={styles.mediaFill} />
-        ) : (
+        ) : isLocalAsset(photo.src) ? (
           <Image src={photo.src} alt={photo.alt} fill sizes="(max-width: 980px) 100vw, 580px" className={styles.img} />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photo.src} alt={photo.alt} className={styles.img} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} loading="lazy" />
         )}
-        {theme === "production" && loop ? (
+        {e.slug === "music-production" && loop ? (
           <div className={styles.inset}>
             <LoopVideo src={loop.src} poster={loop.poster} label={loop.alt} className={styles.mediaFill} />
           </div>
@@ -53,7 +58,7 @@ function ExperienceRow({ e, index, pickable }: { e: PublicExperience; index: num
       </div>
       <div className={styles.body}>
         <p className={styles.kicker}>
-          <span className={styles.num}>0{index + 1}</span> {e.locationArea}
+          <span className={styles.num}>{String(index + 1).padStart(2, "0")}</span> {e.locationArea}
         </p>
         <h3 id={`exp-${e.slug}`} className={styles.title}>
           <Link href={`/experiences/${e.slug}`}>{e.name}</Link>

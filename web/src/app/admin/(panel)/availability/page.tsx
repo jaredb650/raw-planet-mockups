@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { and, asc, desc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, sql } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { blocks, calendarFeeds, experiences, type WeeklySchedule } from "@/lib/db/schema";
+import { blocks, calendarFeeds, experiences, waitlist, type WeeklySchedule } from "@/lib/db/schema";
 import { getCalendarFeedUrl } from "@/lib/calendar-feed";
 import { integrations } from "@/lib/config";
-import { fmt, fmtTimeRange, localDateKey, todayKey } from "@/lib/time";
+import { fmt, fmtTimeRange, fromLocal, localDateKey, todayKey } from "@/lib/time";
 import { PageHeader, Panel, Empty } from "@/components/admin/PageHeader";
 import { BlockForm } from "@/components/admin/BlockForm";
 import { FeedLink } from "@/components/admin/FeedLink";
@@ -18,6 +18,8 @@ import {
   createBlockAction,
   deleteBlockAction,
   deleteFeedAction,
+  deleteWaitlistEntryAction,
+  notifyWaitlistEntryAction,
   regenerateFeedLinkAction,
   syncFeedsAction,
   toggleFeedAction,
@@ -53,7 +55,8 @@ export default async function AvailabilityPage() {
   await requireAdmin();
   const db = await getDb();
   const now = new Date();
-  const [exps, upcoming, feeds, feedCounts, feedUrl] = await Promise.all([
+  const today = todayKey(now);
+  const [exps, upcoming, feeds, feedCounts, feedUrl, waitlistRows] = await Promise.all([
     db.select().from(experiences).orderBy(asc(experiences.sortOrder)),
     db
       .select({ id: blocks.id, startAt: blocks.startAt, endAt: blocks.endAt, reason: blocks.reason, exp: experiences.shortName })
@@ -69,6 +72,23 @@ export default async function AvailabilityPage() {
       .where(gt(blocks.endAt, now))
       .groupBy(blocks.feedId),
     getCalendarFeedUrl().catch(() => null),
+    db
+      .select({
+        id: waitlist.id,
+        date: waitlist.date,
+        name: waitlist.name,
+        email: waitlist.email,
+        guests: waitlist.guests,
+        notifiedAt: waitlist.notifiedAt,
+        createdAt: waitlist.createdAt,
+        expName: experiences.shortName,
+        expTheme: experiences.theme,
+      })
+      .from(waitlist)
+      .innerJoin(experiences, eq(experiences.id, waitlist.experienceId))
+      .where(gte(waitlist.date, today))
+      .orderBy(asc(waitlist.date), asc(waitlist.createdAt))
+      .limit(100),
   ]);
   // Manual blocks are stored once per resource group; show each time once.
   const seen = new Set<string>();
@@ -131,6 +151,52 @@ export default async function AvailabilityPage() {
                     </li>
                   );
                 })}
+              </ul>
+            )}
+          </Panel>
+
+          <Panel title="Waitlist" id="waitlist" count={waitlistRows.length || undefined}>
+            {waitlistRows.length === 0 ? (
+              <Empty>Nobody is waiting for an opening right now.</Empty>
+            ) : (
+              <ul className={a.list}>
+                {waitlistRows.map((w) => (
+                  <li key={w.id}>
+                    <div className={a.listRow}>
+                      <div className={a.listMain}>
+                        <div className={a.listTitle}>
+                          {w.name}{" "}
+                          <Pill tone={w.notifiedAt ? "success" : "warning"}>
+                            {w.notifiedAt ? `Notified ${fmt(w.notifiedAt, "MMM d")}` : "Waiting"}
+                          </Pill>
+                        </div>
+                        <div className={a.listMeta}>
+                          {fmt(fromLocal(w.date, "12:00"), "EEE MMM d")} · <ExpName theme={w.expTheme} name={w.expName} /> · {plural(w.guests, "guest")}
+                        </div>
+                        <div className={a.listMeta}>
+                          <a href={`mailto:${w.email}`}>{w.email}</a> · joined {fmt(w.createdAt, "MMM d, h:mmaaa")}
+                        </div>
+                      </div>
+                    </div>
+                    <div className={a.row} style={{ marginTop: 8, gap: 6, flexWrap: "wrap" }}>
+                      <Link href={`/admin/bookings/new?waitlist=${w.id}`} className={`${a.btn} ${a.btnSm} ${a.btnPrimary}`}>
+                        Book
+                      </Link>
+                      <ActionForm action={notifyWaitlistEntryAction} className={a.row} hideMessage>
+                        <input type="hidden" name="id" value={w.id} />
+                        <SubmitButton className={`${a.btn} ${a.btnSm}`} pendingText="Sending…">
+                          {w.notifiedAt ? "Email again" : "Notify now"}
+                        </SubmitButton>
+                      </ActionForm>
+                      <ActionForm action={deleteWaitlistEntryAction} className={a.row} hideMessage>
+                        <input type="hidden" name="id" value={w.id} />
+                        <ConfirmSubmit className={`${a.btn} ${a.btnSm} ${a.btnGhost}`} confirmLabel="Remove">
+                          Remove
+                        </ConfirmSubmit>
+                      </ActionForm>
+                    </div>
+                  </li>
+                ))}
               </ul>
             )}
           </Panel>

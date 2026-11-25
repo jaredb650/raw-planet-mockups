@@ -8,6 +8,10 @@ import { PageHeader, Panel, Empty } from "@/components/admin/PageHeader";
 import { ActionForm, ConfirmSubmit, InlineMessage, SubmitButton } from "@/components/admin/ActionForm";
 import { Pill } from "@/components/admin/Pill";
 import { Icon } from "@/components/admin/Icon";
+import { getExperienceMeta } from "@/lib/experience-meta-db";
+import { isOriginalExperienceSlug } from "@/lib/experience-meta";
+import { photosFor } from "@/components/site/media";
+import { ExperienceFaqEditor, ExperienceMediaEditor } from "@/components/admin/ExperienceMediaEditor";
 import { deleteAddonAction, saveAddonAction, updateExperienceAction } from "../actions";
 import a from "@/components/admin/admin.module.css";
 import e from "@/components/admin/exp.module.css";
@@ -37,11 +41,15 @@ export default async function EditExperiencePage({
   const db = await getDb();
   const [x] = await db.select().from(experiences).where(eq(experiences.id, id)).limit(1);
   if (!x) notFound();
-  const extras = await db
-    .select()
-    .from(addons)
-    .where(or(eq(addons.experienceId, x.id), isNull(addons.experienceId)))
-    .orderBy(asc(addons.sortOrder), asc(addons.name));
+  const [extras, meta] = await Promise.all([
+    db
+      .select()
+      .from(addons)
+      .where(or(eq(addons.experienceId, x.id), isNull(addons.experienceId)))
+      .orderBy(asc(addons.sortOrder), asc(addons.name)),
+    getExperienceMeta(x.id, x.slug),
+  ]);
+  const initialPhotos = x.media.length > 0 ? x.media : isOriginalExperienceSlug(x.slug) ? photosFor(x) : [];
   const durRows = [...x.durationOptions, { minutes: "", priceCents: null, label: "" }, { minutes: "", priceCents: null, label: "" }];
   const placeholderAddress = !x.address || /exact address|confirmed with/i.test(x.address);
 
@@ -61,7 +69,7 @@ export default async function EditExperiencePage({
       />
       {sp.created === "1" && (
         <p className={`${a.notice} ${a.noticeOk}`} style={{ marginBottom: 16 }}>
-          Created. Fill in the details, then tick “Live on website” and save.
+          Created. Add your copy, photos, videos, pricing, and hours below — then tick “Live on website” and save.
         </p>
       )}
 
@@ -82,6 +90,13 @@ export default async function EditExperiencePage({
               <span>
                 <strong>Guests sign a waiver</strong>
                 <span className={a.cellSub}>Adds the signing link to confirmation and reminder emails, and shows who has signed on the manifest.</span>
+              </span>
+            </label>
+            <label className={a.check}>
+              <input type="checkbox" name="hasDeliverable" defaultChecked={meta.hasDeliverable} />
+              <span>
+                <strong>Has post-session deliverable (track / mix / recording)</strong>
+                <span className={a.cellSub}>Tracks whether you’ve sent the finished audio link after the session and reminds you on Today &amp; morning emails.</span>
               </span>
             </label>
             <div className={a.formRow}>
@@ -108,20 +123,32 @@ export default async function EditExperiencePage({
               <textarea id="x-desc" name="description" className={a.textarea} defaultValue={x.description} rows={7} />
               <span className={a.hint}>Blank line = new paragraph.</span>
             </div>
-            <div className={a.formRow}>
+            <div className={a.formRow} style={{ ["--cols" as string]: 3 }}>
               <div className={a.field}>
-                <label htmlFor="x-theme">Colour</label>
+                <label htmlFor="x-theme">Accent colour</label>
                 <select id="x-theme" name="theme" className={a.select} defaultValue={x.theme}>
-                  <option value="production">Ochre (production)</option>
-                  <option value="dj">Orange (DJ)</option>
-                  <option value="wellness">Green (wellness)</option>
+                  <option value="production">Purple / Ochre</option>
+                  <option value="dj">Orange</option>
+                  <option value="wellness">Green</option>
                 </select>
+                <span className={a.hint}>Visual colour only.</span>
+              </div>
+              <div className={a.field}>
+                <label htmlFor="x-hosts">Hosts</label>
+                <input id="x-hosts" name="hostsLabel" className={a.input} defaultValue={meta.hostsLabel} placeholder="Alex Gentil" maxLength={140} />
+                <span className={a.hint}>Shown on the experience page.</span>
               </div>
               <div className={a.field}>
                 <label htmlFor="x-sort">Order on the site</label>
                 <input id="x-sort" name="sortOrder" type="number" className={a.input} defaultValue={x.sortOrder} />
               </div>
             </div>
+          </div>
+        </Panel>
+
+        <Panel title="Photos &amp; videos">
+          <div className={a.panelBody}>
+            <ExperienceMediaEditor initialPhotos={initialPhotos} initialVideos={meta.videos} />
           </div>
         </Panel>
 
@@ -170,7 +197,7 @@ export default async function EditExperiencePage({
                 <input id="x-age" name="minAge" type="number" min={0} className={a.input} defaultValue={x.minAge ?? ""} placeholder="Any" />
               </div>
             </div>
-            <div className={a.formRow}>
+            <div className={a.formRow} style={{ ["--cols" as string]: 3 }}>
               <div className={a.field}>
                 <label htmlFor="x-inc">Guests included (per-session pricing)</label>
                 <input id="x-inc" name="includedGuests" type="number" min={1} className={a.input} defaultValue={x.includedGuests} />
@@ -178,6 +205,11 @@ export default async function EditExperiencePage({
               <div className={a.field}>
                 <label htmlFor="x-extra">Each extra guest ($)</label>
                 <input id="x-extra" name="extraGuest" inputMode="decimal" className={a.input} defaultValue={dollars(x.extraGuestCents)} />
+              </div>
+              <div className={a.field}>
+                <label htmlFor="x-priv">Private session rate ($)</label>
+                <input id="x-priv" name="privateRate" inputMode="decimal" className={a.input} defaultValue={meta.privateRateCents ? dollars(meta.privateRateCents) : ""} placeholder="Ask us" />
+                <span className={a.hint}>Leave blank to show “Ask us”.</span>
               </div>
             </div>
           </div>
@@ -259,9 +291,19 @@ export default async function EditExperiencePage({
 
         <Panel title="Page details">
           <div className={`${a.panelBody} ${a.form}`}>
-            <p className={a.hint}>One per line.</p>
+            <div className={a.formRow}>
+              <div className={a.field}>
+                <label htmlFor="x-flow-title">Steps section heading</label>
+                <input id="x-flow-title" name="flowTitle" className={a.input} defaultValue={meta.flowTitle} placeholder="How the session goes" maxLength={100} />
+              </div>
+              <div className={a.field}>
+                <label htmlFor="x-take">You leave with (compare table)</label>
+                <input id="x-take" name="takeHome" className={a.input} defaultValue={meta.takeHome} placeholder="e.g. A recording of your session" maxLength={240} />
+              </div>
+            </div>
+            <p className={a.hint}>One per line for the lists below.</p>
             <div className={a.field}>
-              <label htmlFor="x-hl">Highlights</label>
+              <label htmlFor="x-hl">Highlights / session steps</label>
               <textarea id="x-hl" name="highlights" className={a.textarea} defaultValue={x.highlights.join("\n")} rows={4} />
             </div>
             <div className={a.formRow}>
@@ -274,18 +316,11 @@ export default async function EditExperiencePage({
                 <textarea id="x-gtk" name="goodToKnow" className={a.textarea} defaultValue={x.goodToKnow.join("\n")} rows={4} />
               </div>
             </div>
-            {x.media.length > 0 && (
-              <div className={a.field}>
-                <span className={a.label}>Photos</span>
-                <div className={e.media}>
-                  {x.media.slice(0, 8).map((m) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img key={m.src} src={m.src} alt={m.alt} loading="lazy" />
-                  ))}
-                </div>
-                <span className={a.hint}>Photos are managed in the site’s media library.</span>
-              </div>
-            )}
+            <div className={a.field}>
+              <label htmlFor="x-pf">Perfect for (chips on the page)</label>
+              <textarea id="x-pf" name="perfectFor" className={a.textarea} defaultValue={meta.perfectFor.join("\n")} rows={3} placeholder="Birthdays&#10;Couples and date nights&#10;Friends visiting NYC" />
+            </div>
+            <ExperienceFaqEditor initialFaqs={meta.faqs} />
           </div>
         </Panel>
 

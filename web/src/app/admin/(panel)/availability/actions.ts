@@ -1,15 +1,17 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { blocks, calendarFeeds, experiences } from "@/lib/db/schema";
+import { blocks, calendarFeeds, experiences, waitlist } from "@/lib/db/schema";
 import { adminAction, bool, int, optStr, str } from "@/lib/admin/action";
 import { clearFeedBlocks, normalizeFeedUrl, previewCalendarFeed, syncCalendarFeeds } from "@/lib/feeds";
 import { plural } from "@/components/admin/format";
 import { regenerateCalendarFeedToken } from "@/lib/calendar-feed";
-import { fmtDateShort, fromLocal } from "@/lib/time";
+import { addDaysKey, fmtDateShort, fromLocal, localDateKey } from "@/lib/time";
 import { blockSpans } from "@/lib/admin/schedule";
+import { notifyWaitlistForDate } from "@/lib/booking/service";
+import { tryWaitlistOpening } from "@/lib/email/notify";
 import type { ActionResult } from "@/components/admin/types";
 
 const dateKey = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date");
@@ -60,10 +62,24 @@ export async function deleteBlockAction(_p: ActionResult, fd: FormData): Promise
     const [b] = await db.select().from(blocks).where(eq(blocks.id, id)).limit(1);
     if (!b) return "Already removed.";
     if (b.source !== "manual") throw new Error("This comes from a synced calendar. Remove it there; it disappears here on the next sync.");
-    // Remove the twin rows created for other resource groups at the same time.
+    // Remove the twin rows created for other resource groups at the same time (keeping experience scope intact).
     await db
       .delete(blocks)
-      .where(and(eq(blocks.source, "manual"), eq(blocks.startAt, b.startAt), eq(blocks.endAt, b.endAt), eq(blocks.reason, b.reason)));
+      .where(
+        and(
+          eq(blocks.source, "manual"),
+          eq(blocks.startAt, b.startAt),
+          eq(blocks.endAt, b.endAt),
+          eq(blocks.reason, b.reason),
+          b.experienceId ? eq(blocks.experienceId, b.experienceId) : isNull(blocks.experienceId),
+        ),
+      );
+    const firstDay = localDateKey(b.startAt);
+    const lastDay = localDateKey(new Date(Math.max(b.startAt.getTime(), b.endAt.getTime() - 1)));
+    let day = firstDay;
+    for (let i = 0; i < 14 && day <= lastDay; i++, day = addDaysKey(day, 1)) {
+      await notifyWaitlistForDate(b.experienceId, day, b.experienceId ? undefined : b.resourceGroup);
+    }
     return "Block removed. That time is bookable again.";
   });
 }
@@ -124,4 +140,34 @@ export async function regenerateFeedLinkAction(): Promise<ActionResult> {
     const url = await regenerateCalendarFeedToken();
     return { message: "New link created. The old one has stopped working, so re-subscribe with this one.", data: { url } };
   });
+}
+
+/* ------------------------------ waitlist ------------------------------ */
+
+export async function notifyWaitlistEntryAction(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return adminAction(
+    async () => {
+      const id = z.string().min(1).parse(str(fd, "id"));
+      const db = await getDb();
+      const [row] = await db.select().from(waitlist).where(eq(waitlist.id, id)).limit(1);
+      if (!row) throw new Error("Waitlist entry not found.");
+      const status = await tryWaitlistOpening(id);
+      if (status !== "sent") throw new Error(`Couldn’t email ${row.email} — check Emails for the error.`);
+      await db.update(waitlist).set({ notifiedAt: new Date() }).where(eq(waitlist.id, id));
+      return `Opening email sent to ${row.name}.`;
+    },
+    { revalidate: ["/admin/availability"] },
+  );
+}
+
+export async function deleteWaitlistEntryAction(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return adminAction(
+    async () => {
+      const id = z.string().min(1).parse(str(fd, "id"));
+      const db = await getDb();
+      await db.delete(waitlist).where(eq(waitlist.id, id));
+      return "Removed from waitlist.";
+    },
+    { revalidate: ["/admin/availability"] },
+  );
 }

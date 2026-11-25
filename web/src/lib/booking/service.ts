@@ -11,7 +11,7 @@
  *   confirmed ─► rescheduleBooking ─► confirmed (new time)
  */
 import "server-only";
-import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import { getDb, type DB, type Tx } from "@/lib/db";
 import {
   addons as addonsTable,
@@ -32,9 +32,9 @@ import {
 import { CHECKOUT_HOLD_MINUTES, integrations, siteUrl } from "@/lib/config";
 import { newBookingCode, newToken, normalizeCode } from "@/lib/ids";
 import { formatMoney } from "@/lib/money";
-import { fmtDateShort, fmtDuration, fmtTimeRange, localDateKey } from "@/lib/time";
-import { computeQuote, pickPriceRule, refundForCancellation, type Quote } from "./pricing";
-import { isSlotFree, loadPriceRules } from "./availability";
+import { fmtDateShort, fmtDuration, fmtTimeRange, localDateKey, todayKey } from "@/lib/time";
+import { computeQuote, isHigherPriceSlot, pickPriceRule, refundForCancellation, type Quote } from "./pricing";
+import { getAvailability, isSlotFree, loadPriceRules } from "./availability";
 import {
   CalcomError,
   calCancelBooking,
@@ -250,12 +250,35 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   if (giftCardError) throw new BookingError(giftCardError);
   if (input.expectedTotalCents != null && input.expectedTotalCents !== quote.totalCents)
     throw new BookingError(`The price for this time just changed to ${formatMoney(quote.totalCents)}. Please check it and confirm again.`, "price_changed");
+  if (quote.totalCents > 0 && !integrations.stripe() && !integrations.testCheckout())
+    throw new BookingError("Online payments aren't set up yet. Please contact us to book.", "payment");
   const end = new Date(start.getTime() + input.durationMinutes * 60_000);
   const holdExpiresAt = new Date(Date.now() + CHECKOUT_HOLD_MINUTES * 60_000);
 
   let joinsSession = false;
   const booking = await db.transaction(async (tx) => {
     await lockResource(tx, experience.resourceGroup);
+    if (promoId) {
+      await lockResource(tx, `promo:${promoId}`);
+      const [promo] = await tx.select().from(promoCodes).where(eq(promoCodes.id, promoId)).limit(1);
+      const now = new Date();
+      if (
+        !promo ||
+        !promo.active ||
+        (promo.validFrom && promo.validFrom > now) ||
+        (promo.validUntil && promo.validUntil < now) ||
+        (promo.maxRedemptions != null && promo.redemptions >= promo.maxRedemptions)
+      ) {
+        throw new BookingError("That discount code is no longer available.", "invalid");
+      }
+    }
+    if (giftCardId && quote.giftCardCents > 0) {
+      await lockResource(tx, `gc:${giftCardId}`);
+      const [gc] = await tx.select().from(giftCards).where(eq(giftCards.id, giftCardId)).limit(1);
+      if (!gc || gc.status !== "active" || gc.balanceCents < quote.giftCardCents) {
+        throw new BookingError("That gift card no longer has enough balance for this booking.", "invalid");
+      }
+    }
     const free = await isSlotFree(tx, { experience, start, durationMinutes: input.durationMinutes, guests: input.guests });
     if (!free.ok) throw new BookingError("Sorry, that time was just taken. Please pick another.", "slot_unavailable");
     joinsSession = free.shared;
@@ -341,12 +364,14 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
 
   // Nothing to charge → confirm now.
   if (quote.totalCents === 0) {
-    await fulfillBooking(booking.id, { amountPaidCents: 0 });
-    return { booking, next: { type: "redirect", url: siteUrl(`/booking/${booking.code}?t=${booking.manageToken}`) } };
+    const confirmed = await fulfillBooking(booking.id, { amountPaidCents: 0 });
+    if (confirmed.status !== "confirmed") {
+      throw new BookingError(confirmed.cancelReason ?? "Sorry, we couldn't confirm this booking. Please try again.", "slot_unavailable");
+    }
+    return { booking: confirmed, next: { type: "redirect", url: siteUrl(`/booking/${booking.code}?t=${booking.manageToken}`) } };
   }
 
   if (!integrations.stripe()) {
-    if (!integrations.testCheckout()) throw new BookingError("Online payments aren't set up yet. Please contact us to book.", "payment");
     return {
       booking,
       next: { type: "redirect", url: siteUrl(`/checkout/test/booking/${booking.id}?t=${booking.manageToken}`) },
@@ -354,23 +379,29 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   }
 
   const when = `${fmtDateShort(start)}, ${fmtTimeRange(start, end)} (New York time)`;
-  const session = await createCheckoutSession({
-    kind: "booking",
-    refId: booking.id,
-    email: booking.contactEmail,
-    description: `${experience.name} · ${when} · ${booking.code}`,
-    lines: [
-      {
-        name: `${experience.name} — ${fmtDuration(input.durationMinutes)}`,
-        description: `${when} · ${input.guests} guest${input.guests > 1 ? "s" : ""} · ${booking.code}`,
-        // Charge the final amount as one line so discounts/gift cards reconcile exactly.
-        amountCents: quote.totalCents,
-      },
-    ],
-    successUrl: siteUrl(`/booking/${booking.code}?t=${booking.manageToken}&session_id={CHECKOUT_SESSION_ID}`),
-    cancelUrl: siteUrl(`/book/${experience.slug}?cancelled=${booking.code}&t=${booking.manageToken}`),
-    expiresInMinutes: CHECKOUT_HOLD_MINUTES,
-  });
+  let session: { id: string; url: string };
+  try {
+    session = await createCheckoutSession({
+      kind: "booking",
+      refId: booking.id,
+      email: booking.contactEmail,
+      description: `${experience.name} · ${when} · ${booking.code}`,
+      lines: [
+        {
+          name: `${experience.name} — ${fmtDuration(input.durationMinutes)}`,
+          description: `${when} · ${input.guests} guest${input.guests > 1 ? "s" : ""} · ${booking.code}`,
+          // Charge the final amount as one line so discounts/gift cards reconcile exactly.
+          amountCents: quote.totalCents,
+        },
+      ],
+      successUrl: siteUrl(`/booking/${booking.code}?t=${booking.manageToken}&session_id={CHECKOUT_SESSION_ID}`),
+      cancelUrl: siteUrl(`/book/${experience.slug}?cancelled=${booking.code}&t=${booking.manageToken}`),
+      expiresInMinutes: CHECKOUT_HOLD_MINUTES,
+    });
+  } catch (err) {
+    await expireBooking(booking.id, "Checkout could not be started");
+    throw err;
+  }
   await db.update(bookings).set({ stripeCheckoutSessionId: session.id }).where(eq(bookings.id, booking.id));
   return { booking, next: { type: "redirect", url: session.url } };
 }
@@ -462,6 +493,31 @@ export async function fulfillBooking(
       }
     }
 
+    // Enforce promo redemption cap atomically before touching the gift card.
+    if (b.promoCodeId) {
+      const [promo] = await tx
+        .update(promoCodes)
+        .set({ redemptions: sql`${promoCodes.redemptions} + 1` })
+        .where(and(eq(promoCodes.id, b.promoCodeId), or(isNull(promoCodes.maxRedemptions), lt(promoCodes.redemptions, promoCodes.maxRedemptions))))
+        .returning({ id: promoCodes.id });
+      if (!promo) {
+        await tx
+          .update(bookings)
+          .set({
+            status: "cancelled",
+            paymentStatus: payment.amountPaidCents > 0 ? "paid" : "not_required",
+            amountPaidCents: payment.amountPaidCents,
+            stripePaymentIntentId: payment.paymentIntentId ?? b.stripePaymentIntentId,
+            cancelledAt: new Date(),
+            cancelledBy: "system",
+            cancelReason: "Discount code reached its usage limit before payment completed",
+            updatedAt: new Date(),
+          })
+          .where(eq(bookings.id, b.id));
+        return { booking: b, conflict: true };
+      }
+    }
+
     // Redeem the gift card atomically. If it no longer covers its share (spent elsewhere, voided),
     // don't confirm a booking that was only partly paid: cancel and refund like a slot conflict.
     const giftCardCents = b.giftCardCents;
@@ -475,6 +531,10 @@ export async function fulfillBooking(
         .where(and(eq(giftCards.id, b.giftCardId), eq(giftCards.status, "active"), gte(giftCards.balanceCents, b.giftCardCents)))
         .returning({ id: giftCards.id });
       if (!gc) {
+        // Undo promo increment if we took one in this transaction.
+        if (b.promoCodeId) {
+          await tx.update(promoCodes).set({ redemptions: sql`greatest(0, ${promoCodes.redemptions} - 1)` }).where(eq(promoCodes.id, b.promoCodeId));
+        }
         await tx
           .update(bookings)
           .set({
@@ -491,9 +551,6 @@ export async function fulfillBooking(
         return { booking: b, conflict: true };
       }
       await tx.insert(giftCardTransactions).values({ giftCardId: gc.id, bookingId: b.id, amountCents: -b.giftCardCents, note: `Booking ${b.code}` });
-    }
-    if (b.promoCodeId) {
-      await tx.update(promoCodes).set({ redemptions: sql`${promoCodes.redemptions} + 1` }).where(eq(promoCodes.id, b.promoCodeId));
     }
 
     const [updated] = await tx
@@ -532,15 +589,23 @@ export async function fulfillBooking(
   });
 
   if (result.conflict) {
+    const why = (await getBooking(bookingId))?.cancelReason ?? "Slot was taken before payment completed";
     if (payment.paymentIntentId && payment.amountPaidCents > 0) {
-      const r = await refundPayment({ paymentIntentId: payment.paymentIntentId, amountCents: payment.amountPaidCents, reason: "slot conflict", bookingId });
-      await db.insert(refunds).values({ bookingId, amountCents: payment.amountPaidCents, reason: "Slot conflict", stripeRefundId: r?.id ?? null });
+      const r = await refundPayment({
+        paymentIntentId: payment.paymentIntentId,
+        amountCents: payment.amountPaidCents,
+        reason: why,
+        bookingId,
+        idempotencyKey: `rp-conflict-${bookingId}`,
+      });
+      await db.insert(refunds).values({ bookingId, amountCents: payment.amountPaidCents, reason: why, stripeRefundId: r?.id ?? null });
       await db.update(bookings).set({ paymentStatus: "refunded", amountRefundedCents: payment.amountPaidCents }).where(eq(bookings.id, bookingId));
     }
-    const why = (await getBooking(bookingId))?.cancelReason ?? "Slot was taken before payment completed";
-    await logEvent(db, bookingId, "cancelled", `${why} — refunded in full`, { public: true });
-    await notify.sendSlotConflictRefund(bookingId);
-    await notify.sendHostBookingAlert(bookingId, "cancelled");
+    await logEvent(db, bookingId, "cancelled", payment.amountPaidCents > 0 ? `${why} — refunded in full` : why, { public: true });
+    if (payment.amountPaidCents > 0) {
+      await notify.sendSlotConflictRefund(bookingId);
+      await notify.sendHostBookingAlert(bookingId, "cancelled");
+    }
     return (await getBooking(bookingId))!;
   }
 
@@ -549,33 +614,51 @@ export async function fulfillBooking(
 
   let booking = result.booking;
 
-  // Put it on the shared calendar (Cal.com → Google → Airbnb).
+  // Put it on the shared calendar (Cal.com → Google → Airbnb), unless a sibling booking in the same shared session is already on Cal.com.
   if (experience.calEventTypeId && !booking.calBookingUid) {
     await calReleaseSlot(booking.calReservationUid);
-    try {
-      const cal = await calCreateBooking({
-        eventTypeId: experience.calEventTypeId,
-        start: booking.startAt,
-        durationMinutes: booking.durationMinutes,
-        attendee: { name: booking.contactName, email: booking.contactEmail, phone: booking.contactPhone, language: booking.language },
-        metadata: { rpBookingId: booking.id, rpCode: booking.code, guests: String(booking.guests), source: "website" },
-        notes: booking.customerNotes,
-      });
-      if (cal) {
-        [booking] = await db.update(bookings).set({ calBookingUid: cal.uid, calReservationUid: null }).where(eq(bookings.id, booking.id)).returning();
-        await logEvent(db, booking.id, "calendar", "Added to calendar (Cal.com / Google)");
+    const [sibling] = await db
+      .select({ id: bookings.id })
+      .from(bookings)
+      .where(
+        and(
+          ne(bookings.id, booking.id),
+          eq(bookings.experienceId, booking.experienceId),
+          eq(bookings.startAt, booking.startAt),
+          eq(bookings.endAt, booking.endAt),
+          eq(bookings.status, "confirmed"),
+          isNotNull(bookings.calBookingUid),
+        ),
+      )
+      .limit(1);
+    if (!sibling) {
+      try {
+        const cal = await calCreateBooking({
+          eventTypeId: experience.calEventTypeId,
+          start: booking.startAt,
+          durationMinutes: booking.durationMinutes,
+          attendee: { name: booking.contactName, email: booking.contactEmail, phone: booking.contactPhone, language: booking.language },
+          metadata: { rpBookingId: booking.id, rpCode: booking.code, guests: String(booking.guests), source: "website" },
+          notes: booking.customerNotes,
+        });
+        if (cal) {
+          [booking] = await db.update(bookings).set({ calBookingUid: cal.uid, calReservationUid: null }).where(eq(bookings.id, booking.id)).returning();
+          await logEvent(db, booking.id, "calendar", "Added to calendar (Cal.com / Google)");
+        }
+      } catch (err) {
+        // Payment is captured and our DB already holds the slot; flag for the host
+        // rather than refunding automatically (Cal.com may just be down).
+        const msg = err instanceof CalcomError ? err.message : String(err);
+        await logEvent(db, booking.id, "calendar_error", `Couldn't add to Cal.com — please check the calendar: ${msg}`, {});
       }
-    } catch (err) {
-      // Payment is captured and our DB already holds the slot; flag for the host
-      // rather than refunding automatically (Cal.com may just be down).
-      const msg = err instanceof CalcomError ? err.message : String(err);
-      await logEvent(db, booking.id, "calendar_error", `Couldn't add to Cal.com — please check the calendar: ${msg}`, {});
     }
   }
 
-  await notify.sendBookingConfirmation(booking.id);
+  const confStatus = await notify.tryBookingConfirmation(booking.id);
   await notify.sendHostBookingAlert(booking.id, "new");
-  await db.update(bookings).set({ confirmationSentAt: new Date() }).where(eq(bookings.id, booking.id));
+  if (confStatus === "sent") {
+    await db.update(bookings).set({ confirmationSentAt: new Date() }).where(eq(bookings.id, booking.id));
+  }
   return booking;
 }
 
@@ -594,6 +677,7 @@ export async function expireBooking(bookingId: string, reason = "Checkout not co
   await logEvent(db, b.id, "expired", reason);
   await calReleaseSlot(b.calReservationUid);
   await expireCheckoutSession(b.stripeCheckoutSessionId);
+  await notifyWaitlistForDate(b.experienceId, localDateKey(b.startAt));
 }
 
 /** Expire holds that lapsed > 5 min ago (grace lets in-flight Stripe webhooks land first). */
@@ -654,8 +738,16 @@ export async function cancelBooking(
     cardCents = Math.min(remainingCard, Math.max(0, Math.round(mode.cardCents)));
   }
 
-  if (cardCents > 0 && !b.stripePaymentIntentId && integrations.stripe())
-    throw new BookingError("No Stripe payment is linked to this booking — refund it in the Stripe dashboard.", "payment");
+  let offlineRefundDueCents = 0;
+  if (cardCents > 0 && !b.stripePaymentIntentId && integrations.stripe()) {
+    if (b.source === "direct") {
+      throw new BookingError("No Stripe payment is linked to this booking — refund it in the Stripe dashboard.", "payment");
+    }
+    if (opts.by === "customer") {
+      offlineRefundDueCents = cardCents;
+      cardCents = 0;
+    }
+  }
 
   // Claim the cancellation first: only one concurrent request gets the row, so refunds can't run twice.
   const [claimed] = await db
@@ -668,13 +760,24 @@ export async function cancelBooking(
   let stripeRefundId: string | null = null;
   if (cardCents > 0 && b.stripePaymentIntentId) {
     try {
-      const r = await refundPayment({ paymentIntentId: b.stripePaymentIntentId, amountCents: cardCents, reason: opts.reason, bookingId: b.id });
+      const r = await refundPayment({
+        paymentIntentId: b.stripePaymentIntentId,
+        amountCents: cardCents,
+        reason: opts.reason,
+        bookingId: b.id,
+        idempotencyKey: `rp-cancel-${b.id}`,
+      });
       stripeRefundId = r?.id ?? null;
     } catch (err) {
       // Refund failed: put the booking back so the cancel can be retried.
       await db.update(bookings).set({ status: "confirmed", cancelledAt: null, cancelledBy: null, cancelReason: null }).where(eq(bookings.id, b.id));
       throw err;
     }
+  }
+  if (offlineRefundDueCents > 0) {
+    await logEvent(db, b.id, "note", `Guest cancelled an offline-paid booking (${b.source}) — refund ${formatMoney(offlineRefundDueCents, { showCents: true })} manually if needed.`, {
+      actor: "system",
+    });
   }
 
   const booking = await db.transaction(async (tx) => {
@@ -716,6 +819,12 @@ export async function cancelBooking(
       })
       .where(eq(bookings.id, b.id))
       .returning();
+    if (b.promoCodeId && b.status === "confirmed" && new Date() < b.startAt) {
+      await tx
+        .update(promoCodes)
+        .set({ redemptions: sql`greatest(${promoCodes.redemptions} - 1, 0)` })
+        .where(eq(promoCodes.id, b.promoCodeId));
+    }
     const money = cardCents > 0 ? ` — ${(cardCents / 100).toFixed(2)} USD refunded to card` : "";
     const gift = giftCents > 0 ? ` — ${(giftCents / 100).toFixed(2)} USD returned to gift card` : "";
     await logEvent(tx, b.id, "cancelled", `Booking cancelled by ${opts.by}${money}${gift}`, {
@@ -763,6 +872,16 @@ export async function rescheduleBooking(
       throw new BookingError(`Changes are possible up to ${experience.cancellationHours} hours before your session.`, "policy");
     if (b.rescheduleCount >= MAX_CUSTOMER_RESCHEDULES)
       throw new BookingError("This booking has already been moved twice — reply to your confirmation email and we'll help.", "policy");
+    if (newStart.getTime() !== b.startAt.getTime()) {
+      const rules = await loadPriceRules(db);
+      const targetRule = pickPriceRule(rules, experience.id, newStart, new Date());
+      if (isHigherPriceSlot(b, targetRule?.adjustPercent ?? 0)) {
+        throw new BookingError(
+          "That time is priced higher than your current booking. Pick another time at the same rate, or reply to your confirmation email and we'll help you upgrade.",
+          "policy",
+        );
+      }
+    }
   }
   const previousStart = b.startAt;
 
@@ -830,17 +949,24 @@ export async function refundBooking(bookingId: string, amountCents: number, reas
   if (amount <= 0) throw new BookingError("Nothing left to refund.", "payment");
   let stripeRefundId: string | null = null;
   if (b.stripePaymentIntentId) {
-    const r = await refundPayment({ paymentIntentId: b.stripePaymentIntentId, amountCents: amount, reason, bookingId });
+    const r = await refundPayment({
+      paymentIntentId: b.stripePaymentIntentId,
+      amountCents: amount,
+      reason,
+      bookingId,
+      idempotencyKey: `rp-refund-${bookingId}-${b.amountRefundedCents}-${amount}`,
+    });
     stripeRefundId = r?.id ?? null;
-  } else if (integrations.stripe()) {
+  } else if (integrations.stripe() && b.source === "direct") {
     throw new BookingError("No Stripe payment is linked to this booking.", "payment");
   }
   const refunded = b.amountRefundedCents + amount;
   const [u] = await db
     .update(bookings)
     .set({ amountRefundedCents: refunded, paymentStatus: refunded >= b.amountPaidCents ? "refunded" : "partially_refunded", updatedAt: new Date() })
-    .where(eq(bookings.id, b.id))
+    .where(and(eq(bookings.id, b.id), eq(bookings.amountRefundedCents, b.amountRefundedCents)))
     .returning();
+  if (!u) throw new BookingError("A refund was just recorded for this booking. Refresh and check the remaining balance.", "payment");
   await db.insert(refunds).values({ bookingId: b.id, amountCents: amount, reason, stripeRefundId, createdBy: "admin" });
   await logEvent(db, b.id, "refunded", `Refunded ${(amount / 100).toFixed(2)} USD${reason ? ` — ${reason}` : ""}`, { public: true, actor: "admin" });
   return u;
@@ -903,7 +1029,7 @@ export async function resendConfirmation(bookingId: string): Promise<{ sent: boo
   const b = await getBooking(bookingId);
   if (!b) throw new BookingError("Booking not found", "not_found");
   if (b.contactEmail.endsWith("@rawplanet.invalid")) throw new BookingError("This booking has no guest email.", "invalid");
-  const status = await notify.tryBookingConfirmation(b.id);
+  const status = await notify.tryBookingConfirmation(b.id, { skipDedupe: true });
   if (status !== "sent") return { sent: false, to: b.contactEmail };
   const db = await getDb();
   await db.update(bookings).set({ confirmationSentAt: new Date() }).where(eq(bookings.id, b.id));
@@ -934,6 +1060,7 @@ export async function createManualBooking(input: {
   guests: number;
   contact: { name: string; email: string; phone?: string | null };
   source: BookingSource;
+  totalCents?: number;
   amountPaidCents?: number;
   externalRef?: string | null;
   notes?: string;
@@ -956,7 +1083,9 @@ export async function createManualBooking(input: {
       if (!free.ok) throw new BookingError(`That time conflicts with another booking or block (${free.reason}).`, "slot_unavailable");
     }
     const customerId = await upsertCustomer(tx, { ...input.contact, email, language: input.language });
-    const paid = input.amountPaidCents ?? 0;
+    const paid = Math.max(0, input.amountPaidCents ?? 0);
+    const total = Math.max(paid, input.totalCents ?? paid);
+    const paymentStatus = total === 0 ? "not_required" : paid >= total ? "paid" : "unpaid";
     const [b] = await tx
       .insert(bookings)
       .values({
@@ -964,7 +1093,7 @@ export async function createManualBooking(input: {
         experienceId: experience.id,
         customerId,
         status: "confirmed",
-        paymentStatus: paid > 0 ? "paid" : "not_required",
+        paymentStatus,
         source: input.source,
         startAt: start,
         endAt: end,
@@ -977,54 +1106,144 @@ export async function createManualBooking(input: {
         language: input.language ?? "en",
         internalNotes: input.notes ?? "",
         occasion: input.occasion ?? null,
-        subtotalCents: paid,
-        totalCents: paid,
+        subtotalCents: total,
+        totalCents: total,
         amountPaidCents: paid,
         externalRef: input.externalRef ?? null,
         manageToken: newToken(),
         confirmedAt: new Date(),
       })
       .returning();
-    await logEvent(tx, b.id, "created", `Added manually (${input.source})`, { actor: "admin" });
+    const note =
+      total > paid
+        ? `Added manually (${input.source}) — ${formatMoney(total - paid)} due on arrival`
+        : `Added manually (${input.source})`;
+    await logEvent(tx, b.id, "created", note, { actor: "admin" });
     return b;
   });
 
   let final = booking;
   if (experience.calEventTypeId && input.source !== "airbnb") {
-    try {
-      const cal = await calCreateBooking({
-        eventTypeId: experience.calEventTypeId,
-        start,
-        durationMinutes: input.durationMinutes,
-        attendee: { name: booking.contactName, email: booking.contactEmail, phone: booking.contactPhone },
-        metadata: { rpBookingId: booking.id, rpCode: booking.code, source: input.source },
-      });
-      if (cal) [final] = await db.update(bookings).set({ calBookingUid: cal.uid }).where(eq(bookings.id, booking.id)).returning();
-    } catch (err) {
-      await logEvent(db, booking.id, "calendar_error", `Couldn't add to Cal.com: ${String(err)}`);
+    const [sibling] = await db
+      .select({ id: bookings.id })
+      .from(bookings)
+      .where(
+        and(
+          ne(bookings.id, booking.id),
+          eq(bookings.experienceId, booking.experienceId),
+          eq(bookings.startAt, start),
+          eq(bookings.endAt, end),
+          eq(bookings.status, "confirmed"),
+          isNotNull(bookings.calBookingUid),
+        ),
+      )
+      .limit(1);
+    if (!sibling) {
+      try {
+        const cal = await calCreateBooking({
+          eventTypeId: experience.calEventTypeId,
+          start,
+          durationMinutes: input.durationMinutes,
+          attendee: { name: booking.contactName, email: booking.contactEmail, phone: booking.contactPhone },
+          metadata: { rpBookingId: booking.id, rpCode: booking.code, source: input.source },
+        });
+        if (cal) [final] = await db.update(bookings).set({ calBookingUid: cal.uid }).where(eq(bookings.id, booking.id)).returning();
+      } catch (err) {
+        await logEvent(db, booking.id, "calendar_error", `Couldn't add to Cal.com: ${String(err)}`);
+      }
     }
   }
   if (input.sendConfirmation && input.contact.email) {
-    await notify.sendBookingConfirmation(booking.id);
-    await db.update(bookings).set({ confirmationSentAt: new Date() }).where(eq(bookings.id, booking.id));
+    const status = await notify.tryBookingConfirmation(booking.id);
+    if (status === "sent") {
+      await db.update(bookings).set({ confirmationSentAt: new Date() }).where(eq(bookings.id, booking.id));
+    }
   }
   return final;
+}
+
+/** Record an offline payment (cash, Venmo, Zelle, etc.) against an unpaid or partially paid booking. */
+export async function recordManualPayment(
+  bookingId: string,
+  opts?: { amountCents?: number; method?: string | null },
+): Promise<Booking> {
+  const db = await getDb();
+  const b = await getBooking(bookingId);
+  if (!b) throw new BookingError("Booking not found", "not_found");
+  if (b.status === "cancelled" || b.status === "expired" || b.status === "pending_payment") {
+    throw new BookingError("Only confirmed or completed bookings can be marked paid.", "policy");
+  }
+  const owed = Math.max(0, b.totalCents - b.amountPaidCents);
+  if (owed <= 0) throw new BookingError("This booking is already paid in full.", "payment");
+  const addCents = opts?.amountCents != null ? Math.min(owed, Math.round(opts.amountCents)) : owed;
+  if (addCents <= 0) throw new BookingError("Enter a payment amount above $0.", "payment");
+  const nextPaid = b.amountPaidCents + addCents;
+  const nextStatus = nextPaid >= b.totalCents ? "paid" : "unpaid";
+  const [u] = await db
+    .update(bookings)
+    .set({ amountPaidCents: nextPaid, paymentStatus: nextStatus, updatedAt: new Date() })
+    .where(and(eq(bookings.id, b.id), eq(bookings.amountPaidCents, b.amountPaidCents)))
+    .returning();
+  if (!u) throw new BookingError("Payment was just updated. Refresh and check the balance.", "payment");
+  const via = opts?.method?.trim() ? ` (${opts.method.trim()})` : "";
+  await logEvent(db, b.id, "payment_recorded", `Recorded payment of ${formatMoney(addCents)}${via}`, { actor: "admin" });
+  return u;
 }
 
 /* ------------------------------------------------------------------ */
 /* Waitlist                                                              */
 /* ------------------------------------------------------------------ */
 
-async function notifyWaitlistForDate(experienceId: string, dateKey: string): Promise<void> {
+export async function notifyWaitlistForDate(experienceId: string | null, dateKey: string, resourceGroup?: string): Promise<void> {
   try {
+    if (dateKey < todayKey()) return;
     const db = await getDb();
+    let group = resourceGroup;
+    if (!group && experienceId) {
+      const [exp] = await db.select({ g: experiences.resourceGroup }).from(experiences).where(eq(experiences.id, experienceId)).limit(1);
+      group = exp?.g;
+    }
+    const exps = experienceId && !group
+      ? await db.select().from(experiences).where(and(eq(experiences.id, experienceId), eq(experiences.active, true)))
+      : group
+        ? await db.select().from(experiences).where(and(eq(experiences.resourceGroup, group), eq(experiences.active, true)))
+        : await db.select().from(experiences).where(eq(experiences.active, true));
+    if (!exps.length) return;
+
+    const expById = new Map(exps.map((e) => [e.id, e]));
     const rows = await db
       .select()
       .from(waitlist)
-      .where(and(eq(waitlist.experienceId, experienceId), eq(waitlist.date, dateKey)));
-    for (const w of rows.filter((r) => !r.notifiedAt)) {
-      await notify.sendWaitlistOpening(w.id);
-      await db.update(waitlist).set({ notifiedAt: new Date() }).where(eq(waitlist.id, w.id));
+      .where(and(inArray(waitlist.experienceId, [...expById.keys()]), eq(waitlist.date, dateKey), isNull(waitlist.notifiedAt)));
+    if (!rows.length) return;
+
+    const availCache = new Map<string, boolean>();
+    for (const w of rows) {
+      const exp = expById.get(w.experienceId);
+      if (!exp) continue;
+      const cacheKey = `${exp.id}:${w.guests}`;
+      let hasOpening = availCache.get(cacheKey);
+      if (hasOpening === undefined) {
+        if (!exp.durationOptions.length) {
+          availCache.set(cacheKey, false);
+          continue;
+        }
+        const minDuration = Math.min(...exp.durationOptions.map((d) => d.minutes));
+        const { days } = await getAvailability({
+          experience: exp,
+          fromKey: dateKey,
+          toKey: dateKey,
+          durationMinutes: minDuration,
+          guests: w.guests,
+        });
+        hasOpening = days.some((d) => d.slots.some((s) => s.available));
+        availCache.set(cacheKey, hasOpening);
+      }
+      if (!hasOpening) continue;
+      const status = await notify.tryWaitlistOpening(w.id);
+      if (status === "sent") {
+        await db.update(waitlist).set({ notifiedAt: new Date() }).where(eq(waitlist.id, w.id));
+      }
     }
   } catch (err) {
     console.error("[waitlist] notify failed", err);

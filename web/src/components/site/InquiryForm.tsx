@@ -50,6 +50,8 @@ export function InquiryForm({
     <form
       className={styles.form}
       noValidate
+      onInput={() => state.kind === "error" && setState({ kind: "idle" })}
+      onChange={() => state.kind === "error" && setState({ kind: "idle" })}
       onSubmit={async (ev) => {
         ev.preventDefault();
         const fd = new FormData(ev.currentTarget);

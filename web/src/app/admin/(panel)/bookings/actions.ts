@@ -11,6 +11,7 @@ import {
   cancelBooking,
   createManualBooking,
   logEvent,
+  recordManualPayment,
   refundBooking,
   rescheduleBooking,
   resendConfirmation,
@@ -20,6 +21,7 @@ import {
   type RefundMode,
 } from "@/lib/booking/service";
 import { adminAction, bool, cents, int, localDateTime, optStr, str } from "@/lib/admin/action";
+import { cleanPhone } from "@/lib/phone";
 import { formatMoney } from "@/lib/money";
 import { fmtDateShort, fmtTimeRange } from "@/lib/time";
 import type { ActionResult } from "@/components/admin/types";
@@ -42,6 +44,19 @@ export async function checkInAction(_p: ActionResult, fd: FormData): Promise<Act
   });
 }
 
+export async function markPaidAction(_p: ActionResult, fd: FormData): Promise<ActionResult> {
+  return adminAction(async () => {
+    const amountRaw = optStr(fd, "amount");
+    const method = optStr(fd, "method");
+    const b = await recordManualPayment(id(fd), {
+      amountCents: amountRaw ? cents(fd, "amount") : undefined,
+      method,
+    });
+    const remaining = Math.max(0, b.totalCents - b.amountPaidCents);
+    return remaining === 0 ? "Marked paid in full." : `Payment recorded. ${formatMoney(remaining)} still due.`;
+  });
+}
+
 export async function calendarResolvedAction(_p: ActionResult, fd: FormData): Promise<ActionResult> {
   return adminAction(async () => {
     const db = await getDb();
@@ -60,6 +75,9 @@ export async function cancelAction(_p: ActionResult, fd: FormData): Promise<Acti
       refund,
       notifyCustomer: bool(fd, "notify"),
     });
+    if (r.booking.status === "expired") {
+      return r.refundedGiftCardCents ? `Hold released — ${formatMoney(r.refundedGiftCardCents)} back on gift card.` : "Hold released.";
+    }
     const parts = [
       r.refundedCardCents ? `${formatMoney(r.refundedCardCents)} refunded to card` : "",
       r.refundedGiftCardCents ? `${formatMoney(r.refundedGiftCardCents)} back on gift card` : "",
@@ -149,10 +167,11 @@ export async function createManualAction(_p: ActionResult, fd: FormData): Promis
       guests: int(fd, "guests"),
       name: str(fd, "name"),
       email: str(fd, "email"),
-      phone: str(fd, "phone"),
+      phone: cleanPhone(str(fd, "phone")),
       source: str(fd, "source"),
     });
     const start = localDateTime(fd, "date", "time");
+    const totalRaw = optStr(fd, "totalPrice");
     const b = await createManualBooking({
       experienceId: v.experienceId,
       start: start.toISOString(),
@@ -160,6 +179,7 @@ export async function createManualAction(_p: ActionResult, fd: FormData): Promis
       guests: v.guests,
       contact: { name: v.name, email: v.email, phone: v.phone || null },
       source: v.source,
+      totalCents: totalRaw ? cents(fd, "totalPrice", 0) : undefined,
       amountPaidCents: cents(fd, "amountPaid", 0),
       externalRef: optStr(fd, "externalRef"),
       notes: str(fd, "notes"),

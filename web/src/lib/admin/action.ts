@@ -30,7 +30,7 @@ export async function adminAction(
 export function errorMessage(err: unknown): string {
   if (err instanceof ZodError) {
     const i = err.issues[0];
-    const field = i?.path?.length ? `${String(i.path.join("."))}: ` : "";
+    const field = i?.path?.length ? `${i.path.map((p) => label(String(p))).join(" · ")}: ` : "";
     return `${field}${i?.message ?? "Check the form."}`;
   }
   if (err instanceof Error) return err.message || "Something went wrong.";

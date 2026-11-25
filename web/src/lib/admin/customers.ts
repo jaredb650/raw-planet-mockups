@@ -89,7 +89,11 @@ export async function listCustomers(f: CustomerFilters, opts: { limit?: number }
     .orderBy(...order)
     .limit(limit + 1)
     .offset(opts.limit ? 0 : (f.page - 1) * CUSTOMER_PAGE);
-  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(customers);
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(customers)
+    .leftJoin(stats, eq(stats.customerId, customers.id))
+    .where(where.length ? sql.join(where, sql` and `) : undefined);
   return {
     rows: rows.slice(0, limit).map((r) => ({
       ...r,
@@ -116,6 +120,7 @@ export async function getCustomerDetail(id: string) {
   const db = await getDb();
   const [c] = await db.select().from(customers).where(eq(customers.id, id)).limit(1);
   if (!c) return null;
+  const emailLower = c.email.toLowerCase();
   const [bk, cards, inq, rsvps] = await Promise.all([
     db
       .select({
@@ -135,19 +140,19 @@ export async function getCustomerDetail(id: string) {
       })
       .from(bookings)
       .innerJoin(experiences, eq(experiences.id, bookings.experienceId))
-      .where(or(eq(bookings.customerId, c.id), eq(bookings.contactEmail, c.email)))
+      .where(or(eq(bookings.customerId, c.id), eq(sql`lower(${bookings.contactEmail})`, emailLower)))
       .orderBy(desc(bookings.startAt)),
     db
       .select()
       .from(giftCards)
-      .where(or(eq(giftCards.purchaserEmail, c.email), eq(giftCards.recipientEmail, c.email)))
+      .where(or(eq(sql`lower(${giftCards.purchaserEmail})`, emailLower), eq(sql`lower(${giftCards.recipientEmail})`, emailLower)))
       .orderBy(desc(giftCards.createdAt)),
-    db.select().from(inquiries).where(eq(sql`lower(${inquiries.email})`, c.email)).orderBy(desc(inquiries.createdAt)),
+    db.select().from(inquiries).where(eq(sql`lower(${inquiries.email})`, emailLower)).orderBy(desc(inquiries.createdAt)),
     db
       .select({ id: eventRsvps.id, guests: eventRsvps.guests, status: eventRsvps.status, eventId: events.id, title: events.title, startAt: events.startAt })
       .from(eventRsvps)
       .innerJoin(events, eq(events.id, eventRsvps.eventId))
-      .where(eq(sql`lower(${eventRsvps.email})`, c.email))
+      .where(eq(sql`lower(${eventRsvps.email})`, emailLower))
       .orderBy(desc(events.startAt)),
   ]);
   return { customer: c, bookings: bk, giftCards: cards, inquiries: inq, rsvps };

@@ -8,30 +8,39 @@ import { resolveFaq } from "@/components/site/faq";
 import { ageLabel, durationLabel, extraHourCents, groupLabel, priceLabel, priceUnit, themeOf } from "@/components/site/format";
 import { Gallery } from "@/components/site/Gallery";
 import { JsonLd } from "@/components/site/JsonLd";
-import { cardPhotoFor, photosFor, reelsFor, SITE_MEDIA } from "@/components/site/media";
+import { cardPhotoFor, photosFor, SITE_MEDIA, videosForExperience } from "@/components/site/media";
 import { getExperienceRating } from "@/components/site/queries";
 import { ReelPlayer } from "@/components/site/ReelPlayer";
 import { ReviewCard } from "@/components/site/ReviewCard";
 import { breadcrumbJsonLd, experienceJsonLd } from "@/components/site/schema";
 import { RatingBadge } from "@/components/site/Stars";
 import { StickyBookBar } from "@/components/site/StickyBookBar";
-import { EXPERIENCE_FAQ, HOST, hostsLine, PERFECT_FOR, PRIVATE_SESSION_CENTS, SESSION_FLOW_TITLE } from "@/content/site";
+import { EXPERIENCE_FAQ, HOST } from "@/content/site";
 import { BUSINESS } from "@/lib/config";
+import { defaultMetaForSlug, isLocalAsset, isOriginalExperienceSlug } from "@/lib/experience-meta";
 import { formatMoney } from "@/lib/money";
 import { getActiveExperiences, getPublishedReviews, getRatingSummary } from "@/lib/queries/public";
 import { Breadcrumbs } from "@/components/site/PageHeader";
 import styles from "./experience.module.css";
 
+const DEFAULT_CUSTOM_FAQ = [
+  "Do I need any musical experience?",
+  "What if I'm running late?",
+  "What if my plans change?",
+  "Are sessions in Spanish?",
+];
+
 export async function generateMetadata({ params }: PageProps<"/experiences/[slug]">): Promise<Metadata> {
   const { slug } = await params;
   const e = (await getActiveExperiences()).find((x) => x.slug === slug);
   if (!e) return { title: "Experience not found" };
-  const photo = cardPhotoFor(themeOf(e));
+  const photo = cardPhotoFor(e);
+  const ogImages = photo.src.startsWith("data:") ? undefined : [{ url: photo.src, alt: photo.alt }];
   return {
     title: `${e.name} in NYC`,
-    description: `${e.summary} ${priceLabel(e)}. ${durationLabel(e)}. Hosted by ${BUSINESS.host}.`.slice(0, 300),
+    description: `${e.summary} ${priceLabel(e)}. ${durationLabel(e)}. Hosted by ${e.meta?.hostsLabel ?? BUSINESS.host}.`.slice(0, 300),
     alternates: { canonical: `/experiences/${e.slug}` },
-    openGraph: { url: `/experiences/${e.slug}`, title: `${e.name} · ${BUSINESS.shortName}`, images: [{ url: photo.src, alt: photo.alt }] },
+    openGraph: { url: `/experiences/${e.slug}`, title: `${e.name} · ${BUSINESS.shortName}`, ...(ogImages ? { images: ogImages } : {}) },
   };
 }
 
@@ -42,33 +51,41 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
   if (!e) notFound();
 
   const theme = themeOf(e);
+  const meta = e.meta ?? defaultMetaForSlug(e.slug);
   const [ownRating, overall, ownReviews] = await Promise.all([
     getExperienceRating(e.id),
     getRatingSummary(),
     getPublishedReviews({ experienceId: e.id, limit: 6 }),
   ]);
   // The Airbnb aggregate (107 ratings) belongs to music production, the original listing.
-  const rating = theme === "production" ? overall : ownRating;
+  const rating = e.slug === "music-production" ? overall : ownRating;
   const otherReviews = ownReviews.length ? [] : await getPublishedReviews({ limit: 3 });
   const photos = photosFor(e);
-  const reels = reelsFor(theme);
-  const faqWanted = EXPERIENCE_FAQ[theme] ?? [];
-  const faq = resolveFaq(experiences).filter((f) => faqWanted.includes(f.q));
-  faq.sort((a, b) => faqWanted.indexOf(a.q) - faqWanted.indexOf(b.q));
+  const reels = videosForExperience(e);
+  const faq = meta.faqs.length
+    ? meta.faqs
+    : (() => {
+        const wanted = isOriginalExperienceSlug(e.slug) ? (EXPERIENCE_FAQ[theme] ?? []) : DEFAULT_CUSTOM_FAQ;
+        const resolved = resolveFaq(experiences).filter((f) => wanted.includes(f.q));
+        resolved.sort((a, b) => wanted.indexOf(a.q) - wanted.indexOf(b.q));
+        return resolved;
+      })();
   const others = experiences.filter((x) => x.slug !== e.slug);
   const isGroupOnly = e.minGuests >= 5;
   const paragraphs = (e.description || e.summary).split(/\n{2,}/).filter(Boolean);
   const age = ageLabel(e);
   const extraHour = extraHourCents(e);
-  const privateCents = PRIVATE_SESSION_CENTS[theme];
+  const privateCents = meta.privateRateCents;
+  const hosts = meta.hostsLabel || HOST.name;
+  const isSoloHost = hosts === HOST.name;
   const nameBySlug = Object.fromEntries(experiences.map((x) => [x.slug, x.shortName]));
 
   const facts: { k: string; v: string; ph?: boolean }[] = [
     { k: "Length", v: durationLabel(e), ph: e.isPlaceholder },
     { k: "Group", v: groupLabel(e) },
     ...(age ? [{ k: "Ages", v: age.replace("Ages ", "") }] : []),
-    { k: "Where", v: e.address || e.locationArea },
-    { k: "Hosts", v: hostsLine(theme) },
+    { k: "Where", v: e.locationArea },
+    { k: "Hosts", v: hosts },
     { k: "Language", v: "English or Spanish" },
   ];
 
@@ -139,7 +156,7 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
           {e.highlights.length ? (
             <section className={styles.block} aria-labelledby="flow-title">
               <h2 id="flow-title" className={styles.h2}>
-                {SESSION_FLOW_TITLE[theme] ?? "What you'll do"}
+                {meta.flowTitle || "What you'll do"}
               </h2>
               <ol className={styles.flow}>
                 {e.highlights.map((h, i) => (
@@ -157,31 +174,31 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
           {reels.length === 1 ? (
             <section className={`${styles.block} ${styles.reelBlock}`} aria-labelledby="reel-title">
               <div className={styles.reelCopy}>
-                <p className="eyebrow">{theme === "wellness" ? "Watch before you book" : "From the studio"}</p>
+                <p className="eyebrow">{e.slug === "sound-meditation" ? "Watch before you book" : "From the studio"}</p>
                 <h2 id="reel-title" className={styles.h2}>
-                  {theme === "wellness" ? "See and hear a session" : "Watch a session"}
+                  {e.slug === "sound-meditation" ? "See and hear a session" : "Watch a session"}
                 </h2>
                 <p className="muted">
-                  {theme === "wellness"
+                  {e.slug === "sound-meditation"
                     ? "Turn the sound on. This is a real session: crystal bowls, live soundscapes and projected visuals, filmed in the room."
-                    : "Studio footage, Alex at the desk and what guests said afterwards, in under half a minute."}
+                    : "Turn the sound on for a quick look inside the room."}
                 </p>
               </div>
               <div className={styles.reel}>
-                <ReelPlayer video={reels[0]} title={reels[0].alt} />
+                <ReelPlayer video={reels[0]} title={reels[0].alt} caption={reels[0].caption} />
               </div>
             </section>
           ) : reels.length > 1 ? (
             <section className={`${styles.block} ${styles.reelGallery}`} aria-labelledby="reel-title">
               <div className={styles.reelCopy}>
-                <p className="eyebrow">{theme === "wellness" ? "Watch before you book" : "From the studio"}</p>
+                <p className="eyebrow">{e.slug === "sound-meditation" ? "Watch before you book" : "From the studio"}</p>
                 <h2 id="reel-title" className={styles.h2}>
-                  {theme === "wellness" ? "See and hear a session" : "Watch a session"}
+                  {e.slug === "sound-meditation" ? "See and hear a session" : "Watch a session"}
                 </h2>
                 <p className="muted">
-                  {theme === "wellness"
+                  {e.slug === "sound-meditation"
                     ? "Turn the sound on. Real sessions in the room — crystal bowls, live soundscapes, projected visuals and what guests had to say afterwards."
-                    : "Studio footage, Alex at the desk and what guests said afterwards."}
+                    : "Real clips from the studio and what guests had to say afterwards."}
                 </p>
               </div>
               <div className={styles.reelGrid}>
@@ -203,32 +220,34 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
                 </ul>
               </div>
             ) : null}
-            {e.goodToKnow.length ? (
-              <div>
-                <h2 className={styles.h3}>Good to know</h2>
-                <ul className={styles.dots}>
-                  {e.goodToKnow.map((x) => (
-                    <li key={x}>{x}</li>
-                  ))}
-                  <li>
-                    Free cancellation up to {e.cancellationHours} hours before. <Link href="/policies" className="link">Policies</Link>
-                  </li>
-                  {e.address ? <li>Address: {e.address}</li> : null}
-                </ul>
-              </div>
-            ) : null}
-          </section>
-
-          {PERFECT_FOR[theme] ? (
-            <section className={styles.block} aria-labelledby="for-title">
-              <h2 id="for-title" className={styles.h3}>
-                Perfect for
-              </h2>
-              <ul className={styles.chips}>
-                {PERFECT_FOR[theme].map((x) => (
+            <div>
+              <h2 className={styles.h3}>Good to know</h2>
+              <ul className={styles.dots}>
+                {e.goodToKnow.map((x) => (
                   <li key={x}>{x}</li>
                 ))}
+                <li>
+                  Free cancellation up to {e.cancellationHours} hours before. <Link href="/policies" className="link">Policies</Link>
+                </li>
+                <li>Exact studio address is sent in your confirmation email.</li>
               </ul>
+            </div>
+          </section>
+
+          {meta.perfectFor.length > 0 || isGroupOnly ? (
+            <section className={styles.block} aria-labelledby="for-title">
+              {meta.perfectFor.length > 0 && (
+                <>
+                  <h2 id="for-title" className={styles.h3}>
+                    Perfect for
+                  </h2>
+                  <ul className={styles.chips}>
+                    {meta.perfectFor.map((x) => (
+                      <li key={x}>{x}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
               {isGroupOnly ? (
                 <p className={styles.groupNote}>
                   The minimum booking is {e.minGuests} guests, and a session holds up to {e.maxGuests}. For a private session or a larger group,{" "}
@@ -246,13 +265,13 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
               <Image src={SITE_MEDIA.host.src} alt={SITE_MEDIA.host.alt} fill sizes="120px" className={styles.cover} style={{ objectPosition: "28% 40%" }} />
             </div>
             <div>
-              <p className="eyebrow">{hostsLine(theme) === HOST.name ? "Your host" : "Your hosts"}</p>
+              <p className="eyebrow">{isSoloHost ? "Your host" : "Your hosts"}</p>
               <h2 id="host-title" className={styles.h3}>
-                {hostsLine(theme)}
+                {hosts}
               </h2>
               <p className="muted">{HOST.paragraphs[0]}</p>
               <Link href="/about" className="link">
-                {hostsLine(theme) === HOST.name ? "More about Alex" : "More about Alex and the co-hosts"}
+                {isSoloHost ? "More about Alex" : "More about Alex and the co-hosts"}
               </Link>
             </div>
           </section>
@@ -378,11 +397,16 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
             <div className={styles.otherGrid}>
               {others.map((o) => {
                 const ot = themeOf(o);
-                const photo = cardPhotoFor(ot);
+                const photo = cardPhotoFor(o);
                 return (
                   <Link key={o.slug} href={`/experiences/${o.slug}`} className={styles.otherCard} data-theme={ot}>
                     <div className={styles.otherImg}>
-                      <Image src={photo.src} alt="" fill sizes="(max-width: 700px) 92vw, 560px" className={styles.cover} />
+                      {isLocalAsset(photo.src) ? (
+                        <Image src={photo.src} alt="" fill sizes="(max-width: 700px) 92vw, 560px" className={styles.cover} />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={photo.src} alt="" className={styles.cover} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} loading="lazy" />
+                      )}
                     </div>
                     <div className={styles.otherBody}>
                       <strong>{o.name}</strong>

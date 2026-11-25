@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { bookings, inquiries } from "@/lib/db/schema";
+import { bookings, inquiries, waitlist } from "@/lib/db/schema";
 import { experienceOptions } from "@/lib/admin/bookings";
 import { todayKey } from "@/lib/time";
 import { PageHeader, Panel } from "@/components/admin/PageHeader";
@@ -45,6 +45,24 @@ export default async function NewBookingPage({ searchParams }: { searchParams: P
     }
   }
 
+  let fromWaitlist: string | null = null;
+  const waitlistId = one(sp.waitlist);
+  if (waitlistId) {
+    const db = await getDb();
+    const [wl] = await db.select().from(waitlist).where(eq(waitlist.id, waitlistId)).limit(1);
+    if (wl) {
+      fromWaitlist = wl.name;
+      Object.assign(prefill, {
+        experienceId: prefill.experienceId ?? wl.experienceId,
+        date: prefill.date ?? wl.date,
+        guests: wl.guests,
+        name: wl.name,
+        email: wl.email,
+        language: wl.language,
+      } satisfies NewBookingPrefill);
+    }
+  }
+
   // Book again: the booking id, not the guest's details, goes in the URL.
   let rebooking: string | null = null;
   const rebookId = one(sp.rebook);
@@ -67,9 +85,23 @@ export default async function NewBookingPage({ searchParams }: { searchParams: P
   return (
     <div className={`${a.page} ${a.pageNarrow}`}>
       <PageHeader
-        back={rebookId ? { href: `/admin/bookings/${rebookId}`, label: "Booking" } : { href: fromInquiry ? "/admin/inquiries" : "/admin/bookings", label: fromInquiry ? "Inquiries" : "Bookings" }}
+        back={
+          rebookId
+            ? { href: `/admin/bookings/${rebookId}`, label: "Booking" }
+            : fromWaitlist
+              ? { href: "/admin/availability#waitlist", label: "Waitlist" }
+              : { href: fromInquiry ? "/admin/inquiries" : "/admin/bookings", label: fromInquiry ? "Inquiries" : "Bookings" }
+        }
         title="New booking"
-        sub={rebooking ? `Booking ${rebooking} again.` : fromInquiry ? `Turning ${fromInquiry}’s inquiry into a booking.` : "For phone bookings, Airbnb and Viator. It blocks the time on the website straight away."}
+        sub={
+          rebooking
+            ? `Booking ${rebooking} again.`
+            : fromWaitlist
+              ? `Booking ${fromWaitlist} from the waitlist.`
+              : fromInquiry
+                ? `Turning ${fromInquiry}’s inquiry into a booking.`
+                : "For phone bookings, Airbnb and Viator. It blocks the time on the website straight away."
+        }
       />
       <Panel>
         <div className={a.panelBody}>

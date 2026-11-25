@@ -225,8 +225,11 @@
 .inputSm { min-height: 34px; padding: 5px 9px; font-size: 14px; }
 .check { display: flex; gap: 9px; align-items: flex-start; cursor: pointer; font-size: 14.5px; }
 .check input { width: 18px; height: 18px; accent-color: var(--purple); margin: 2px 0 0; flex: none; }
-.fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 10px; min-width: 0; }
+.fieldset { border: 0; padding: 0; margin: 0; display: block; min-width: 0; }
+.fieldset > :not(legend) + * { margin-top: 10px; }
 .fieldset legend { font-weight: 700; font-size: 14.5px; margin-bottom: 8px; padding: 0; }
+.fieldsetBox { border: 1px solid var(--a-line); border-radius: var(--a-radius-sm); padding: 14px 16px; background: #fbf9fd; display: grid; gap: 12px; min-width: 0; }
+.fieldsetTitle { font-weight: 700; font-size: 14.5px; margin: 0; }
 .formFoot { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .msg { font-size: 14px; font-weight: 600; }
 .msgOk { color: var(--success); }

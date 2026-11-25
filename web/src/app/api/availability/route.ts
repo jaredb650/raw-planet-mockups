@@ -12,7 +12,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { getAvailability, getExperienceBySlugOrId } from "@/lib/booking/availability";
-import { adjustedCents, durationPrice } from "@/lib/booking/pricing";
+import { adjustedCents, durationPrice, isHigherPriceSlot } from "@/lib/booking/pricing";
 import { getBookingForCustomer } from "@/lib/booking/service";
 import { addDaysKey } from "@/lib/time";
 import { LIMITS, clientIp, dateKeySchema, fieldErrors, jsonError, rateLimit, tooMany } from "../_lib/http";
@@ -45,13 +45,17 @@ export async function GET(req: NextRequest) {
 
   const toKey = q.to > addDaysKey(q.from, MAX_DAYS - 1) ? addDaysKey(q.from, MAX_DAYS - 1) : q.to;
 
-  let ignoreBookingId: string | undefined;
-  let guests: number | undefined;
+  let ownBooking: { id: string; guests: number; startAt: Date; subtotalCents: number; priceAdjustCents: number } | undefined;
   if (q.booking && q.t) {
     const own = await getBookingForCustomer(q.booking, q.t);
     if (own && own.experienceId === experience.id) {
-      ignoreBookingId = own.id;
-      guests = own.guests;
+      ownBooking = {
+        id: own.id,
+        guests: own.guests,
+        startAt: own.startAt,
+        subtotalCents: own.subtotalCents,
+        priceAdjustCents: own.priceAdjustCents,
+      };
     }
   }
 
@@ -60,10 +64,11 @@ export async function GET(req: NextRequest) {
     fromKey: q.from,
     toKey,
     durationMinutes: q.duration,
-    ignoreBookingId,
-    guests,
+    ignoreBookingId: ownBooking?.id,
+    guests: ownBooking?.guests,
   });
-  const unitCents = durationPrice(experience, q.duration);
+  const durOpt = experience.durationOptions.find((o) => o.minutes === q.duration);
+  const unitCents = (durOpt?.priceCents ?? durationPrice(experience, q.duration)) + (durOpt?.flatCents ?? 0);
 
   return Response.json(
     {
@@ -71,12 +76,24 @@ export async function GET(req: NextRequest) {
       duration: q.duration,
       from: q.from,
       to: toKey,
-      days: days.map((d) => ({
-        date: d.date,
-        open: d.open,
-        available: d.slots.filter((s) => s.available).length,
-        slots: d.slots.map(({ adjustPercent, ...s }) => (ignoreBookingId ? s : { ...s, adjustPercent, priceCents: adjustedCents(unitCents, adjustPercent ?? 0) })),
-      })),
+      days: days.map((d) => {
+        const slots = d.slots.map(({ adjustPercent, ...s }) => {
+          if (!ownBooking) {
+            return { ...s, adjustPercent, priceCents: adjustedCents(unitCents, adjustPercent ?? 0) };
+          }
+          const isOwnCurrentSlot = new Date(s.start).getTime() === ownBooking.startAt.getTime();
+          if (s.available && !isOwnCurrentSlot && isHigherPriceSlot(ownBooking, adjustPercent ?? 0)) {
+            return { ...s, available: false, reason: "peak" as const };
+          }
+          return s;
+        });
+        return {
+          date: d.date,
+          open: d.open,
+          available: slots.filter((s) => s.available).length,
+          slots,
+        };
+      }),
       ...(calendarError ? { calendarError: true } : {}),
     },
     { headers: NO_STORE },

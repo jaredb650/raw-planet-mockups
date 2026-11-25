@@ -17,7 +17,7 @@ const REASON: Record<string, string> = {
 
 const timeFmt = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" });
 export const nyTime = (iso: string) => timeFmt.format(new Date(iso)).replace(":00", "").replace(" ", "").toLowerCase();
-const hhmm = new Intl.DateTimeFormat("en-GB", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false });
+const hhmm = new Intl.DateTimeFormat("en-GB", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 export const nyHHMM = (iso: string) => hhmm.format(new Date(iso));
 
 /**
@@ -29,6 +29,7 @@ export function SlotPicker({
   experienceId,
   date,
   duration,
+  guests,
   ignoreBookingId,
   value,
   onPick,
@@ -37,18 +38,20 @@ export function SlotPicker({
   experienceId: string;
   date: string;
   duration: number;
+  guests?: number;
   ignoreBookingId?: string;
   value: string | null;
   onPick: (iso: string | null) => void;
   name?: string;
 }) {
-  const key = experienceId && date && duration ? `${experienceId}|${date}|${duration}|${ignoreBookingId ?? ""}` : "";
+  const key = experienceId && date && duration ? `${experienceId}|${date}|${duration}|${guests ?? ""}|${ignoreBookingId ?? ""}` : "";
   const [state, setState] = useState<{ key: string; slots: PickerSlot[]; open: boolean; calendarError: boolean; error?: string } | null>(null);
 
   useEffect(() => {
     if (!key) return;
     const ctrl = new AbortController();
     const qs = new URLSearchParams({ experienceId, date, duration: String(duration) });
+    if (guests && guests > 0) qs.set("guests", String(guests));
     if (ignoreBookingId) qs.set("ignore", ignoreBookingId);
     fetch(`/api/admin/availability?${qs}`, { signal: ctrl.signal, cache: "no-store" })
       .then(async (r) => {
@@ -60,7 +63,7 @@ export function SlotPicker({
         if (e.name !== "AbortError") setState({ key, slots: [], open: true, calendarError: false, error: String(e.message ?? e) });
       });
     return () => ctrl.abort();
-  }, [key, experienceId, date, duration, ignoreBookingId]);
+  }, [key, experienceId, date, duration, guests, ignoreBookingId]);
 
   const loading = Boolean(key) && state?.key !== key;
   const slots = state?.key === key ? state.slots : [];

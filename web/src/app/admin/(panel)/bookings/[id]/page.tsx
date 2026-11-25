@@ -7,6 +7,7 @@ import { canCheckIn } from "@/lib/booking/service";
 import { signingState } from "@/lib/waiver";
 import { waiverUrlFor } from "@/lib/waiver-token";
 import { manageUrl } from "@/lib/email/notify";
+import { getExperienceMeta } from "@/lib/experience-meta-db";
 import { fmt, fmtDateLong, fmtDuration, fmtTimeRange, localDateKey } from "@/lib/time";
 import { formatMoney } from "@/lib/money";
 import { PageHeader, Panel, Empty } from "@/components/admin/PageHeader";
@@ -20,6 +21,7 @@ import { SOURCE_LABEL, plural, telHref } from "@/components/admin/format";
 import {
   cancelAction,
   deliverableAction,
+  markPaidAction,
   noteAction,
   refundAction,
   rescheduleAction,
@@ -53,6 +55,7 @@ export default async function BookingDetailPage({
   const hasEmail = !b.contactEmail.endsWith("@rawplanet.invalid");
   const ended = b.endAt <= now;
   const remaining = Math.max(0, b.amountPaidCents - b.amountRefundedCents);
+  const owed = Math.max(0, b.totalCents - b.amountPaidCents);
   const policy = refundForCancellation({
     startAt: b.startAt,
     cancellationHours: x.cancellationHours,
@@ -60,8 +63,9 @@ export default async function BookingDetailPage({
     amountRefundedCents: b.amountRefundedCents,
     giftCardCents: b.giftCardCents,
   });
+  const expMeta = await getExperienceMeta(x.id, x.slug);
   const live = b.status === "confirmed";
-  const showDeliverable = x.theme === "production" || b.deliverableStatus !== "none";
+  const showDeliverable = expMeta.hasDeliverable || b.deliverableStatus !== "none";
   const manage = manageUrl(b);
   const stripeUrl = b.stripePaymentIntentId
     ? `https://dashboard.stripe.com/${b.stripePaymentIntentId.startsWith("pi_test") || process.env.STRIPE_SECRET_KEY?.startsWith("sk_test") ? "test/" : ""}payments/${b.stripePaymentIntentId}`
@@ -328,9 +332,19 @@ export default async function BookingDetailPage({
                     <td className={a.num}>{formatMoney(b.totalCents)}</td>
                   </tr>
                   <tr>
-                    <td>Paid by card</td>
+                    <td>{b.stripePaymentIntentId ? "Paid by card" : "Paid"}</td>
                     <td className={a.num}>{formatMoney(b.amountPaidCents)}</td>
                   </tr>
+                  {owed > 0 && b.status !== "cancelled" && b.status !== "expired" && (
+                    <tr>
+                      <td>
+                        <strong>Balance due</strong>
+                      </td>
+                      <td className={a.num}>
+                        <strong>{formatMoney(owed)}</strong>
+                      </td>
+                    </tr>
+                  )}
                   {b.amountRefundedCents > 0 && (
                     <tr>
                       <td>Refunded</td>
@@ -429,6 +443,23 @@ export default async function BookingDetailPage({
                 <CheckInButton id={b.id} guest={b.contactName} checkedIn={Boolean(b.checkedInAt)} />
               </div>
             )}
+            {owed > 0 && (live || b.status === "completed") && (
+              <div className={a.panelBody} style={{ borderBottom: "1px solid var(--a-line)" }}>
+                <ActionForm action={markPaidAction} className={a.row}>
+                  <input type="hidden" name="id" value={b.id} />
+                  <SubmitButton className={`${a.btn} ${a.btnPrimary}`} pendingText="Recording…">
+                    Mark paid ({formatMoney(owed)})
+                  </SubmitButton>
+                  <input
+                    name="method"
+                    className={a.input}
+                    placeholder="Cash, Venmo, Zelle… (optional)"
+                    style={{ maxWidth: 210 }}
+                    aria-label="Payment method"
+                  />
+                </ActionForm>
+              </div>
+            )}
             {(b.status === "completed" || b.status === "no_show" || (live && ended)) && (
               <div className={a.panelBody} style={{ borderBottom: "1px solid var(--a-line)" }}>
                 <ActionForm action={setStatusAction} className={a.row}>
@@ -463,6 +494,7 @@ export default async function BookingDetailPage({
                     currentDate={localDateKey(b.startAt)}
                     currentDuration={b.durationMinutes}
                     durations={x.durationOptions.map((o) => o.minutes)}
+                    guests={b.guests}
                     hasEmail={hasEmail}
                   />
                 </div>

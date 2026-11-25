@@ -72,7 +72,15 @@ export function GiftCardForm({ presets, minCents, maxCents, today }: { presets: 
     const first = Object.keys(f)[0];
     if (first)
       requestAnimationFrame(() =>
-        formRef.current?.querySelector<HTMLElement>(first === "amountCents" ? "[name=amount]:checked, [name=amount]" : `[name="${first}"]`)?.focus(),
+        formRef.current
+          ?.querySelector<HTMLElement>(
+            first === "amountCents"
+              ? choice === "custom"
+                ? '[name="customAmount"]'
+                : "[name=amount]:checked, [name=amount]"
+              : `[name="${first}"]`,
+          )
+          ?.focus(),
       );
   }
 
@@ -84,9 +92,22 @@ export function GiftCardForm({ presets, minCents, maxCents, today }: { presets: 
     ) : null;
   const inv = (k: string) => (fields[k] ? { "aria-invalid": true as const, "aria-describedby": `${id}-${k}-e` } : {});
 
+  const clearError = (ev: FormEvent<HTMLFormElement>) => {
+    const name = (ev.target as HTMLInputElement | null)?.name;
+    const key = name === "amount" || name === "customAmount" ? "amountCents" : name;
+    if (key && fields[key]) {
+      setFields((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+    if (error) setError(null);
+  };
+
   return (
     <div className={styles.layout}>
-      <form ref={formRef} className={styles.card} onSubmit={submit} noValidate>
+      <form ref={formRef} className={styles.card} onSubmit={submit} onInput={clearError} onChange={clearError} noValidate>
         <div className={styles.section}>
           <fieldset style={{ border: 0, padding: 0, margin: 0 }} {...inv("amountCents")}>
             <legend className={styles.cardTitle}>Choose an amount</legend>
@@ -113,6 +134,7 @@ export function GiftCardForm({ presets, minCents, maxCents, today }: { presets: 
                 <label htmlFor={`${id}-c`}>Amount in dollars</label>
                 <input
                   id={`${id}-c`}
+                  name="customAmount"
                   className="input"
                   inputMode="numeric"
                   placeholder={`${minCents / 100} to ${maxCents / 100}`}
@@ -197,7 +219,7 @@ export function GiftCardForm({ presets, minCents, maxCents, today }: { presets: 
           ) : null}
           <Turnstile />
           <button type="submit" className="btn btn--accent btn--block" disabled={sending}>
-            {sending ? "Opening checkout…" : `Buy gift card${amountCents && amountCents >= minCents ? ` · ${formatMoney(amountCents)}` : ""}`}
+            {sending ? "Opening checkout…" : `Buy gift card${amountCents && amountCents >= minCents && amountCents <= maxCents ? ` · ${formatMoney(amountCents)}` : ""}`}
           </button>
           <p className={styles.fine} style={{ textAlign: "center", marginTop: 10 }}>
             Good for any session and never expires. Secure payment by Stripe.

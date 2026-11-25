@@ -27,13 +27,15 @@ function parse(fd: FormData) {
   const from = str(fd, "validFrom");
   const until = str(fd, "validUntil");
   const exp = fd.getAll("experienceIds").map(String).filter(Boolean);
+  const maxRedemptions = optInt(fd, "maxRedemptions");
+  if (maxRedemptions != null && maxRedemptions < 1) throw new Error("Max uses must be at least 1 (or leave blank for unlimited).");
   return {
     code,
     kind,
     value,
     description: str(fd, "description").slice(0, 200),
     minSubtotalCents: cents(fd, "minSubtotal", 0),
-    maxRedemptions: optInt(fd, "maxRedemptions"),
+    maxRedemptions,
     validFrom: dateKey.test(from) ? fromLocal(from) : null,
     validUntil: dateKey.test(until) ? fromLocal(addDaysKey(until, 1)) : null, // through the end of that day
     experienceIds: exp.length ? exp : null,

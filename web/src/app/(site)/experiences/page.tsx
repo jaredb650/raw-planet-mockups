@@ -100,13 +100,13 @@ export default async function ExperiencesPage() {
                 <tr>
                   <th scope="row">Where</th>
                   {experiences.map((e) => (
-                    <td key={e.slug}>{e.address || e.locationArea}</td>
+                    <td key={e.slug}>{e.locationArea}</td>
                   ))}
                 </tr>
                 <tr>
                   <th scope="row">You leave with</th>
                   {experiences.map((e) => (
-                    <td key={e.slug}>{TAKE_HOME[themeOf(e)] ?? "A great story"}</td>
+                    <td key={e.slug}>{e.meta?.takeHome || TAKE_HOME[themeOf(e)] || "Memories from the studio"}</td>
                   ))}
                 </tr>
                 <tr>

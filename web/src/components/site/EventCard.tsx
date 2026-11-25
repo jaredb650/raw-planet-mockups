@@ -7,7 +7,7 @@ import styles from "./EventCard.module.css";
 
 export function spotsLabel(ev: PublicEvent): string | null {
   if (ev.spotsLeft == null) return null;
-  if (ev.spotsLeft === 0) return "Full — join the waitlist on Meetup";
+  if (ev.spotsLeft === 0) return ev.meetupUrl ? "Full — join the waitlist on Meetup" : "Full";
   if (ev.spotsLeft <= 5) return `Only ${ev.spotsLeft} spot${ev.spotsLeft === 1 ? "" : "s"} left`;
   return `${ev.spotsLeft} spots left`;
 }
@@ -25,7 +25,7 @@ export function DateBlock({ iso, size = "md" }: { iso: string; size?: "md" | "lg
 export function EventCard({ ev, compact }: { ev: PublicEvent; compact?: boolean }) {
   const spots = spotsLabel(ev);
   const cancelled = ev.status === "cancelled";
-  const canRsvp = ev.rsvpEnabled && ev.spotsLeft !== 0;
+  const canRsvp = ev.rsvpEnabled && ev.priceCents === 0 && ev.spotsLeft !== 0;
   return (
     <article className={styles.card} data-compact={compact || undefined} aria-labelledby={`ev-${ev.id}`}>
       <DateBlock iso={ev.startAt} />
@@ -50,14 +50,30 @@ export function EventCard({ ev, compact }: { ev: PublicEvent; compact?: boolean 
                 RSVP<span className="sr-only"> to {ev.title}</span>
               </Link>
             ) : null}
+            {ev.externalTicketUrl ? (
+              <a
+                href={ev.externalTicketUrl}
+                className={`btn btn--sm ${canRsvp ? "btn--ghost" : "btn--accent"}`}
+                target="_blank"
+                rel="noopener"
+              >
+                Get tickets <span aria-hidden="true">↗</span>
+                <span className="sr-only">(opens in a new tab)</span>
+              </a>
+            ) : null}
             {ev.meetupUrl ? (
-              <a href={ev.meetupUrl} className={`btn btn--sm ${canRsvp ? "btn--ghost" : "btn--accent"}`} target="_blank" rel="noopener">
+              <a
+                href={ev.meetupUrl}
+                className={`btn btn--sm ${canRsvp || ev.externalTicketUrl ? "btn--ghost" : "btn--accent"}`}
+                target="_blank"
+                rel="noopener"
+              >
                 {canRsvp ? "On Meetup" : "RSVP on Meetup"} <span aria-hidden="true">↗</span>
                 <span className="sr-only">(opens in a new tab)</span>
               </a>
             ) : null}
             {!compact ? <AddToCalendar ev={ev} /> : null}
-            {compact && !canRsvp && !ev.meetupUrl ? (
+            {compact && !canRsvp && !ev.meetupUrl && !ev.externalTicketUrl ? (
               <Link href={`/events/${ev.slug}`} className="btn btn--ghost btn--sm">
                 Details
               </Link>

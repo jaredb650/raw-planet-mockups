@@ -59,6 +59,7 @@ export default async function PromosPage() {
                           <strong style={{ color: "var(--ink)" }}>{p.kind === "percent" ? `${p.value}% off` : `${formatMoney(p.value)} off`}</strong>
                           {p.minSubtotalCents ? ` · over ${formatMoney(p.minSubtotalCents)}` : ""}
                           {p.experienceIds?.length ? ` · ${p.experienceIds.map(expName).join(", ")} only` : ""}
+                          {p.validFrom ? ` · from ${fmt(p.validFrom, "MMM d, yyyy")}` : ""}
                           {p.validUntil ? ` · until ${fmt(new Date(p.validUntil.getTime() - 1), "MMM d, yyyy")}` : ""}
                         </div>
                         <div className={a.listMeta}>
@@ -76,7 +77,7 @@ export default async function PromosPage() {
                       <div style={{ paddingTop: 12, display: "grid", gap: 12 }}>
                         <PromoForm promo={p} exps={exps} />
                         <div className={a.row}>
-                          <ActionForm action={togglePromoAction} className={a.row} hideMessage>
+                          <ActionForm action={togglePromoAction} className={a.row}>
                             <input type="hidden" name="id" value={p.id} />
                             <input type="hidden" name="active" value={p.active ? "false" : "true"} />
                             <SubmitButton className={`${a.btn} ${a.btnSm}`}>{p.active ? "Turn off" : "Turn on"}</SubmitButton>
@@ -112,6 +113,7 @@ export default async function PromosPage() {
 function PromoForm({ promo, exps }: { promo?: PromoCode; exps: { id: string; name: string }[] }) {
   const k = promo?.id ?? "new";
   const until = promo?.validUntil ? addDaysKey(localDateKey(promo.validUntil), -1) : "";
+  const fmtDollars = (c: number) => (c / 100).toFixed(c % 100 ? 2 : 0);
   return (
     <ActionForm action={savePromoAction} resetOnSuccess={!promo}>
       {promo && <input type="hidden" name="id" value={promo.id} />}
@@ -126,7 +128,7 @@ function PromoForm({ promo, exps }: { promo?: PromoCode; exps: { id: string; nam
         </div>
         <div className={a.field}>
           <label htmlFor={`pc-amt-${k}`}>or amount off ($)</label>
-          <input id={`pc-amt-${k}`} name="amount" inputMode="decimal" className={a.input} defaultValue={promo?.kind === "fixed" ? (promo.value / 100).toFixed(0) : ""} placeholder="e.g. 25" />
+          <input id={`pc-amt-${k}`} name="amount" inputMode="decimal" className={a.input} defaultValue={promo?.kind === "fixed" ? fmtDollars(promo.value) : ""} placeholder="e.g. 25" />
         </div>
       </div>
       <div className={a.formRow}>
@@ -146,7 +148,7 @@ function PromoForm({ promo, exps }: { promo?: PromoCode; exps: { id: string; nam
         </div>
         <div className={a.field}>
           <label htmlFor={`pc-min-${k}`}>Minimum spend ($)</label>
-          <input id={`pc-min-${k}`} name="minSubtotal" inputMode="decimal" className={a.input} defaultValue={promo?.minSubtotalCents ? (promo.minSubtotalCents / 100).toFixed(0) : ""} placeholder="None" />
+          <input id={`pc-min-${k}`} name="minSubtotal" inputMode="decimal" className={a.input} defaultValue={promo?.minSubtotalCents ? fmtDollars(promo.minSubtotalCents) : ""} placeholder="None" />
         </div>
       </div>
       <fieldset className={a.fieldset}>

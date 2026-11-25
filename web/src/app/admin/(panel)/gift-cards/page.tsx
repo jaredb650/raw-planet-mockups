@@ -37,8 +37,8 @@ export default async function GiftCardsPage({ searchParams }: { searchParams: Pr
       .select({
         outstanding: sql<number>`coalesce(sum(${giftCards.balanceCents}) filter (where ${giftCards.status} = 'active'), 0)::int`,
         open: sql<number>`count(*) filter (where ${giftCards.status} = 'active')::int`,
-        soldYear: sql<number>`coalesce(sum(${giftCards.initialCents}) filter (where not ${giftCards.issuedByAdmin} and ${giftCards.status} <> 'pending_payment' and ${giftCards.createdAt} >= ${yearStart}), 0)::int`,
-        countYear: sql<number>`count(*) filter (where not ${giftCards.issuedByAdmin} and ${giftCards.status} <> 'pending_payment' and ${giftCards.createdAt} >= ${yearStart})::int`,
+        soldYear: sql<number>`coalesce(sum(${giftCards.initialCents}) filter (where not ${giftCards.issuedByAdmin} and ${giftCards.status} in ('active', 'depleted') and ${giftCards.createdAt} >= ${yearStart}), 0)::int`,
+        countYear: sql<number>`count(*) filter (where not ${giftCards.issuedByAdmin} and ${giftCards.status} in ('active', 'depleted') and ${giftCards.createdAt} >= ${yearStart})::int`,
       })
       .from(giftCards),
   ]);

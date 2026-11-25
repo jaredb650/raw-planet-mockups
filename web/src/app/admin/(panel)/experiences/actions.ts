@@ -10,8 +10,94 @@ import { adminAction, bool, cents, int, lines, optInt, optStr, str } from "@/lib
 import { parseDollars } from "@/lib/money";
 import type { ActionResult } from "@/components/admin/types";
 
+import {
+  isSafePhotoSrc,
+  parseVideoSource,
+  type ExperienceFaqItem,
+  type ExperienceVideo,
+} from "@/lib/experience-meta";
+import { saveExperienceMeta } from "@/lib/experience-meta-db";
+import type { ExperienceMedia } from "@/lib/db/schema";
+
 const THEMES = ["production", "dj", "wellness"] as const;
 const hhmm = /^([01]\d|2[0-3]):[0-5]\d$|^24:00$/;
+
+function parseMediaJson(raw: string): ExperienceMedia[] {
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Photos data was invalid — please try saving again.");
+  }
+  if (!Array.isArray(parsed)) throw new Error("Photos must be a list.");
+  const out: ExperienceMedia[] = [];
+  for (const item of parsed.slice(0, 16)) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    const src = typeof rec.src === "string" ? rec.src.trim() : "";
+    if (!isSafePhotoSrc(src)) continue;
+    if (src.startsWith("data:") && src.length > 750_000) {
+      throw new Error("One of the uploaded photos is too large. Remove it and upload a smaller image.");
+    }
+    const alt = typeof rec.alt === "string" ? rec.alt.trim().slice(0, 200) : "";
+    const width = typeof rec.width === "number" && Number.isFinite(rec.width) && rec.width > 0 ? Math.round(rec.width) : undefined;
+    const height = typeof rec.height === "number" && Number.isFinite(rec.height) && rec.height > 0 ? Math.round(rec.height) : undefined;
+    out.push({ src, alt: alt || "Experience photo", ...(width ? { width } : {}), ...(height ? { height } : {}) });
+  }
+  return out;
+}
+
+function parseVideosJson(raw: string): ExperienceVideo[] {
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Videos data was invalid — please try saving again.");
+  }
+  if (!Array.isArray(parsed)) throw new Error("Videos must be a list.");
+  const out: ExperienceVideo[] = [];
+  for (const item of parsed.slice(0, 8)) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    const src = typeof rec.src === "string" ? rec.src.trim() : "";
+    if (!parseVideoSource(src)) continue;
+    const alt = typeof rec.alt === "string" ? rec.alt.trim().slice(0, 200) : "";
+    const caption = typeof rec.caption === "string" ? rec.caption.trim().slice(0, 120) : "";
+    const posterRaw = typeof rec.poster === "string" ? rec.poster.trim() : "";
+    const poster = posterRaw && isSafePhotoSrc(posterRaw) ? posterRaw : undefined;
+    const aspect = rec.aspect === "landscape" ? "landscape" : "portrait";
+    out.push({
+      src,
+      alt: alt || "Session video",
+      ...(caption ? { caption } : {}),
+      ...(poster ? { poster } : {}),
+      aspect,
+    });
+  }
+  return out;
+}
+
+function parseFaqsJson(raw: string): ExperienceFaqItem[] {
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  const out: ExperienceFaqItem[] = [];
+  for (const item of parsed.slice(0, 12)) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    const q = typeof rec.q === "string" ? rec.q.trim().slice(0, 200) : "";
+    const a = typeof rec.a === "string" ? rec.a.trim().slice(0, 1200) : "";
+    if (q && a) out.push({ q, a });
+  }
+  return out;
+}
 
 function parseDurations(fd: FormData): DurationOption[] {
   const mins = fd.getAll("durMinutes").map(String);
@@ -65,6 +151,19 @@ export async function updateExperienceAction(_p: ActionResult, fd: FormData): Pr
     const pricingMode = z.enum(["per_person", "per_session"]).parse(str(fd, "pricingMode"));
     const airbnbUrl = optStr(fd, "airbnbUrl");
     if (airbnbUrl) z.url("Airbnb link must be a full https:// link").parse(airbnbUrl);
+
+    const privateRaw = str(fd, "privateRate");
+    let privateRateCents: number | null = null;
+    if (privateRaw) {
+      const parsed = parseDollars(privateRaw);
+      if (parsed === null || parsed <= 0) throw new Error("Private session rate must be a positive dollar amount (or leave blank for 'Ask us').");
+      privateRateCents = parsed;
+    }
+
+    const media = fd.has("mediaJson") ? parseMediaJson(str(fd, "mediaJson")) : undefined;
+    const videos = parseVideosJson(str(fd, "videosJson"));
+    const faqs = parseFaqsJson(str(fd, "faqsJson"));
+
     const values = {
       name,
       shortName: str(fd, "shortName") || name,
@@ -94,6 +193,7 @@ export async function updateExperienceAction(_p: ActionResult, fd: FormData): Pr
       highlights: lines(fd, "highlights").slice(0, 20),
       includes: lines(fd, "includes").slice(0, 20),
       goodToKnow: lines(fd, "goodToKnow").slice(0, 20),
+      ...(media !== undefined ? { media } : {}),
       calEventTypeId: optInt(fd, "calEventTypeId"),
       airbnbUrl,
       updatedAt: new Date(),
@@ -101,6 +201,19 @@ export async function updateExperienceAction(_p: ActionResult, fd: FormData): Pr
     const db = await getDb();
     const [row] = await db.update(experiences).set(values).where(eq(experiences.id, id)).returning({ slug: experiences.slug });
     if (!row) throw new Error("Experience not found.");
+
+    await saveExperienceMeta(id, {
+      videos,
+      hostsLabel: str(fd, "hostsLabel").slice(0, 140) || "Alex Gentil",
+      privateRateCents,
+      hasDeliverable: bool(fd, "hasDeliverable"),
+      takeHome: str(fd, "takeHome").slice(0, 240),
+      perfectFor: lines(fd, "perfectFor").slice(0, 12),
+      flowTitle: str(fd, "flowTitle").slice(0, 100) || "How the session goes",
+      faqs,
+      customized: true,
+    });
+
     // The public pages read experiences too.
     revalidatePath("/", "layout");
     return values.active ? "Saved. Live on the website." : "Saved. Hidden from the website.";

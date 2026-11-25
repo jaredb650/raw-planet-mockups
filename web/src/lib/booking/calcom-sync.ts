@@ -11,10 +11,10 @@
 import "server-only";
 import { and, eq, gt, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { getDb, type Tx } from "@/lib/db";
-import { blocks, bookings, customers, experiences, waitlist, type Booking } from "@/lib/db/schema";
+import { blocks, bookings, customers, experiences, type Booking } from "@/lib/db/schema";
 import { newBookingCode, newToken } from "@/lib/ids";
 import { fmtDateShort, fmtTimeRange, localDateKey } from "@/lib/time";
-import { logEvent } from "./service";
+import { logEvent, notifyWaitlistForDate } from "./service";
 import * as notify from "@/lib/email/notify";
 
 export type CalAttendee = { name?: string; email?: string; timeZone?: string; phoneNumber?: string | null; language?: { locale?: string } | string };
@@ -60,26 +60,15 @@ export async function findBookingForCal(p: CalPayload, opts: { preferUids?: bool
   return opts.preferUids ? ((await byUid()) ?? (await byId())) : ((await byId()) ?? (await byUid()));
 }
 
-async function notifyWaitlist(experienceId: string, dateKey: string) {
-  try {
-    const db = await getDb();
-    const rows = await db
-      .select()
-      .from(waitlist)
-      .where(and(eq(waitlist.experienceId, experienceId), eq(waitlist.date, dateKey)));
-    for (const w of rows.filter((r) => !r.notifiedAt)) {
-      await notify.sendWaitlistOpening(w.id);
-      await db.update(waitlist).set({ notifiedAt: new Date() }).where(eq(waitlist.id, w.id));
-    }
-  } catch (err) {
-    console.error("[cal-sync] waitlist notify failed", err);
-  }
-}
-
 /** Other bookings/blocks overlapping [start, end) in the resource group (for host warnings). */
-async function conflictsFor(tx: Tx, b: { id?: string; resourceGroup: string; experienceId: string; startAt: Date; endAt: Date }) {
+async function conflictsFor(tx: Tx, b: { id?: string; resourceGroup: string; experienceId: string; startAt: Date; endAt: Date; guests?: number }) {
+  const [exp] = await tx
+    .select({ pricingMode: experiences.pricingMode, maxGuests: experiences.maxGuests })
+    .from(experiences)
+    .where(eq(experiences.id, b.experienceId))
+    .limit(1);
   const clash = await tx
-    .select({ code: bookings.code })
+    .select({ code: bookings.code, experienceId: bookings.experienceId, startAt: bookings.startAt, endAt: bookings.endAt, guests: bookings.guests })
     .from(bookings)
     .where(
       and(
@@ -90,6 +79,16 @@ async function conflictsFor(tx: Tx, b: { id?: string; resourceGroup: string; exp
         b.id ? ne(bookings.id, b.id) : undefined,
       ),
     );
+  const realClash = clash.filter((c) => {
+    const sharedSibling =
+      exp?.pricingMode === "per_person" &&
+      c.experienceId === b.experienceId &&
+      c.startAt.getTime() === b.startAt.getTime() &&
+      c.endAt.getTime() === b.endAt.getTime();
+    if (!sharedSibling) return true;
+    const total = clash.filter((x) => x.experienceId === b.experienceId && x.startAt.getTime() === b.startAt.getTime() && x.endAt.getTime() === b.endAt.getTime()).reduce((s, x) => s + x.guests, 0) + (b.guests ?? 1);
+    return total > exp.maxGuests;
+  });
   const blockClash = await tx
     .select({ reason: blocks.reason })
     .from(blocks)
@@ -101,7 +100,7 @@ async function conflictsFor(tx: Tx, b: { id?: string; resourceGroup: string; exp
         or(sql`${blocks.experienceId} is null`, eq(blocks.experienceId, b.experienceId)),
       ),
     );
-  return [...clash.map((c) => `booking ${c.code}`), ...blockClash.map((c) => `block${c.reason ? ` (${c.reason})` : ""}`)];
+  return [...realClash.map((c) => `booking ${c.code}`), ...blockClash.map((c) => `block${c.reason ? ` (${c.reason})` : ""}`)];
 }
 
 /* ------------------------------------------------------------------ */
@@ -127,6 +126,7 @@ export async function applyCalCancellation(p: CalPayload): Promise<string> {
       cancelledAt: new Date(),
       cancelledBy: "system",
       cancelReason: `Cancelled in Cal.com${reason ? `: ${reason}` : ""}`,
+      checkedInAt: null,
       updatedAt: new Date(),
     })
     .where(and(eq(bookings.id, b.id), eq(bookings.status, "confirmed")))
@@ -137,7 +137,7 @@ export async function applyCalCancellation(p: CalPayload): Promise<string> {
     data: { calUid: p.uid, reason, refund: "none", amountPaidCents: b.amountPaidCents, giftCardCents: b.giftCardCents },
   });
   await notify.sendHostBookingAlert(b.id, "cancelled");
-  await notifyWaitlist(b.experienceId, localDateKey(b.startAt));
+  await notifyWaitlistForDate(b.experienceId, localDateKey(b.startAt));
   return "cancelled";
 }
 
@@ -187,13 +187,13 @@ export async function applyCalReschedule(p: CalPayload): Promise<string> {
       `Moved from ${fmtDateShort(previousStart)} ${fmtTimeRange(previousStart, b.endAt)} to ${fmtDateShort(start)} ${fmtTimeRange(start, end)}`,
       { public: true, actor: "system", data: { from: previousStart.toISOString(), to: start.toISOString(), via: "calcom" } },
     );
-    return conflictsFor(tx, { id: b.id, resourceGroup: b.resourceGroup, experienceId: b.experienceId, startAt: start, endAt: end });
+    return conflictsFor(tx, { id: b.id, resourceGroup: b.resourceGroup, experienceId: b.experienceId, startAt: start, endAt: end, guests: b.guests });
   });
   if (conflicts.length) {
     await logEvent(db, b.id, "calendar_error", `Moved in Cal.com onto a time that overlaps ${conflicts.join(", ")} — please check`);
   }
   await notify.sendHostBookingAlert(b.id, "rescheduled");
-  await notifyWaitlist(b.experienceId, localDateKey(previousStart));
+  await notifyWaitlistForDate(b.experienceId, localDateKey(previousStart));
   return conflicts.length ? "rescheduled (with conflicts)" : "rescheduled";
 }
 
@@ -284,7 +284,7 @@ export async function importCalBooking(p: CalPayload): Promise<string> {
       .returning();
     await logEvent(tx, b.id, "created", "Imported from Cal.com (booked directly on the Cal.com page)", { data: { calUid: p.uid } });
     await logEvent(tx, b.id, "confirmed", "Booking confirmed", { public: true });
-    const conflicts = await conflictsFor(tx, { id: b.id, resourceGroup: b.resourceGroup, experienceId: b.experienceId, startAt: start, endAt: end });
+    const conflicts = await conflictsFor(tx, { id: b.id, resourceGroup: b.resourceGroup, experienceId: b.experienceId, startAt: start, endAt: end, guests });
     if (conflicts.length) await logEvent(tx, b.id, "calendar_error", `Overlaps ${conflicts.join(", ")} — please check`);
     return b;
   });

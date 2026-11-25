@@ -12,6 +12,7 @@ type Group = { label: string; items: Item[] };
 
 const PAGES: Item[] = [
   { href: "/admin", title: "Today" },
+  { href: "/admin/manifest", title: "Today's manifest" },
   { href: "/admin/calendar", title: "Calendar" },
   { href: "/admin/bookings", title: "Bookings" },
   { href: "/admin/bookings/new", title: "New booking" },
@@ -47,8 +48,13 @@ export function CommandPalette() {
         else setOpen(true);
       }
     };
+    const onOpen = () => setOpen(true);
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    window.addEventListener("rp-open-palette", onOpen);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("rp-open-palette", onOpen);
+    };
   }, []);
 
   return (

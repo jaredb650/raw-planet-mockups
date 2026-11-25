@@ -1,0 +1,30 @@
+name: Studio Automations Cron
+
+on:
+  schedule:
+    # Run every 10 minutes (reminders, abandoned checkouts, iCal sync, gift cards, campaigns)
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: studio-cron
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Trigger /api/cron/run
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ vars.CRON_URL || 'https://raw-planet-experiences.vercel.app' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET secret is not set in GitHub Actions."
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 65 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${SITE_URL%/}/api/cron/run"
+          echo ""

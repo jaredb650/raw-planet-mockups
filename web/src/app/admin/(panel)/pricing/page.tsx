@@ -11,7 +11,7 @@ import { PageHeader, Panel, Empty } from "@/components/admin/PageHeader";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/admin/ActionForm";
 import { Pill } from "@/components/admin/Pill";
 import { plural } from "@/components/admin/format";
-import { deleteRuleAction, saveRuleAction, toggleRuleAction } from "./actions";
+import { deleteRuleAction, dismissSuggestionAction, restoreSuggestionsAction, saveRuleAction, toggleRuleAction } from "./actions";
 import a from "@/components/admin/admin.module.css";
 import s from "@/components/admin/insights.module.css";
 
@@ -64,7 +64,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
     db.select().from(experiences).orderBy(asc(experiences.sortOrder)),
     getSuggestions(now),
   ]);
-  const expOptions = exps.map((e) => ({ id: e.id, name: e.shortName }));
+  const expOptions = exps.map((e) => ({ id: e.id, name: e.shortName, active: e.active }));
   const expName = (id: string) => expOptions.find((e) => e.id === id)?.name ?? "removed";
 
   const live = exps.filter((e) => e.active);
@@ -148,11 +148,14 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
               ) : (
                 <>
                   <nav className={a.tabs} aria-label="Experience">
-                    {live.map((e) => (
-                      <Link key={e.id} href={gridHref({ exp: e.id, dur: e.durationOptions[0]?.minutes })} className={`${a.tab} ${e.id === exp.id ? a.tabActive : ""}`} aria-current={e.id === exp.id ? "true" : undefined}>
-                        {e.shortName}
-                      </Link>
-                    ))}
+                    {live.map((e) => {
+                      const shortest = [...e.durationOptions].sort((x, y) => x.minutes - y.minutes)[0]?.minutes;
+                      return (
+                        <Link key={e.id} href={gridHref({ exp: e.id, dur: shortest })} className={`${a.tab} ${e.id === exp.id ? a.tabActive : ""}`} aria-current={e.id === exp.id ? "true" : undefined}>
+                          {e.shortName}
+                        </Link>
+                      );
+                    })}
                   </nav>
                   <div className={s.subTabs}>
                     {durations.length > 1 &&
@@ -227,18 +230,42 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
             ) : (
               <ul className={a.list}>
                 {suggestions.items.map((i) => (
-                  <li key={i.prefill.name}>
+                  <li key={i.key}>
                     <div className={a.listTitle}>{i.title}</div>
                     <div className={a.listMeta}>{i.evidence}</div>
-                    <div className={a.row} style={{ marginTop: 8 }}>
+                    <div className={a.row} style={{ marginTop: 8, gap: 6, flexWrap: "wrap" }}>
                       <Link href={prefillHref(i.prefill)} className={`${a.btn} ${a.btnSm}`}>
                         Try {signed(i.prefill.adjustPercent)}
                       </Link>
-                      <span className={`${a.small} ${a.muted}`}>Fills in the form. Nothing goes live.</span>
+                      <ActionForm action={dismissSuggestionAction} className={a.row} hideMessage>
+                        <input type="hidden" name="key" value={i.key} />
+                        <input type="hidden" name="days" value="30" />
+                        <SubmitButton className={`${a.btn} ${a.btnSm} ${a.btnGhost}`} pendingText="…">
+                          Snooze 30d
+                        </SubmitButton>
+                      </ActionForm>
+                      <ActionForm action={dismissSuggestionAction} className={a.row} hideMessage>
+                        <input type="hidden" name="key" value={i.key} />
+                        <SubmitButton className={`${a.btn} ${a.btnSm} ${a.btnGhost}`} pendingText="…">
+                          Dismiss
+                        </SubmitButton>
+                      </ActionForm>
                     </div>
                   </li>
                 ))}
               </ul>
+            )}
+            {(suggestions.dismissedCount ?? 0) > 0 && (
+              <div className={a.panelBody} style={{ borderTop: "1px solid var(--adm-line)", paddingTop: 10 }}>
+                <ActionForm action={restoreSuggestionsAction} className={a.row} hideMessage>
+                  <span className={`${a.small} ${a.muted}`}>
+                    {plural(suggestions.dismissedCount ?? 0, "suggestion")} hidden.
+                  </span>
+                  <SubmitButton className={`${a.btn} ${a.btnSm} ${a.btnGhost}`} pendingText="Restoring…">
+                    Show again
+                  </SubmitButton>
+                </ActionForm>
+              </div>
             )}
           </Panel>
 
@@ -258,7 +285,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
   );
 }
 
-function RuleForm({ rule, exps, isNew }: { rule?: Partial<PricingRule> | null; exps: { id: string; name: string }[]; isNew?: boolean }) {
+function RuleForm({ rule, exps, isNew }: { rule?: Partial<PricingRule> | null; exps: { id: string; name: string; active: boolean }[]; isNew?: boolean }) {
   const k = isNew ? "new" : rule?.id;
   // A suggestion never goes live by itself: its Active box starts empty.
   const active = isNew ? !rule : rule?.active;
@@ -326,7 +353,10 @@ function RuleForm({ rule, exps, isNew }: { rule?: Partial<PricingRule> | null; e
         {exps.map((e) => (
           <label key={e.id} className={a.check}>
             <input type="checkbox" name="experienceIds" value={e.id} defaultChecked={rule?.experienceIds?.includes(e.id)} />
-            <span>{e.name}</span>
+            <span>
+              {e.name}
+              {e.active ? "" : " (hidden)"}
+            </span>
           </label>
         ))}
       </fieldset>

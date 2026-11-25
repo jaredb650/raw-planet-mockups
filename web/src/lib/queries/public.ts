@@ -3,10 +3,12 @@
  * are safe to pass to client components (no tokens). Addresses are public: the client lists them on the site.
  */
 import "server-only";
-import { and, asc, avg, count, desc, eq, gte } from "drizzle-orm";
+import { and, asc, avg, count, desc, eq, gte, ne, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { addons, eventRsvps, events, experiences, pricingRules, reviews, type Experience } from "@/lib/db/schema";
 import { BUSINESS } from "@/lib/config";
+import { defaultMetaForSlug, type ExperienceMeta } from "@/lib/experience-meta";
+import { getAllExperienceMeta } from "@/lib/experience-meta-db";
 import { todayKey } from "@/lib/time";
 
 export type PublicExperience = Pick<
@@ -18,9 +20,16 @@ export type PublicExperience = Pick<
   addons: { id: string; name: string; description: string; priceCents: number; pricing: "per_booking" | "per_guest" }[];
   /** A live smart pricing rule covers this experience, so a flat headline price would be untrue. */
   priceVaries?: boolean;
+  /** Per-experience display & workflow metadata (videos, hosts, private rate, deliverable toggle, FAQs). */
+  meta?: ExperienceMeta;
 };
 
-function toPublic(e: Experience, addonRows: (typeof addons.$inferSelect)[], rules: { experienceIds: string[] | null; dateTo: string | null }[]): PublicExperience {
+function toPublic(
+  e: Experience,
+  addonRows: (typeof addons.$inferSelect)[],
+  rules: { experienceIds: string[] | null; dateTo: string | null }[],
+  meta?: ExperienceMeta,
+): PublicExperience {
   const today = todayKey();
   return {
     id: e.id, slug: e.slug, name: e.name, shortName: e.shortName, tagline: e.tagline, summary: e.summary,
@@ -30,6 +39,7 @@ function toPublic(e: Experience, addonRows: (typeof addons.$inferSelect)[], rule
     locationArea: e.locationArea, address: e.address, cancellationHours: e.cancellationHours, leadTimeHours: e.leadTimeHours,
     maxAdvanceDays: e.maxAdvanceDays, isPlaceholder: e.isPlaceholder, airbnbUrl: e.airbnbUrl,
     priceVaries: rules.some((r) => (!r.experienceIds?.length || r.experienceIds.includes(e.id)) && (!r.dateTo || r.dateTo >= today)),
+    meta: meta ?? defaultMetaForSlug(e.slug),
     addons: addonRows
       .filter((a) => a.active && (a.experienceId === null || a.experienceId === e.id))
       .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -44,7 +54,8 @@ export async function getActiveExperiences(): Promise<PublicExperience[]> {
     db.select().from(addons).where(eq(addons.active, true)),
     db.select({ experienceIds: pricingRules.experienceIds, dateTo: pricingRules.dateTo }).from(pricingRules).where(eq(pricingRules.active, true)),
   ]);
-  return rows.map((e) => toPublic(e, addonRows, rules));
+  const metaMap = await getAllExperienceMeta(rows);
+  return rows.map((e) => toPublic(e, addonRows, rules, metaMap.get(e.id)));
 }
 
 export async function getPublicExperience(slug: string): Promise<PublicExperience | null> {
@@ -67,7 +78,7 @@ export async function getPublishedReviews(opts: { experienceId?: string; limit?:
     .from(reviews)
     .leftJoin(experiences, eq(reviews.experienceId, experiences.id))
     .where(and(eq(reviews.status, "published"), opts.experienceId ? eq(reviews.experienceId, opts.experienceId) : undefined))
-    .orderBy(desc(reviews.featured), desc(reviews.createdAt))
+    .orderBy(desc(reviews.featured), sql`coalesce(${reviews.reviewDate}, ${reviews.createdAt}) desc`)
     .limit(opts.limit ?? 200);
   return rows.map(({ r, slug, airbnbUrl }) => ({
     id: r.id, name: r.name, location: r.location, rating: r.rating, body: r.body, source: r.source,
@@ -80,16 +91,17 @@ export async function getPublishedReviews(opts: { experienceId?: string; limit?:
 
 /**
  * Headline rating. Combines the Airbnb aggregate (107 ratings at 4.98, which
- * we can't import individually) with reviews collected on this site.
+ * we can't import individually) with all non-Airbnb published reviews (direct,
+ * Google, Viator, etc.) so manually added Google/Viator reviews count too.
  */
 export async function getRatingSummary(): Promise<{ score: number; count: number }> {
   const db = await getDb();
-  const [direct] = await db
+  const [nonAirbnb] = await db
     .select({ n: count(), avg: avg(reviews.rating) })
     .from(reviews)
-    .where(and(eq(reviews.status, "published"), eq(reviews.source, "direct")));
-  const n = Number(direct?.n ?? 0);
-  const a = Number(direct?.avg ?? 0);
+    .where(and(eq(reviews.status, "published"), ne(reviews.source, "airbnb")));
+  const n = Number(nonAirbnb?.n ?? 0);
+  const a = Number(nonAirbnb?.avg ?? 0);
   const base = BUSINESS.airbnbRating;
   const total = base.count + n;
   const score = n ? (base.score * base.count + a * n) / total : base.score;

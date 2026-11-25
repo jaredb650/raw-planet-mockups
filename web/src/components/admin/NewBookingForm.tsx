@@ -53,6 +53,7 @@ export function NewBookingForm({
   const [expId, setExpId] = useState(first?.id ?? "");
   const exp = experiences.find((e) => e.id === expId) ?? first;
   const [duration, setDuration] = useState(exp?.durations[0] ?? 120);
+  const [guests, setGuests] = useState(prefill.guests ?? exp?.minGuests ?? 1);
   const [date, setDate] = useState(prefill.date ?? today);
   const [time, setTime] = useState(prefill.time ?? "");
   const [slot, setSlot] = useState<string | null>(null);
@@ -126,7 +127,22 @@ export function NewBookingForm({
           </div>
           <div className={a.field}>
             <label htmlFor="nb-guests">Guests</label>
-            <input id="nb-guests" name="guests" type="number" inputMode="numeric" min={1} max={200} className={a.input} defaultValue={prefill.guests ?? exp?.minGuests ?? 1} required />
+            <input
+              id="nb-guests"
+              name="guests"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={200}
+              className={a.input}
+              value={guests}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setGuests(Number.isFinite(n) && n >= 1 ? n : 1);
+                setSlot(null);
+              }}
+              required
+            />
             {exp && <span className={a.hint}>Usually {exp.minGuests}–{exp.maxGuests}</span>}
           </div>
         </div>
@@ -155,6 +171,7 @@ export function NewBookingForm({
             experienceId={expId}
             date={date}
             duration={duration}
+            guests={guests}
             value={slot}
             name="nbSlot"
             onPick={(iso) => {
@@ -213,11 +230,26 @@ export function NewBookingForm({
       <fieldset className={a.fieldset}>
         <legend>Money & notes</legend>
         <div className={a.formRow}>
-          <div className={a.field}>
-            <label htmlFor="nb-paid">{platform ? "Your payout" : "Amount paid"}</label>
-            <input id="nb-paid" name="amountPaid" inputMode="decimal" className={a.input} placeholder="$0" />
-            <span className={a.hint}>{platform ? "Counts toward revenue. Leave blank if you don’t know yet." : "Cash, Venmo, Zelle… Leave blank for free."}</span>
-          </div>
+          {platform ? (
+            <div className={a.field}>
+              <label htmlFor="nb-paid">Your payout</label>
+              <input id="nb-paid" name="amountPaid" inputMode="decimal" className={a.input} placeholder="$0" />
+              <span className={a.hint}>Counts toward revenue. Leave blank if you don’t know yet.</span>
+            </div>
+          ) : (
+            <>
+              <div className={a.field}>
+                <label htmlFor="nb-total">Total price</label>
+                <input id="nb-total" name="totalPrice" inputMode="decimal" className={a.input} placeholder="$0" />
+                <span className={a.hint}>What they owe for the session. Leave blank for free/comp.</span>
+              </div>
+              <div className={a.field}>
+                <label htmlFor="nb-paid">Already paid</label>
+                <input id="nb-paid" name="amountPaid" inputMode="decimal" className={a.input} placeholder="$0" />
+                <span className={a.hint}>Cash, Venmo, Zelle received so far. Leave blank if paying at the studio.</span>
+              </div>
+            </>
+          )}
         </div>
         <div className={a.field}>
           <label htmlFor="nb-notes">Private note</label>

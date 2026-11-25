@@ -42,6 +42,7 @@ import { BUSINESS, hostNotificationEmail, siteUrl } from "@/lib/config";
 import { buildIcs, googleCalendarUrl, type IcsEvent } from "@/lib/ics";
 import { addDaysKey, fmt, fromLocal, localDateKey } from "@/lib/time";
 import { getStringSetting } from "@/lib/automation/settings";
+import { getDeliverableExperienceIds } from "@/lib/experience-meta-db";
 import { renderEmail } from "@/emails/render";
 import { buildBookingView, bookingIcsFields, manageUrlFor, mapUrlFor, realAddress } from "@/emails/view";
 import { experienceName, fmtClock, fmtDay, fmtDayShort, fmtDayYear, fmtDur, fmtGuests, fmtRange, langOf, money, type Lang } from "@/emails/i18n";
@@ -61,7 +62,7 @@ import {
 import { giftCardReceiptEmail, giftCardRecipientEmail, type GiftCardView } from "@/emails/templates/giftcards";
 import { inquiryAutoReplyEmail, inquiryHostAlertEmail, type InquiryKind } from "@/emails/templates/inquiry";
 import { eventRsvpEmail, manageLinksEmail, waitlistOpeningEmail, type ManageLinkItem } from "@/emails/templates/misc";
-import { hostBookingAlertEmail, hostDigestEmail, hostWeeklyReportEmail, type DigestSession, type HostBookingView } from "@/emails/templates/host";
+import { hostBookingAlertEmail, hostDigestEmail, hostReviewAlertEmail, hostWeeklyReportEmail, type DigestSession, type HostBookingView } from "@/emails/templates/host";
 import { getCashEntries, weekStartKey } from "@/lib/admin/dashboard";
 import { getReport, sumCash } from "@/lib/admin/reports";
 import { sendEmail } from "./send";
@@ -100,25 +101,28 @@ async function deliver(opts: {
   bookingId?: string | null;
   replyTo?: string;
   ics?: { filename: string; content: string };
+  skipDedupe?: boolean;
 }): Promise<SendStatus> {
   if (!isDeliverable(opts.to)) return "skipped";
   const to = opts.to.trim();
   const db = await getDb();
-  const [dupe] = await db
-    .select({ id: emailLog.id })
-    .from(emailLog)
-    .where(
-      and(
-        eq(emailLog.template, opts.template),
-        eq(emailLog.to, to),
-        eq(emailLog.subject, opts.out.subject),
-        opts.bookingId ? eq(emailLog.bookingId, opts.bookingId) : sql`${emailLog.bookingId} is null`,
-        inArray(emailLog.status, ["sent", "logged"]),
-        gt(emailLog.createdAt, new Date(Date.now() - DEDUPE_MS)),
-      ),
-    )
-    .limit(1);
-  if (dupe) return "skipped";
+  if (!opts.skipDedupe) {
+    const [dupe] = await db
+      .select({ id: emailLog.id })
+      .from(emailLog)
+      .where(
+        and(
+          eq(emailLog.template, opts.template),
+          eq(emailLog.to, to),
+          eq(emailLog.subject, opts.out.subject),
+          opts.bookingId ? eq(emailLog.bookingId, opts.bookingId) : sql`${emailLog.bookingId} is null`,
+          inArray(emailLog.status, ["sent", "logged"]),
+          gt(emailLog.createdAt, new Date(Date.now() - DEDUPE_MS)),
+        ),
+      )
+      .limit(1);
+    if (dupe) return "skipped";
+  }
   const r = await renderEmail(opts.out);
   const res = await sendEmail({
     to,
@@ -214,12 +218,12 @@ async function bookingIcs(v: BookingView, b: Booking, cancelled = false) {
 /* Booking lifecycle (guest)                                            */
 /* ------------------------------------------------------------------ */
 
-export async function tryBookingConfirmation(bookingId: string): Promise<SendStatus> {
+export async function tryBookingConfirmation(bookingId: string, opts?: { skipDedupe?: boolean }): Promise<SendStatus> {
   return safe(async () => {
     const r = await loadBooking(bookingId);
     if (!r) return "skipped";
     const v = await viewFor(r);
-    const main = await deliver({ template: "booking_confirmation", to: r.b.contactEmail, out: bookingConfirmationEmail(v), bookingId, ics: await bookingIcs(v, r.b) });
+    const main = await deliver({ template: "booking_confirmation", to: r.b.contactEmail, out: bookingConfirmationEmail(v), bookingId, ics: await bookingIcs(v, r.b), skipDedupe: opts?.skipDedupe });
     let gift: SendStatus = "skipped";
     if (r.b.isGift && isDeliverable(r.b.giftRecipientEmail) && r.b.giftRecipientEmail.toLowerCase() !== r.b.contactEmail.toLowerCase()) {
       const rv = await viewFor(r, "recipient");
@@ -229,6 +233,7 @@ export async function tryBookingConfirmation(bookingId: string): Promise<SendSta
         out: giftBookingRecipientEmail({ ...rv, purchaserName: r.b.contactName }),
         bookingId,
         ics: await bookingIcs(rv, r.b),
+        skipDedupe: opts?.skipDedupe,
       });
     }
     return worst(main, gift);
@@ -469,11 +474,48 @@ export async function sendHostBookingAlert(bookingId: string, kind: "new" | "can
   }, "host alert");
 }
 
+export async function sendHostReviewAlert(reviewId: string): Promise<void> {
+  await safe(async () => {
+    const db = await getDb();
+    const [row] = await db
+      .select({
+        r: reviews,
+        expName: experiences.name,
+        bookingCode: bookings.code,
+        bookingEmail: bookings.contactEmail,
+      })
+      .from(reviews)
+      .leftJoin(experiences, eq(reviews.experienceId, experiences.id))
+      .leftJoin(bookings, eq(reviews.bookingId, bookings.id))
+      .where(eq(reviews.id, reviewId))
+      .limit(1);
+    if (!row) return "skipped";
+    return deliver({
+      template: "host_review_pending",
+      to: hostNotificationEmail(),
+      out: hostReviewAlertEmail({
+        guestName: row.r.name,
+        location: row.r.location,
+        rating: row.r.rating,
+        body: row.r.body,
+        experienceName: row.expName ?? null,
+        bookingCode: row.bookingCode ?? null,
+        reviewUrl: siteUrl("/admin/reviews?status=pending"),
+      }),
+      bookingId: row.r.bookingId ?? null,
+      replyTo: isDeliverable(row.bookingEmail) ? row.bookingEmail : undefined,
+    });
+  }, "host review alert");
+}
+
 /* ------------------------------------------------------------------ */
 /* Gift cards                                                           */
 /* ------------------------------------------------------------------ */
 
-export async function tryGiftCardEmails(giftCardId: string, opts: { purchaserReceipt: boolean; recipient: boolean }): Promise<SendStatus> {
+export async function tryGiftCardEmails(
+  giftCardId: string,
+  opts: { purchaserReceipt: boolean; recipient: boolean; skipDedupe?: boolean },
+): Promise<SendStatus> {
   return safe(async () => {
     const db = await getDb();
     const [card] = await db.select().from(giftCards).where(eq(giftCards.id, giftCardId)).limit(1);
@@ -493,16 +535,18 @@ export async function tryGiftCardEmails(giftCardId: string, opts: { purchaserRec
       bookUrl: siteUrl("/book"),
       giftCardsUrl: siteUrl("/gift-cards"),
     };
-    const receipt = opts.purchaserReceipt ? await deliver({ template: "gift_card_receipt", to: card.purchaserEmail, out: giftCardReceiptEmail(v) }) : "skipped";
+    const receipt = opts.purchaserReceipt
+      ? await deliver({ template: "gift_card_receipt", to: card.purchaserEmail, out: giftCardReceiptEmail(v), skipDedupe: opts.skipDedupe })
+      : "skipped";
     const recipient =
       opts.recipient && isDeliverable(card.recipientEmail)
-        ? await deliver({ template: "gift_card_recipient", to: card.recipientEmail, out: giftCardRecipientEmail(v), replyTo: undefined })
+        ? await deliver({ template: "gift_card_recipient", to: card.recipientEmail, out: giftCardRecipientEmail(v), replyTo: undefined, skipDedupe: opts.skipDedupe })
         : "skipped";
     return worst(receipt, recipient);
   }, "gift card");
 }
 
-export async function sendGiftCardEmails(giftCardId: string, opts: { purchaserReceipt: boolean; recipient: boolean }): Promise<void> {
+export async function sendGiftCardEmails(giftCardId: string, opts: { purchaserReceipt: boolean; recipient: boolean; skipDedupe?: boolean }): Promise<void> {
   await tryGiftCardEmails(giftCardId, opts);
 }
 
@@ -529,7 +573,7 @@ export async function sendInquiryEmails(inquiryId: string): Promise<void> {
       groupSize: q.groupSize,
       message: q.message,
       receivedLabel: fmt(q.createdAt, "EEE, MMM d 'at' h:mmaaa"),
-      adminUrl: siteUrl(`/admin/inquiries?id=${q.id}`),
+      adminUrl: siteUrl(`/admin/inquiries?open=${q.id}`),
       faqUrl: siteUrl("/faq"),
       bookUrl: exp ? siteUrl(`/book/${exp.slug}`) : siteUrl("/book"),
     };
@@ -548,8 +592,8 @@ export async function sendInquiryEmails(inquiryId: string): Promise<void> {
   }, "inquiry");
 }
 
-export async function sendWaitlistOpening(entryId: string): Promise<void> {
-  await safe(async () => {
+export async function tryWaitlistOpening(entryId: string): Promise<SendStatus> {
+  return safe(async () => {
     const db = await getDb();
     const [row] = await db
       .select({ w: waitlist, e: experiences })
@@ -574,6 +618,10 @@ export async function sendWaitlistOpening(entryId: string): Promise<void> {
       }),
     });
   }, "waitlist");
+}
+
+export async function sendWaitlistOpening(entryId: string): Promise<void> {
+  await tryWaitlistOpening(entryId);
 }
 
 export async function sendEventRsvp(rsvpId: string): Promise<void> {
@@ -693,7 +741,7 @@ export async function tryHostDigest(now = new Date()): Promise<SendStatus> {
       const prior = await db
         .select({ email: sql<string>`lower(${bookings.contactEmail})` })
         .from(bookings)
-        .where(and(inArray(sql`lower(${bookings.contactEmail})`, emails), eq(bookings.status, "completed"), sql`${bookings.startAt} < ${dayStart}`));
+        .where(and(inArray(sql`lower(${bookings.contactEmail})`, emails), inArray(bookings.status, ["completed", "confirmed"]), sql`${bookings.startAt} < ${dayStart}`));
       for (const p of prior) returning.add(p.email);
     }
     const session = ({ b, e }: (typeof rows)[number]): DigestSession => ({
@@ -721,19 +769,22 @@ export async function tryHostDigest(now = new Date()): Promise<SendStatus> {
     const attention: { text: string; url: string }[] = [];
     const [newInq] = await db.select({ n: sql<number>`count(*)::int` }).from(inquiries).where(eq(inquiries.status, "new"));
     if (Number(newInq?.n) > 0) attention.push({ text: `${newInq.n} new inquir${Number(newInq.n) === 1 ? "y" : "ies"} waiting for a reply`, url: siteUrl("/admin/inquiries") });
-    const tracks = await db
-      .select({ id: bookings.id, code: bookings.code, endAt: bookings.endAt })
-      .from(bookings)
-      .innerJoin(experiences, eq(bookings.experienceId, experiences.id))
-      .where(
-        and(
-          eq(experiences.theme, "production"),
-          inArray(bookings.status, ["confirmed", "completed"]),
-          sql`${bookings.deliverableStatus} <> 'delivered'`,
-          sql`${bookings.endAt} < ${new Date(now.getTime() - 3 * 86400_000)}`,
-          sql`${bookings.endAt} > ${new Date(now.getTime() - 45 * 86400_000)}`,
-        ),
-      );
+    const delivExpIds = await getDeliverableExperienceIds();
+    const tracks = delivExpIds.length
+      ? await db
+          .select({ id: bookings.id, code: bookings.code, endAt: bookings.endAt })
+          .from(bookings)
+          .innerJoin(experiences, eq(bookings.experienceId, experiences.id))
+          .where(
+            and(
+              inArray(experiences.id, delivExpIds),
+              inArray(bookings.status, ["confirmed", "completed"]),
+              sql`${bookings.deliverableStatus} <> 'delivered'`,
+              sql`${bookings.endAt} < ${new Date(now.getTime() - 3 * 86400_000)}`,
+              sql`${bookings.endAt} > ${new Date(now.getTime() - 45 * 86400_000)}`,
+            ),
+          )
+      : [];
     for (const t of tracks.slice(0, 5))
       attention.push({
         text: `Track for ${t.code} not delivered yet (${Math.floor((now.getTime() - t.endAt.getTime()) / 86400_000)} days)`,

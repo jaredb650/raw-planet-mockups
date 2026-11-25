@@ -77,10 +77,26 @@ export function CheckoutForm({
     })
       .then((r) => r.json().then((body) => ({ ok: r.ok, body })))
       .then(({ ok, body }) => {
-        if (!ok || !body.quote) return;
-        setQuote({ key: quoteKey, view: body.quote, promoError: body.promoError ?? null, giftCardError: body.giftCardError ?? null });
+        if (ok && body.quote) {
+          setQuote({ key: quoteKey, view: body.quote, promoError: body.promoError ?? null, giftCardError: body.giftCardError ?? null });
+          return;
+        }
+        setQuote((prev) => ({
+          key: quoteKey,
+          view: prev?.view ?? { totalCents: 0, lines: [] },
+          promoError: promo ? (body.error ?? "Couldn't check this code. Try again.") : null,
+          giftCardError: giftCode ? (body.error ?? "Couldn't check this gift card. Try again.") : null,
+        }));
       })
-      .catch(() => {});
+      .catch(() => {
+        if (ctrl.signal.aborted) return;
+        setQuote((prev) => ({
+          key: quoteKey,
+          view: prev?.view ?? { totalCents: 0, lines: [] },
+          promoError: promo ? "Couldn't reach the server. Try again." : null,
+          giftCardError: giftCode ? "Couldn't reach the server. Try again." : null,
+        }));
+      });
     return () => ctrl.abort();
   }, [quoteKey, e.slug, start, duration, guests, addonIds, promo, giftCode]);
 
@@ -120,7 +136,7 @@ export function CheckoutForm({
           start,
           duration,
           guests,
-          expectedTotalCents: fresh?.view.totalCents,
+          expectedTotalCents: view?.totalCents,
           addonIds,
           promoCode: promo,
           giftCardCode: giftCode,
@@ -176,9 +192,21 @@ export function CheckoutForm({
   const invalid = (name: string) =>
     fields[name] ? { "aria-invalid": true as const, "aria-describedby": `${id}-${name}-err` } : {};
 
+  const clearError = (ev: FormEvent<HTMLFormElement>) => {
+    const name = (ev.target as HTMLInputElement | null)?.name;
+    if (name && fields[name]) {
+      setFields((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
+    if (formError && !formError.taken) setFormError(null);
+  };
+
   return (
     <div className={`${styles.layout} ${styles.summaryFirst}`}>
-      <form ref={formRef} onSubmit={submit} noValidate aria-describedby={formError ? `${id}-formerr` : undefined}>
+      <form ref={formRef} onSubmit={submit} onInput={clearError} onChange={clearError} noValidate aria-describedby={formError ? `${id}-formerr` : undefined}>
         <div className={styles.card}>
           <div className={styles.section}>
             <h2 className={styles.cardTitle}>Who&rsquo;s coming?</h2>
@@ -524,7 +552,8 @@ function CodeField(props: {
   onRemove: () => void;
 }) {
   const id = useId();
-  const ok = props.applied && !props.error && !props.checking;
+  const trimmed = props.value.trim();
+  const ok = Boolean(props.applied) && !props.error && !props.checking && trimmed === props.applied;
   return (
     <div className="field">
       <label htmlFor={id}>{props.label}</label>
@@ -543,17 +572,18 @@ function CodeField(props: {
           onKeyDown={(ev) => {
             if (ev.key === "Enter") {
               ev.preventDefault();
-              props.onApply();
+              if (ok) props.onRemove();
+              else if (trimmed) props.onApply();
             }
           }}
-          readOnly={Boolean(ok)}
+          readOnly={ok}
         />
-        {props.applied ? (
+        {ok || (props.applied && !trimmed) ? (
           <button type="button" className="btn btn--ghost btn--sm" onClick={props.onRemove}>
             Remove
           </button>
         ) : (
-          <button type="button" className="btn btn--ghost btn--sm" onClick={props.onApply} disabled={!props.value.trim()}>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={props.onApply} disabled={!trimmed || props.checking}>
             Apply
           </button>
         )}

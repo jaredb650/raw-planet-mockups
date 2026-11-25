@@ -9,7 +9,8 @@ import { getDb } from "@/lib/db";
 import { eventRsvps, events } from "@/lib/db/schema";
 import { newToken } from "@/lib/ids";
 import { adminAction, bool, cents, int, optInt, optStr, str } from "@/lib/admin/action";
-import { addDaysKey, fromLocal, localDateKey } from "@/lib/time";
+import { sendEventRsvp } from "@/lib/email/notify";
+import { addDaysKey, fmt, fromLocal, localDateKey } from "@/lib/time";
 import type { ActionResult } from "@/components/admin/types";
 
 const dateKey = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date");
@@ -18,6 +19,14 @@ const optUrl = (fd: FormData, k: string, label: string) => {
   const v = optStr(fd, k);
   if (v) z.url(`${label} must be a full https:// link`).parse(v);
   return v;
+};
+const optImageUrl = (fd: FormData) => {
+  const v = optStr(fd, "imageUrl");
+  if (!v) return null;
+  if (v.startsWith("/")) return v.slice(0, 300);
+  const parsed = z.url("Image must start with / or https://").parse(v);
+  if (!/^https?:\/\//i.test(parsed)) throw new Error("Image must start with / or https://");
+  return parsed.slice(0, 500);
 };
 const slugify = (s: string) =>
   s
@@ -31,18 +40,20 @@ const slugify = (s: string) =>
 
 /** Fields shared by every event in a series (no dates, slug or status). */
 function sharedFields(fd: FormData) {
+  const capacity = optInt(fd, "capacity");
+  if (capacity != null && capacity < 1) throw new Error("Capacity must be at least 1 (or leave blank for no limit).");
   return {
     title: z.string().min(2, "Give the event a title").max(140).parse(str(fd, "title")),
     summary: str(fd, "summary").slice(0, 400),
     description: str(fd, "description").slice(0, 8000),
     venue: str(fd, "venue").slice(0, 140),
     address: str(fd, "address").slice(0, 300),
-    imageUrl: optStr(fd, "imageUrl"),
+    imageUrl: optImageUrl(fd),
     meetupUrl: optUrl(fd, "meetupUrl", "Meetup link"),
     externalTicketUrl: optUrl(fd, "externalTicketUrl", "Ticket link"),
     rsvpEnabled: bool(fd, "rsvpEnabled"),
     priceCents: cents(fd, "price", 0),
-    capacity: optInt(fd, "capacity"),
+    capacity,
   };
 }
 
@@ -100,6 +111,17 @@ export async function updateEventAction(_p: ActionResult, fd: FormData): Promise
       .update(events)
       .set({ ...shared, ...times(fd, day), status, updatedAt: new Date() })
       .where(eq(events.id, id));
+    let notified = 0;
+    if (status === "cancelled" && ev.status !== "cancelled") {
+      const going = await db
+        .select({ id: eventRsvps.id })
+        .from(eventRsvps)
+        .where(and(eq(eventRsvps.eventId, id), eq(eventRsvps.status, "going")));
+      for (const rsvp of going) {
+        await sendEventRsvp(rsvp.id);
+      }
+      notified = going.length;
+    }
     let others = 0;
     if (ev.seriesId && bool(fd, "applyToSeries")) {
       // Same details and clock times for every later event in the series (each keeps its own date).
@@ -116,7 +138,11 @@ export async function updateEventAction(_p: ActionResult, fd: FormData): Promise
       others = later.length;
     }
     revalidatePath("/", "layout");
-    return others ? `Saved, and updated ${others} later date${others === 1 ? "" : "s"} in the series.` : "Saved.";
+    const parts = [
+      others ? `Saved, and updated ${others} later date${others === 1 ? "" : "s"} in the series.` : "Saved.",
+      notified ? `Emailed ${notified} attendee${notified === 1 ? "" : "s"} about the cancellation.` : "",
+    ].filter(Boolean);
+    return parts.join(" ");
   });
 }
 
@@ -129,9 +155,8 @@ export async function extendSeriesAction(_p: ActionResult, fd: FormData): Promis
     const series = await db.select().from(events).where(eq(events.seriesId, seriesId)).orderBy(sql`${events.startAt} desc`).limit(1);
     const last = series[0];
     if (!last) throw new Error("Series not found.");
-    const startClock = new Intl.DateTimeFormat("en-GB", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false });
-    const startT = startClock.format(last.startAt);
-    const endT = startClock.format(last.endAt);
+    const startT = fmt(last.startAt, "HH:mm");
+    const endT = fmt(last.endAt, "HH:mm");
     const lastDay = localDateKey(last.startAt);
     const copy = {
       title: last.title,

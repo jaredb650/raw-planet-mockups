@@ -35,16 +35,29 @@ export const SITE_MEDIA = {
   community: pick("/media/production/prod-09.jpg"),
 };
 
-export function photosFor(e: Pick<PublicExperience, "theme" | "media">): Photo[] {
+import { defaultMetaForSlug, isOriginalExperienceSlug, type ExperienceVideo } from "@/lib/experience-meta";
+
+export function photosFor(e: Pick<PublicExperience, "theme" | "media"> & { slug?: string; meta?: { customized?: boolean } }): Photo[] {
   if (e.media.length) {
     return e.media.map((m) => ({ src: m.src, alt: m.alt, width: m.width ?? 1600, height: m.height ?? 1067 }));
+  }
+  if (e.slug && !isOriginalExperienceSlug(e.slug)) {
+    return [SITE_MEDIA.heroSnap];
   }
   const theme = e.theme as Theme;
   return theme === "dj" ? DJ : theme === "wellness" ? WELLNESS : PRODUCTION;
 }
 
 /** The image used on the alternating home rows and cards. */
-export function cardPhotoFor(theme: Theme): Photo {
+export function cardPhotoFor(target: Theme | (Pick<PublicExperience, "theme" | "media"> & { slug?: string })): Photo {
+  if (typeof target !== "string" && target.media.length) {
+    const m = target.media[0];
+    return { src: m.src, alt: m.alt, width: m.width ?? 1600, height: m.height ?? 1067 };
+  }
+  if (typeof target !== "string" && target.slug && !isOriginalExperienceSlug(target.slug)) {
+    return SITE_MEDIA.heroSnap;
+  }
+  const theme = typeof target === "string" ? target : (target.theme as Theme);
   if (theme === "dj") return pick("/media/dj/dj-04.jpg");
   if (theme === "wellness") return meditationStills[0];
   return pick("/media/production/prod-13.jpg");
@@ -60,6 +73,10 @@ export function reelFor(theme: Theme): VideoItem | undefined {
 
 export function reelsFor(theme: Theme): VideoItem[] {
   return videos.filter((v) => !v.loop && v.tags.includes(theme === "wellness" ? "meditation" : theme));
+}
+
+export function videosForExperience(e: Pick<PublicExperience, "slug" | "meta">): ExperienceVideo[] {
+  return e.meta?.videos ?? defaultMetaForSlug(e.slug).videos;
 }
 
 export const meditationReel = videos.find((v) => v.src === "/media/video/meditation.mp4");

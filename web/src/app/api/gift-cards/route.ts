@@ -24,6 +24,7 @@ const schema = z.object({
   amountCents: z.coerce
     .number()
     .int("Choose a whole-dollar amount.")
+    .refine((v) => v % 100 === 0, "Choose a whole-dollar amount.")
     .min(GIFT_CARD_MIN_CENTS, `The smallest gift card is ${formatMoney(GIFT_CARD_MIN_CENTS)}.`)
     .max(GIFT_CARD_MAX_CENTS, `The largest gift card is ${formatMoney(GIFT_CARD_MAX_CENTS)}.`),
   purchaserName: z.string().trim().min(2, "Tell us your name.").max(120),

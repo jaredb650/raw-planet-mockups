@@ -148,6 +148,17 @@ export function Shell({ badges, logout, children }: { badges: NavBadges; logout:
             <span className={s.brandPill}>Studio admin</span>
           </span>
         </Link>
+        <button
+          type="button"
+          className={s.item}
+          onClick={() => window.dispatchEvent(new Event("rp-open-palette"))}
+          aria-haspopup="dialog"
+          style={{ marginBottom: 4, border: "1px solid var(--a-line)" }}
+        >
+          <Icon name="search" size={16} />
+          <span className={s.itemLabel}>Search</span>
+          <kbd className={a.small} style={{ color: "var(--a-faint)", fontFamily: "inherit" }}>⌘K</kbd>
+        </button>
         {nav}
         {foot}
       </aside>

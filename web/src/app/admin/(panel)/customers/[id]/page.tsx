@@ -1,23 +1,42 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { asc, ne } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { customers } from "@/lib/db/schema";
 import { getCustomerDetail, listTags } from "@/lib/admin/customers";
 import { fmt, fmtTimeRange } from "@/lib/time";
 import { formatMoney } from "@/lib/money";
 import { PageHeader, Panel, Empty } from "@/components/admin/PageHeader";
 import { BookingStatusPill, ExpName, Pill } from "@/components/admin/Pill";
-import { ActionForm, SubmitButton } from "@/components/admin/ActionForm";
+import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/admin/ActionForm";
 import { Icon } from "@/components/admin/Icon";
 import { SOURCE_LABEL, plural, telHref } from "@/components/admin/format";
-import { addTagAction, removeTagAction, updateCustomerAction } from "../actions";
+import { addTagAction, mergeCustomerAction, removeTagAction, updateCustomerAction } from "../actions";
 import a from "@/components/admin/admin.module.css";
 
 export const metadata = { title: "Customer" };
 
-export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CustomerPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireAdmin();
-  const { id } = await params;
-  const [r, allTags] = await Promise.all([getCustomerDetail(id), listTags()]);
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
+  const db = await getDb();
+  const [r, allTags, otherCustomers] = await Promise.all([
+    getCustomerDetail(id),
+    listTags(),
+    db
+      .select({ id: customers.id, name: customers.name, email: customers.email })
+      .from(customers)
+      .where(ne(customers.id, id))
+      .orderBy(asc(customers.name))
+      .limit(200),
+  ]);
   if (!r) notFound();
   const { customer: c } = r;
   const hasEmail = !c.email.endsWith("@rawplanet.invalid");
@@ -40,6 +59,12 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
           </Link>
         }
       />
+
+      {sp.merged === "1" && (
+        <p className={`${a.notice} ${a.noticeOk}`} style={{ marginBottom: 16 }} role="status">
+          Profiles merged. Bookings, tags, and notes have been combined here.
+        </p>
+      )}
 
       <div className={a.split}>
         <div className={a.stack}>
@@ -207,6 +232,18 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
                   <input id="c-name" name="name" className={a.input} defaultValue={c.name} required />
                 </div>
                 <div className={a.field}>
+                  <label htmlFor="c-email">Email</label>
+                  <input
+                    id="c-email"
+                    name="email"
+                    type="email"
+                    className={a.input}
+                    defaultValue={hasEmail ? c.email : ""}
+                    placeholder="guest@example.com"
+                  />
+                  {!hasEmail && <span className={a.hint}>No email on file yet. Add one to send confirmations or campaigns.</span>}
+                </div>
+                <div className={a.field}>
                   <label htmlFor="c-phone">Phone</label>
                   <input id="c-phone" name="phone" type="tel" className={a.input} defaultValue={c.phone ?? ""} />
                 </div>
@@ -234,6 +271,42 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
               </ActionForm>
             </div>
           </Panel>
+          {otherCustomers.length > 0 && (
+            <Panel title="Merge duplicate">
+              <div className={a.panelBody}>
+                <p className={a.hint} style={{ marginTop: 0 }}>
+                  Move all bookings, tags, and notes from this profile into another customer, then delete this duplicate.
+                </p>
+                <ActionForm action={mergeCustomerAction}>
+                  <input type="hidden" name="sourceId" value={c.id} />
+                  <div className={a.field}>
+                    <label htmlFor="c-merge-target">Keep profile</label>
+                    <select id="c-merge-target" name="targetId" className={a.select} defaultValue="" required>
+                      <option value="" disabled>
+                        Choose customer to merge into…
+                      </option>
+                      {otherCustomers.map((o) => {
+                        const label = o.email.endsWith("@rawplanet.invalid") ? `${o.name} (no email)` : `${o.name} — ${o.email}`;
+                        return (
+                          <option key={o.id} value={o.id}>
+                            {label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div className={a.formFoot}>
+                    <ConfirmSubmit
+                      className={`${a.btn} ${a.btnDanger}`}
+                      confirmLabel="Merge & delete this duplicate"
+                    >
+                      Merge into selected
+                    </ConfirmSubmit>
+                  </div>
+                </ActionForm>
+              </div>
+            </Panel>
+          )}
         </div>
       </div>
     </div>
