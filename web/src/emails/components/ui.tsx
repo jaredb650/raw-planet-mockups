@@ -6,17 +6,17 @@ import { Button, Column, Heading, Hr, Link, Row, Section, Text } from "@react-em
 import type { CSSProperties, ReactNode } from "react";
 import { C, FONT_BODY, FONT_DISPLAY, FONT_MONO } from "../theme";
 
-export function Eyebrow({ children, color = C.brickDark }: { children: ReactNode; color?: string }) {
+export function Eyebrow({ children, color = C.purple }: { children: ReactNode; color?: string }) {
   return (
     <Text
       style={{
         margin: "0 0 10px",
-        fontFamily: FONT_BODY,
-        fontSize: "12px",
-        lineHeight: "16px",
-        letterSpacing: "1.5px",
+        fontFamily: FONT_DISPLAY,
+        fontSize: "10.5px",
+        lineHeight: "15px",
+        letterSpacing: "2.2px",
         textTransform: "uppercase",
-        fontWeight: 700,
+        fontWeight: 600,
         color,
       }}
     >
@@ -33,10 +33,10 @@ export function H1({ children }: { children: ReactNode }) {
       style={{
         margin: "0 0 16px",
         fontFamily: FONT_DISPLAY,
-        fontSize: "40px",
-        lineHeight: "42px",
+        fontSize: "25px",
+        lineHeight: "31px",
         fontWeight: 800,
-        letterSpacing: "0.5px",
+        letterSpacing: "-0.3px",
         textTransform: "uppercase",
         color: C.cocoa,
       }}
@@ -53,10 +53,10 @@ export function H2({ children }: { children: ReactNode }) {
       style={{
         margin: "28px 0 10px",
         fontFamily: FONT_DISPLAY,
-        fontSize: "22px",
-        lineHeight: "26px",
+        fontSize: "16px",
+        lineHeight: "22px",
         fontWeight: 800,
-        letterSpacing: "0.5px",
+        letterSpacing: "-0.2px",
         textTransform: "uppercase",
         color: C.cocoa,
       }}
@@ -83,7 +83,7 @@ export function P({ children, muted, small, style }: { children: ReactNode; mute
   );
 }
 
-export function A({ href, children, color = C.brickDark }: { href: string; children: ReactNode; color?: string }) {
+export function A({ href, children, color = C.purple }: { href: string; children: ReactNode; color?: string }) {
   return (
     <Link href={href} style={{ color, textDecoration: "underline", fontWeight: 600 }}>
       {children}
@@ -98,10 +98,10 @@ export function Btn({ href, children, variant = "primary" }: { href: string; chi
       href={href}
       style={{
         display: "inline-block",
-        backgroundColor: primary ? C.brick : C.paper,
-        color: C.cocoa,
-        border: `2px solid ${primary ? C.brick : C.cocoa}`,
-        borderRadius: "999px",
+        backgroundColor: primary ? C.purple : C.white,
+        color: primary ? C.white : C.purple,
+        border: `2px solid ${C.purple}`,
+        borderRadius: "12px",
         padding: "13px 26px",
         fontFamily: FONT_BODY,
         fontSize: "16px",
@@ -125,13 +125,13 @@ export function Gap({ w = 10 }: { w?: number }) {
   return <span style={{ display: "inline-block", width: `${w}px`, height: "10px" }}>&nbsp;</span>;
 }
 
-/** A soft rounded panel, tinted with the experience accent. */
-export function Panel({ children, bg = C.mist, border }: { children: ReactNode; bg?: string; border?: string }) {
+/** A soft rounded panel, tinted with subtle lavender by default. */
+export function Panel({ children, bg = C.mist, border = C.line }: { children: ReactNode; bg?: string; border?: string }) {
   return (
     <Section
       style={{
         backgroundColor: bg,
-        borderRadius: "16px",
+        borderRadius: "14px",
         border: border ? `1px solid ${border}` : undefined,
         padding: "18px 20px",
         margin: "18px 0",
@@ -151,8 +151,9 @@ export function Details({ rows, bg = C.mist, accent }: { rows: DetailRow[]; bg?:
     <Section
       style={{
         backgroundColor: bg,
-        borderRadius: "16px",
-        borderLeft: accent ? `6px solid ${accent}` : undefined,
+        borderRadius: "14px",
+        border: `1px solid ${C.line}`,
+        borderLeft: accent ? `5px solid ${accent}` : `1px solid ${C.line}`,
         padding: "6px 20px",
         margin: "18px 0",
       }}
@@ -206,9 +207,9 @@ export function PriceTable({ lines, totalLabel, total }: { lines: PriceLine[]; t
         </Row>
       ))}
       <Row>
-        <Column style={{ ...cell, borderTop: `2px solid ${C.cocoa}`, paddingTop: "10px", fontWeight: 700, color: C.cocoa }}>{totalLabel}</Column>
+        <Column style={{ ...cell, borderTop: `2px solid ${C.purple}`, paddingTop: "10px", fontWeight: 700, color: C.cocoa }}>{totalLabel}</Column>
         <Column
-          style={{ ...cell, borderTop: `2px solid ${C.cocoa}`, paddingTop: "10px", fontWeight: 700, color: C.cocoa, textAlign: "right", whiteSpace: "nowrap" }}
+          style={{ ...cell, borderTop: `2px solid ${C.purple}`, paddingTop: "10px", fontWeight: 700, color: C.cocoa, textAlign: "right", whiteSpace: "nowrap" }}
         >
           {total}
         </Column>
@@ -222,7 +223,7 @@ export function Bullets({ items }: { items: ReactNode[] }) {
     <Section style={{ margin: "0 0 12px" }}>
       {items.map((it, i) => (
         <Row key={i}>
-          <Column style={{ width: "22px", verticalAlign: "top", fontFamily: FONT_BODY, fontSize: "16px", lineHeight: "26px", color: C.brick, fontWeight: 700 }}>
+          <Column style={{ width: "22px", verticalAlign: "top", fontFamily: FONT_BODY, fontSize: "16px", lineHeight: "26px", color: C.purple, fontWeight: 700 }}>
             ✓
           </Column>
           <Column style={{ verticalAlign: "top", fontFamily: FONT_BODY, fontSize: "16px", lineHeight: "26px", color: C.cocoa, paddingBottom: "4px" }}>
@@ -245,10 +246,10 @@ export function NoteFromAlex({ children, accent, signoff }: { children: ReactNod
       <Text style={{ margin: "0 0 10px", fontFamily: FONT_BODY, fontSize: "16px", lineHeight: "26px", color: C.cocoa, fontStyle: "italic" }}>
         {children}
       </Text>
-      <Text style={{ margin: 0, fontFamily: FONT_DISPLAY, fontSize: "24px", lineHeight: "26px", fontWeight: 800, color: C.cocoa, textTransform: "uppercase" }}>
+      <Text style={{ margin: 0, fontFamily: FONT_DISPLAY, fontSize: "16px", lineHeight: "20px", fontWeight: 800, color: C.purple, textTransform: "uppercase" }}>
         — Alex
       </Text>
-      <Text style={{ margin: "2px 0 0", fontFamily: FONT_BODY, fontSize: "13px", lineHeight: "18px", color: C.inkSoft }}>{signoff}</Text>
+      <Text style={{ margin: "4px 0 0", fontFamily: FONT_BODY, fontSize: "13px", lineHeight: "18px", color: C.inkSoft }}>{signoff}</Text>
     </Section>
   );
 }

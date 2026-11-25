@@ -74,7 +74,7 @@ export function hostBookingAlertEmail(v: HostBookingView): EmailOutput {
         {soon ? (
           <>
             {" "}
-            <Pill bg={C.ochre}>{v.hoursUntil < 24 ? "Within 24h" : "Within 48h"}</Pill>
+            <Pill bg={C.purple} color={C.white}>{v.hoursUntil < 24 ? "Within 24h" : "Within 48h"}</Pill>
           </>
         ) : null}
       </div>
@@ -181,8 +181,8 @@ function SessionRow({ s }: { s: DigestSession }) {
   const accent = accentFor(s.theme);
   return (
     <Row style={{ borderTop: `1px solid ${C.line}` }}>
-      <Column style={{ width: "76px", verticalAlign: "top", padding: "12px 10px 12px 0" }}>
-        <Text style={{ margin: 0, fontFamily: FONT_DISPLAY, fontSize: "20px", lineHeight: "22px", fontWeight: 800, color: C.cocoa }}>{s.time}</Text>
+      <Column style={{ width: "84px", verticalAlign: "top", padding: "12px 10px 12px 0" }}>
+        <Text style={{ margin: 0, fontFamily: FONT_DISPLAY, fontSize: "14px", lineHeight: "18px", fontWeight: 700, color: C.cocoa }}>{s.time}</Text>
       </Column>
       <Column style={{ verticalAlign: "top", padding: "12px 0", borderLeft: `4px solid ${accent.strong}`, paddingLeft: "12px" }}>
         <Text style={{ margin: 0, fontFamily: FONT_BODY, fontSize: "15px", lineHeight: "21px", fontWeight: 700, color: C.cocoa }}>
@@ -229,7 +229,7 @@ function StatRow({ stats }: { stats: { label: string; value: string }[] }) {
       <Row>
         {stats.map((s) => (
           <Column key={s.label} style={{ verticalAlign: "top", paddingRight: "8px" }}>
-            <Text style={{ margin: 0, fontFamily: FONT_DISPLAY, fontSize: "26px", lineHeight: "28px", fontWeight: 800, color: C.cocoa }}>{s.value}</Text>
+            <Text style={{ margin: 0, fontFamily: FONT_DISPLAY, fontSize: "19px", lineHeight: "24px", fontWeight: 700, color: C.cocoa }}>{s.value}</Text>
             <Text style={{ margin: "2px 0 0", fontFamily: FONT_BODY, fontSize: "11px", lineHeight: "14px", letterSpacing: "1px", textTransform: "uppercase", fontWeight: 700, color: C.inkFaint }}>
               {s.label}
             </Text>

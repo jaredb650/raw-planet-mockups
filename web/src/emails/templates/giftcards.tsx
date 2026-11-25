@@ -22,20 +22,20 @@ export type GiftCardView = {
   giftCardsUrl: string;
 };
 
-/** The card itself: cocoa ticket with amount + code. */
+/** The card itself: purple ticket with crisp white amount + code. */
 function CardTicket({ v }: { v: GiftCardView }) {
   const es = v.lang === "es";
   return (
-    <Section style={{ backgroundColor: C.cocoa, borderRadius: "18px", padding: "24px 24px 22px", margin: "20px 0" }}>
-      <Text style={{ margin: 0, fontFamily: FONT_BODY, fontSize: "11px", lineHeight: "14px", letterSpacing: "3px", fontWeight: 700, color: C.ochre, textTransform: "uppercase" }}>
+    <Section style={{ backgroundColor: C.purple, borderRadius: "16px", padding: "24px 24px 22px", margin: "20px 0" }}>
+      <Text style={{ margin: 0, fontFamily: FONT_DISPLAY, fontSize: "10px", lineHeight: "14px", letterSpacing: "2.4px", fontWeight: 600, color: C.powder, textTransform: "uppercase" }}>
         {es ? "Tarjeta de regalo Raw Planet" : "Raw Planet gift card"}
       </Text>
-      <Text style={{ margin: "8px 0 14px", fontFamily: FONT_DISPLAY, fontSize: "56px", lineHeight: "56px", fontWeight: 800, color: C.cream }}>{v.amount}</Text>
+      <Text style={{ margin: "10px 0 16px", fontFamily: FONT_DISPLAY, fontSize: "38px", lineHeight: "42px", fontWeight: 800, color: C.white }}>{v.amount}</Text>
       <Text style={{ margin: 0, fontFamily: FONT_BODY, fontSize: "11px", lineHeight: "14px", letterSpacing: "1.5px", fontWeight: 700, color: C.powder, textTransform: "uppercase" }}>
         {es ? "Código" : "Code"}
       </Text>
       <Text style={{ margin: "4px 0 0", fontFamily: FONT_MONO, fontSize: "20px", lineHeight: "26px", letterSpacing: "2px", fontWeight: 700, color: C.white }}>{v.code}</Text>
-      <Section style={{ height: "6px", lineHeight: "6px", fontSize: "1px", marginTop: "18px", backgroundColor: ACCENTS.production.strong, borderRadius: "3px" }}>&nbsp;</Section>
+      <Section style={{ height: "4px", lineHeight: "4px", fontSize: "1px", marginTop: "18px", backgroundColor: C.purpleLight, borderRadius: "2px" }}>&nbsp;</Section>
     </Section>
   );
 }

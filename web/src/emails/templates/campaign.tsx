@@ -2,7 +2,7 @@
 import { Fragment } from "react";
 import { BUSINESS } from "@/lib/config";
 import { Layout } from "../components/Layout";
-import { A, Actions, Btn, P } from "../components/ui";
+import { A, Actions, Btn, Divider, Eyebrow, H1, P } from "../components/ui";
 import { signoff } from "../copy";
 import { firstName, type Lang } from "../i18n";
 import type { EmailOutput } from "../types";
@@ -20,11 +20,12 @@ function MarketingFooter({ lang, unsubscribeUrl, postalAddress }: Marketing) {
   const es = lang === "es";
   return (
     <>
-      <P small muted style={{ marginTop: "24px" }}>
+      <Divider />
+      <P small muted style={{ marginBottom: "6px" }}>
         {es ? "Recibes este correo porque aceptaste recibir novedades de Raw Planet. " : "You're getting this because you said yes to news from Raw Planet. "}
         <A href={unsubscribeUrl}>{es ? "Darme de baja" : "Unsubscribe"}</A>
       </P>
-      <P small muted>
+      <P small muted style={{ marginBottom: 0 }}>
         {BUSINESS.legalName}, {postalAddress ?? (es ? "(falta la dirección postal)" : "(mailing address not set yet)")}
       </P>
     </>
@@ -35,9 +36,12 @@ export type CampaignView = Marketing & { subject: string; body: string };
 
 export function campaignEmail(v: CampaignView): EmailOutput {
   const es = v.lang === "es";
-  const paragraphs = v.body.trim().split(/\n\s*\n/);
+  const paragraphs = v.body.trim().split(/\n\s*\n/).filter(Boolean);
+  const headline = v.subject.trim();
   const element = (
-    <Layout lang={v.lang} preview={v.body.trim().slice(0, 90)}>
+    <Layout lang={v.lang} theme="production" preview={v.body.trim().slice(0, 90)}>
+      <Eyebrow>{es ? "Desde el estudio" : "From the studio"}</Eyebrow>
+      {headline ? <H1>{headline}</H1> : null}
       {paragraphs.map((p, i) => (
         <P key={i}>
           {p.split("\n").map((line, j) => (
@@ -51,7 +55,9 @@ export function campaignEmail(v: CampaignView): EmailOutput {
       <Actions>
         <Btn href={v.bookUrl}>{es ? "Reservar una sesión" : "Book a session"}</Btn>
       </Actions>
-      <P muted>{signoff(v.lang)}</P>
+      <P muted style={{ marginTop: "18px" }}>
+        {signoff(v.lang)}
+      </P>
       <MarketingFooter {...v} />
     </Layout>
   );
@@ -65,7 +71,9 @@ export function winBackEmail(v: WinBackView): EmailOutput {
   const name = firstName(v.name);
   const subject = es ? `Hace tiempo que no nos vemos, ${name}` : `It's been a while, ${name}`;
   const element = (
-    <Layout lang={v.lang} preview={es ? "El estudio sigue aquí cuando quieras volver." : "The studio's here whenever you want to come back."}>
+    <Layout lang={v.lang} theme="production" preview={es ? "El estudio sigue aquí cuando quieras volver." : "The studio's here whenever you want to come back."}>
+      <Eyebrow>{es ? "Desde el estudio" : "From the studio"}</Eyebrow>
+      <H1>{subject}</H1>
       <P>{es ? `Hola, ${name}:` : `Hi ${name},`}</P>
       <P>
         {es
@@ -75,7 +83,9 @@ export function winBackEmail(v: WinBackView): EmailOutput {
       <Actions>
         <Btn href={v.bookUrl}>{es ? "Reservar otra sesión" : "Book another session"}</Btn>
       </Actions>
-      <P muted>{signoff(v.lang)}</P>
+      <P muted style={{ marginTop: "18px" }}>
+        {signoff(v.lang)}
+      </P>
       <MarketingFooter {...v} />
     </Layout>
   );
