@@ -7,7 +7,7 @@
 export const BUSINESS = {
   name: "Raw Planet Experiences",
   shortName: "Raw Planet",
-  legalName: "Raw Planet Media LLC",
+  legalName: "Raw Planet Experiences LLC",
   host: "Alex Gentil",
   timeZone: "America/New_York",
   city: "New York City",
@@ -29,12 +29,19 @@ export function siteUrl(path = ""): string {
 /** Integration switches: each degrades to a local fallback when unset. */
 export const integrations = {
   stripe: () => Boolean(process.env.STRIPE_SECRET_KEY),
+  stripeTestMode: () => Boolean(process.env.STRIPE_SECRET_KEY?.startsWith("sk_test_")),
   calcom: () => Boolean(process.env.CALCOM_API_KEY),
   resend: () => Boolean(process.env.RESEND_API_KEY),
   turnstile: () => Boolean(process.env.TURNSTILE_SECRET_KEY && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
   /** Fake "pay" button when Stripe isn't set up. Never in production unless explicitly allowed (e.g. a demo deploy). */
   testCheckout: () => !process.env.STRIPE_SECRET_KEY && (process.env.NODE_ENV !== "production" || process.env.ALLOW_TEST_CHECKOUT === "1"),
 };
+
+/** Direct link into the Stripe Dashboard (automatically uses /test when STRIPE_SECRET_KEY is a test key). */
+export function stripeDashboardUrl(path = "balance/overview"): string {
+  const clean = path.replace(/^\//, "");
+  return `https://dashboard.stripe.com/${integrations.stripeTestMode() ? "test/" : ""}${clean}`;
+}
 
 /** Minutes a slot stays held while the guest is paying (Stripe minimum is 30). */
 export const CHECKOUT_HOLD_MINUTES = 30;

@@ -6,7 +6,9 @@
 .body { max-width: 760px; }
 .body section { padding: 0 0 56px; margin-bottom: 56px; border-bottom: 1.5px solid var(--line); }
 .body h2 { font-size: clamp(2rem, 3.4vw, 2.8rem); margin-bottom: 24px; }
-.body ul { margin: 0; padding-left: 1.2em; display: grid; gap: 12px; }
+.body h3 { font-size: 1.15rem; font-weight: 700; margin: 28px 0 10px; }
+.body p { margin: 0 0 14px; line-height: 1.65; }
+.body ul { margin: 0 0 16px; padding-left: 1.2em; display: grid; gap: 12px; }
 .body li::marker { color: var(--accent); }
 .tableWrap { position: relative; overflow-x: auto; margin-bottom: 28px; border: 2px solid var(--ink); border-radius: var(--r-md); }
 .table { width: 100%; border-collapse: collapse; font-size: 0.98rem; }
@@ -14,8 +16,9 @@
 .table tbody tr:last-child th, .table tbody tr:last-child td { border-bottom: 0; }
 .table thead th { background: var(--mist); font-size: 0.82rem; letter-spacing: 0.05em; text-transform: uppercase; }
 .table tbody th a { font-weight: 700; }
-.template { font-size: 0.9rem; color: var(--ink-soft); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.updated { color: var(--ink-soft); }
+.addressBox { padding: 18px 20px; border: 1.5px solid var(--line); border-radius: var(--r-md); background: var(--mist); margin: 16px 0; }
+.addressBox p:last-child { margin-bottom: 0; }
+.updated { color: var(--ink-soft); font-size: 0.95rem; }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; gap: 24px; }
   .toc { position: static; }

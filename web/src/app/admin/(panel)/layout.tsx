@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/auth";
 import { getBadges } from "@/lib/admin/badges";
+import { integrations, stripeDashboardUrl } from "@/lib/config";
 import { Shell } from "@/components/admin/Shell";
 import { logout } from "../login/actions";
 
@@ -9,6 +10,8 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   return (
     <Shell
       logout={logout}
+      stripeUrl={stripeDashboardUrl("balance/overview")}
+      stripeTestMode={integrations.stripeTestMode()}
       badges={{
         today: b.deliverables + b.calendarErrors,
         inquiries: b.inquiries,

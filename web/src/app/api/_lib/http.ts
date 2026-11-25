@@ -13,9 +13,11 @@ import { BookingError } from "@/lib/booking/service";
 import { PricingError } from "@/lib/booking/pricing";
 
 export function clientIp(headers: Headers): string {
+  const edge = headers.get("x-vercel-forwarded-for") ?? headers.get("cf-connecting-ip") ?? headers.get("x-real-ip");
+  if (edge) return edge.split(",")[0]!.trim();
   const fwd = headers.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0]!.trim();
-  return headers.get("x-real-ip") ?? headers.get("cf-connecting-ip") ?? "local";
+  return "local";
 }
 
 type Bucket = { tokens: number; at: number };

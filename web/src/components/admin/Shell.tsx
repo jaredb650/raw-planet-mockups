@@ -75,7 +75,19 @@ function Badge({ n, k }: { n?: number; k?: string }) {
   );
 }
 
-export function Shell({ badges, logout, children }: { badges: NavBadges; logout: () => Promise<void>; children: React.ReactNode }) {
+export function Shell({
+  badges,
+  logout,
+  stripeUrl,
+  stripeTestMode,
+  children,
+}: {
+  badges: NavBadges;
+  logout: () => Promise<void>;
+  stripeUrl?: string;
+  stripeTestMode?: boolean;
+  children: React.ReactNode;
+}) {
   const pathname = usePathname() ?? "/admin";
   const [menuOpen, setMenuOpen] = useState(false);
   const moreCount = ALL.filter((i) => !TABS.includes(i.href) && i.badgeKey).reduce((n, i) => n + (badges[i.badgeKey!] ?? 0), 0);
@@ -123,6 +135,13 @@ export function Shell({ badges, logout, children }: { badges: NavBadges; logout:
 
   const foot = (
     <div className={s.foot}>
+      {stripeUrl && (
+        <a href={stripeUrl} className={s.item} target="_blank" rel="noopener noreferrer">
+          <Icon name="pricing" size={17} />
+          <span className={s.itemLabel}>Stripe payouts</span>
+          {stripeTestMode && <span className={s.badge} title="Stripe is currently in test mode">Test</span>}
+        </a>
+      )}
       <a href="/" className={s.item} target="_blank" rel="noreferrer">
         <Icon name="external" size={17} />
         <span className={s.itemLabel}>View website</span>

@@ -1,11 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { Turnstile, resetTurnstile } from "@/components/Turnstile";
 import { login, type LoginState } from "./actions";
 import a from "@/components/admin/admin.module.css";
 
 export function LoginForm({ next }: { next: string }) {
   const [state, action, pending] = useActionState<LoginState, FormData>(login, null);
+  useEffect(() => {
+    if (state?.error) resetTurnstile();
+  }, [state]);
+
   return (
     <form action={action} className={a.form}>
       <input type="hidden" name="next" value={next} />
@@ -23,6 +28,7 @@ export function LoginForm({ next }: { next: string }) {
           aria-describedby={state?.error ? "login-error" : undefined}
         />
       </div>
+      <Turnstile />
       <p id="login-error" role="alert" className={`${a.msg} ${a.msgErr}`} hidden={!state?.error}>
         {state?.error}
       </p>

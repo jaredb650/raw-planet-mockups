@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { getReport, parseRange, RANGE_PRESETS, type Bar } from "@/lib/admin/reports";
+import { integrations, stripeDashboardUrl } from "@/lib/config";
 import { fmt, fromLocal } from "@/lib/time";
 import { formatMoney } from "@/lib/money";
 import { PageHeader, Panel, Empty } from "@/components/admin/PageHeader";
 import { Bars, OccupancyHeatmap } from "@/components/admin/Charts";
 import { Icon } from "@/components/admin/Icon";
+import { Pill } from "@/components/admin/Pill";
 import { plural } from "@/components/admin/format";
 import a from "@/components/admin/admin.module.css";
 import s from "@/components/admin/insights.module.css";
@@ -33,6 +35,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const rev = r.revenue;
   const occupancyRate = r.occupancy.openHours ? r.occupancy.bookedHours / r.occupancy.openHours : null;
   const held = r.rates.sessions - r.rates.cancelled;
+  const stripeTest = integrations.stripeTestMode();
+  const stripeBalanceUrl = stripeDashboardUrl("balance/overview");
 
   return (
     <div className={a.page}>
@@ -40,9 +44,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         title="Reports"
         sub={`${dateLabel(range.from)} to ${dateLabel(range.to)}`}
         actions={
-          <a href={`/api/admin/export/report.csv?${q}`} className={a.btn} download>
-            <Icon name="download" size={16} /> Export CSV
-          </a>
+          <>
+            <a href={`/api/admin/export/report.csv?${q}`} className={a.btn} download>
+              <Icon name="download" size={16} /> Export CSV
+            </a>
+            <a href={stripeBalanceUrl} target="_blank" rel="noopener noreferrer" className={`${a.btn} ${a.btnStripe}`}>
+              <Icon name="pricing" size={17} /> Stripe balance &amp; payouts <Icon name="external" size={15} />
+            </a>
+          </>
         }
       />
 
@@ -92,6 +101,23 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             {r.repeat.repeat} of {plural(r.repeat.guests, "guest")} had been before or came twice
           </div>
         </div>
+      </div>
+
+      <div className={`${a.section} ${a.stripeBar}`}>
+        <div className={a.stripeBarText}>
+          <div className={a.stripeBarTitle}>
+            <span>Balance, bank payouts &amp; fees</span>
+            {stripeTest && <Pill tone="warning">Stripe test mode</Pill>}
+          </div>
+          <p className={a.hint}>
+            {stripeTest
+              ? "Stripe is currently running on test keys — no real cards are charged until live keys are switched on in Vercel."
+              : "View your live Stripe balance, upcoming bank transfers, processing fees, disputes, and tax forms directly in Stripe."}
+          </p>
+        </div>
+        <a href={stripeBalanceUrl} target="_blank" rel="noopener noreferrer" className={`${a.btn} ${a.btnStripe}`}>
+          Open Stripe Dashboard <Icon name="external" size={16} />
+        </a>
       </div>
 
       <div className={`${a.section} ${a.grid3}`}>

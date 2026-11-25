@@ -238,15 +238,17 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             <div>
               <h3>Gift cards</h3>
               <p>A gift card for any of the experiences, used whenever suits them.</p>
+            </div>
+            <div className={styles.extraFoot}>
               <ul className={styles.chips} aria-label="Gift card features">
                 <li>Any experience</li>
                 <li>Sent by email</li>
                 <li>Pick the delivery day</li>
               </ul>
+              <Link href="/gift-cards" className="btn btn--light">
+                Buy a gift card
+              </Link>
             </div>
-            <Link href="/gift-cards" className="btn btn--light">
-              Buy a gift card
-            </Link>
           </div>
           <div className={`${styles.extra} ${styles.extraGroup}`}>
             <div>
@@ -255,6 +257,8 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
                 Want the room to yourselves? Any experience can be booked as a completely private session at a premium rate. Team outings,
                 birthdays and company events are welcome too.
               </p>
+            </div>
+            <div className={styles.extraFoot}>
               <ul className={styles.chips} aria-label="Private session rates">
                 {privateRates.map((e) => (
                   <li key={e.slug}>
@@ -263,10 +267,10 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
                 ))}
                 <li>Meditation: ask us</li>
               </ul>
+              <Link href="/groups" className="btn btn--light">
+                Ask about a private session
+              </Link>
             </div>
-            <Link href="/groups" className="btn btn--light">
-              Ask about a private session
-            </Link>
           </div>
         </div>
       </section>

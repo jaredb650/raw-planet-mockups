@@ -60,6 +60,8 @@ export function SiteFooter({ experiences }: { experiences: { slug: string; short
           <span>New York City</span>
           <Link href="/policies#privacy">Privacy</Link>
           <Link href="/policies#terms">Terms</Link>
+          <Link href="/policies#cookies">Cookies</Link>
+          <Link href="/policies#accessibility">Accessibility</Link>
         </div>
       </div>
     </footer>

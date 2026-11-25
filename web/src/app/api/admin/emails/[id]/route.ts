@@ -16,7 +16,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   return new Response(m.html ?? "<p style='font-family:sans-serif'>No copy of this email was kept.</p>", {
     headers: {
       "content-type": "text/html; charset=utf-8",
-      "content-security-policy": "sandbox; default-src 'none'; img-src * data:; style-src 'unsafe-inline' *; font-src *",
+      "content-security-policy": "sandbox; default-src 'none'; img-src * data:; style-src 'unsafe-inline' *; font-src *; frame-ancestors 'self'",
       "x-content-type-options": "nosniff",
       "cache-control": "no-store",
     },

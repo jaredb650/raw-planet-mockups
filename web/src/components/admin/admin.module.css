@@ -193,6 +193,21 @@
 .btnPrimary:hover:not(:disabled) { background: #69458c; border-color: #69458c; }
 .btnAccent { background: var(--orange); border-color: var(--orange); color: var(--cocoa); }
 .btnAccent:hover:not(:disabled) { background: #c8673a; border-color: #c8673a; }
+.btnStripe {
+  background: #635bff; border-color: #635bff; color: #fff;
+  min-height: 44px; padding: 0 18px; font-size: 14.5px; font-weight: 700;
+  box-shadow: 0 2px 6px rgba(99, 91, 255, 0.28);
+}
+.btnStripe:hover:not(:disabled) { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+.stripeBar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 18px 20px; border-radius: var(--a-radius);
+  background: linear-gradient(135deg, #f3f1ff 0%, #ffffff 72%);
+  border: 1px solid #d4d0ff;
+  box-shadow: 0 1px 3px rgba(99, 91, 255, 0.08);
+}
+.stripeBarText { min-width: 0; flex: 1 1 280px; }
+.stripeBarTitle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 700 16px/1.3 var(--body); color: var(--ink); margin: 0 0 4px; }
 .btnDanger { background: var(--a-panel); border-color: #e3b5a9; color: var(--danger); }
 .btnDanger:hover:not(:disabled) { background: var(--danger-soft); border-color: var(--danger); }
 .btnDangerSolid { background: var(--danger); border-color: var(--danger); color: #fff; }

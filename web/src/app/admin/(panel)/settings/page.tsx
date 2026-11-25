@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { getSetting, getStringSetting } from "@/lib/automation/settings";
-import { BUSINESS, hostNotificationEmail, integrations, siteUrl } from "@/lib/config";
+import { BUSINESS, hostNotificationEmail, integrations, siteUrl, stripeDashboardUrl } from "@/lib/config";
 import { fmt } from "@/lib/time";
 import { PageHeader, Panel } from "@/components/admin/PageHeader";
 import { ActionForm, SubmitButton } from "@/components/admin/ActionForm";
+import { Icon } from "@/components/admin/Icon";
 import { Pill } from "@/components/admin/Pill";
 import { logout } from "../../login/actions";
 import { runAutomationsAction, saveContactAction, saveMarketingAction } from "./actions";
@@ -24,14 +25,21 @@ export default async function SettingsPage() {
     getSetting<{ at: string; ok: boolean }>("lastCronRun"),
   ]);
   const env = (k: string) => Boolean(process.env[k]);
-  const checks: { name: string; on: boolean; what: string; off: string }[] = [
+  const stripeTest = integrations.stripeTestMode();
+  const stripeReady = integrations.stripe() && env("STRIPE_WEBHOOK_SECRET");
+  const checks: { name: string; on: boolean; warn?: string; what: string; off: string; href?: string; hrefLabel?: string }[] = [
     {
       name: "Stripe payments",
-      on: integrations.stripe() && env("STRIPE_WEBHOOK_SECRET"),
-      what: "Guests pay by card at checkout.",
+      on: stripeReady,
+      warn: stripeReady && stripeTest ? "Test mode" : undefined,
+      what: stripeTest
+        ? "Connected with Stripe test keys (sk_test_). Switch to live keys in Vercel before accepting real payments."
+        : "Guests pay by card at checkout. Manage balance, bank payouts, and refunds in Stripe.",
       off: integrations.stripe()
         ? "STRIPE_SECRET_KEY is set, but STRIPE_WEBHOOK_SECRET is missing (webhooks won’t verify)."
         : "Test checkout only. Add STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET.",
+      href: stripeDashboardUrl("balance/overview"),
+      hrefLabel: "Open Stripe",
     },
     { name: "Cal.com + Google Calendar", on: integrations.calcom(), what: "Every booking checks and lands on your Google Calendar.", off: "Add CALCOM_API_KEY and each experience’s event type ID." },
     { name: "Email sending (Resend)", on: integrations.resend(), what: "Confirmations, reminders and follow-ups go out.", off: "Emails are only logged. Add RESEND_API_KEY." },
@@ -123,7 +131,20 @@ export default async function SettingsPage() {
                   <div className={a.listTitle}>{c.name}</div>
                   <div className={a.listMeta}>{c.on ? c.what : c.off}</div>
                 </div>
-                {c.on ? <Pill tone="success">On</Pill> : <Pill tone="warning">Not set up</Pill>}
+                <div className={a.row}>
+                  {c.href && (
+                    <a href={c.href} target="_blank" rel="noopener noreferrer" className={`${a.btn} ${a.btnSm}`}>
+                      {c.hrefLabel ?? "Open"} <Icon name="external" size={14} />
+                    </a>
+                  )}
+                  {c.warn ? (
+                    <Pill tone="warning">{c.warn}</Pill>
+                  ) : c.on ? (
+                    <Pill tone="success">On</Pill>
+                  ) : (
+                    <Pill tone="warning">Not set up</Pill>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

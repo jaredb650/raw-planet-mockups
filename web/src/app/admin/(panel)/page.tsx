@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { getAttention, getKpis, getSessions, weekStartKey } from "@/lib/admin/dashboard";
 import { getOpportunities } from "@/lib/admin/opportunities";
+import { integrations, stripeDashboardUrl } from "@/lib/config";
 import { addDaysKey, fmt, fmtDateLong, fmtTime, fromLocal, localDateKey, todayKey } from "@/lib/time";
 import { formatMoney } from "@/lib/money";
 import { waiverUrlFor } from "@/lib/waiver-token";
@@ -11,6 +12,7 @@ import { RevenueBars } from "@/components/admin/RevenueBars";
 import { ActionForm, SubmitButton } from "@/components/admin/ActionForm";
 import { CopyButton } from "@/components/admin/CopyButton";
 import { Icon } from "@/components/admin/Icon";
+import { Pill } from "@/components/admin/Pill";
 import { SOURCE_LABEL, plural } from "@/components/admin/format";
 import { calendarResolvedAction } from "./bookings/actions";
 import type { BookingSource } from "@/lib/db/schema";
@@ -271,9 +273,26 @@ export default async function TodayPage() {
       </div>
 
       <div className={`${a.section} ${a.grid2}`}>
-        <Panel title="Net revenue, last 30 days" action={<Link className={a.panelLink} href="/admin/bookings?view=past">Past bookings</Link>}>
+        <Panel
+          title="Net revenue, last 30 days"
+          action={
+            <span className={a.row}>
+              <Link className={a.panelLink} href="/admin/reports">Reports</Link>
+              <Link className={a.panelLink} href="/admin/bookings?view=past">Past bookings</Link>
+            </span>
+          }
+        >
           <div className={a.panelBody}>
             <RevenueBars data={kpis.daily} />
+          </div>
+          <div className={`${a.panelFoot} ${a.rowBetween}`}>
+            <span className={a.row}>
+              <span className={a.muted}>Balance, bank payouts &amp; fees</span>
+              {integrations.stripeTestMode() && <Pill tone="warning">Test mode</Pill>}
+            </span>
+            <a href={stripeDashboardUrl("balance/overview")} target="_blank" rel="noopener noreferrer" className={`${a.btn} ${a.btnStripe}`}>
+              <Icon name="pricing" size={16} /> Manage payouts in Stripe <Icon name="external" size={15} />
+            </a>
           </div>
         </Panel>
         <Panel title="Where bookings come from" count="last 90 days">

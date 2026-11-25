@@ -107,7 +107,7 @@
 .book h2 { margin-top: 12px; max-width: 12ch; }
 
 /* Extras */
-.extras { padding: 24px 0 0; background: linear-gradient(var(--powder) 0 50%, var(--bg) 50%); }
+.extras { padding: 24px 0; background: linear-gradient(var(--powder) 0 50%, var(--bg) 50%); }
 .extrasGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .extra {
   border-radius: var(--r-lg);
@@ -116,14 +116,15 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 28px;
+  gap: 24px;
 }
 .extra h3 { font-size: clamp(2.4rem, 4vw, 3.4rem); margin-bottom: 16px; }
-.extra p { opacity: 0.92; }
-.extra :global(.btn) { align-self: flex-start; }
+.extra p { opacity: 0.92; margin: 0; }
+.extra :global(.btn) { justify-self: start; }
 .extraGift { background: var(--brick); color: var(--cocoa); }
 .extraGroup { background: var(--purple); color: #fff; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 20px 0 0; padding: 0; }
+.extraFoot { display: grid; gap: 24px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
 .chips li { background: rgba(255, 255, 255, 0.14); border-radius: var(--r-pill); padding: 0.45em 1em; font-weight: 700; font-size: 0.92rem; }
 .extra :focus-visible { outline-color: currentColor; }
 
