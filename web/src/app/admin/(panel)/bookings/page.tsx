@@ -147,6 +147,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                     </td>
                     <td>
                       <span className={a.row} style={{ gap: 4 }}>
+                        {b.isPrivate && <Pill tone="info">Private</Pill>}
                         <BookingStatusPill status={b.status} />
                         {b.paymentStatus !== "paid" && b.paymentStatus !== "not_required" && <PaymentPill status={b.paymentStatus} />}
                         {b.source === "direct" && b.paymentStatus === "not_required" && <Pill tone="neutral">Free</Pill>}

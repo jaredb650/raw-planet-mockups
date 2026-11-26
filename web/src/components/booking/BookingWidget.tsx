@@ -14,13 +14,15 @@ import { BookingPicker } from "./BookingPicker";
 export function BookingWidget({
   experiences,
   initialSlug,
+  initialPrivate,
   compact,
 }: {
   experiences: PublicExperience[];
   initialSlug?: string;
+  initialPrivate?: boolean;
   compact?: boolean;
 }) {
-  return <BookingPicker experiences={experiences} initialSlug={initialSlug} compact={compact} />;
+  return <BookingPicker experiences={experiences} initialSlug={initialSlug} initialPrivate={initialPrivate} compact={compact} />;
 }
 
 export default BookingWidget;

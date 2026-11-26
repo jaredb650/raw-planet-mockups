@@ -45,6 +45,7 @@ import {
 } from "@/lib/integrations/calcom";
 import { createCheckoutSession, expireCheckoutSession, refundPayment } from "@/lib/integrations/stripe";
 import * as notify from "@/lib/email/notify";
+import { getExperienceMeta } from "@/lib/experience-meta-db";
 
 export class BookingError extends Error {
   constructor(
@@ -154,6 +155,7 @@ export type QuoteRequest = {
   start: string;
   durationMinutes: number;
   guests: number;
+  isPrivate?: boolean;
   addonIds?: string[];
   promoCode?: string | null;
   giftCardCode?: string | null;
@@ -196,11 +198,14 @@ export async function buildQuote(
     }
   }
 
+  const meta = req.isPrivate ? await getExperienceMeta(experience.id, experience.slug) : null;
   const now = new Date();
   const quote = computeQuote({
     experience,
     durationMinutes: req.durationMinutes,
     guests: req.guests,
+    isPrivate: Boolean(req.isPrivate),
+    privateRateCents: meta?.privateRateCents ?? null,
     addons: addonRows.map((a) => ({ addon: a })),
     promo: promo ?? null,
     giftCardBalanceCents: giftCard?.balanceCents ?? 0,
@@ -279,7 +284,14 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
         throw new BookingError("That gift card no longer has enough balance for this booking.", "invalid");
       }
     }
-    const free = await isSlotFree(tx, { experience, start, durationMinutes: input.durationMinutes, guests: input.guests });
+    const isPrivate = Boolean(input.isPrivate);
+    const free = await isSlotFree(tx, {
+      experience,
+      start,
+      durationMinutes: input.durationMinutes,
+      guests: input.guests,
+      isPrivate,
+    });
     if (!free.ok) throw new BookingError("Sorry, that time was just taken. Please pick another.", "slot_unavailable");
     joinsSession = free.shared;
 
@@ -301,6 +313,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
         endAt: end,
         durationMinutes: input.durationMinutes,
         guests: input.guests,
+        isPrivate,
         resourceGroup: experience.resourceGroup,
         contactName: input.contact.name.trim(),
         contactEmail: input.contact.email.trim().toLowerCase(),
@@ -337,7 +350,10 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
         })),
       );
     }
-    await logEvent(tx, b.id, "created", "Booking started — waiting for payment", { actor: "customer", public: false });
+    await logEvent(tx, b.id, "created", isPrivate ? "Private booking started — waiting for payment" : "Booking started — waiting for payment", {
+      actor: "customer",
+      public: false,
+    });
     if (input.marketingOptIn) await logEvent(tx, b.id, "marketing_opt_in", "Guest ticked “send me news” at checkout", { actor: "customer" });
     return b;
   });
@@ -379,23 +395,24 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
   }
 
   const when = `${fmtDateShort(start)}, ${fmtTimeRange(start, end)} (New York time)`;
+  const privateTag = booking.isPrivate ? " (Private)" : "";
   let session: { id: string; url: string };
   try {
     session = await createCheckoutSession({
       kind: "booking",
       refId: booking.id,
       email: booking.contactEmail,
-      description: `${experience.name} · ${when} · ${booking.code}`,
+      description: `${experience.name}${privateTag} · ${when} · ${booking.code}`,
       lines: [
         {
-          name: `${experience.name} — ${fmtDuration(input.durationMinutes)}`,
-          description: `${when} · ${input.guests} guest${input.guests > 1 ? "s" : ""} · ${booking.code}`,
+          name: `${experience.name}${privateTag} — ${fmtDuration(input.durationMinutes)}`,
+          description: `${when} · ${input.guests} guest${input.guests > 1 ? "s" : ""}${booking.isPrivate ? " · Private session" : ""} · ${booking.code}`,
           // Charge the final amount as one line so discounts/gift cards reconcile exactly.
           amountCents: quote.totalCents,
         },
       ],
       successUrl: siteUrl(`/booking/${booking.code}?t=${booking.manageToken}&session_id={CHECKOUT_SESSION_ID}`),
-      cancelUrl: siteUrl(`/book/${experience.slug}?cancelled=${booking.code}&t=${booking.manageToken}`),
+      cancelUrl: siteUrl(`/book/${experience.slug}?cancelled=${booking.code}&t=${booking.manageToken}${booking.isPrivate ? "&private=1" : ""}`),
       expiresInMinutes: CHECKOUT_HOLD_MINUTES,
     });
   } catch (err) {
@@ -472,6 +489,7 @@ export async function fulfillBooking(
         start: b.startAt,
         durationMinutes: b.durationMinutes,
         guests: b.guests,
+        isPrivate: b.isPrivate,
         ignoreBookingId: b.id,
         skipNotice: true,
       });
@@ -893,6 +911,7 @@ export async function rescheduleBooking(
         start: newStart,
         durationMinutes: duration,
         guests: b.guests,
+        isPrivate: b.isPrivate,
         ignoreBookingId: b.id,
         skipNotice: opts.by === "admin",
       });
@@ -1058,6 +1077,7 @@ export async function createManualBooking(input: {
   start: string;
   durationMinutes: number;
   guests: number;
+  isPrivate?: boolean;
   contact: { name: string; email: string; phone?: string | null };
   source: BookingSource;
   totalCents?: number;
@@ -1075,11 +1095,19 @@ export async function createManualBooking(input: {
   const start = new Date(input.start);
   const end = new Date(start.getTime() + input.durationMinutes * 60_000);
   const email = input.contact.email?.trim().toLowerCase() || `no-email+${Date.now()}@rawplanet.invalid`;
+  const isPrivate = Boolean(input.isPrivate);
 
   const booking = await db.transaction(async (tx) => {
     await lockResource(tx, experience.resourceGroup);
     if (!input.allowConflicts) {
-      const free = await isSlotFree(tx, { experience, start, durationMinutes: input.durationMinutes, guests: input.guests, skipNotice: true });
+      const free = await isSlotFree(tx, {
+        experience,
+        start,
+        durationMinutes: input.durationMinutes,
+        guests: input.guests,
+        isPrivate,
+        skipNotice: true,
+      });
       if (!free.ok) throw new BookingError(`That time conflicts with another booking or block (${free.reason}).`, "slot_unavailable");
     }
     const customerId = await upsertCustomer(tx, { ...input.contact, email, language: input.language });
@@ -1099,6 +1127,7 @@ export async function createManualBooking(input: {
         endAt: end,
         durationMinutes: input.durationMinutes,
         guests: input.guests,
+        isPrivate,
         resourceGroup: experience.resourceGroup,
         contactName: input.contact.name,
         contactEmail: email,

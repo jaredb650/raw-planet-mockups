@@ -25,7 +25,14 @@ import { calAvailableStarts } from "@/lib/integrations/calcom";
 import { addDaysKey, dateRange, fromLocal, localDateKey, overlaps, weekdayOf } from "@/lib/time";
 import { pickPriceRule } from "./pricing";
 
-export type Interval = { start: Date; end: Date; kind?: "booking" | "hold" | "block"; experienceId?: string; guests?: number };
+export type Interval = {
+  start: Date;
+  end: Date;
+  kind?: "booking" | "hold" | "block";
+  experienceId?: string;
+  guests?: number;
+  isPrivate?: boolean;
+};
 
 export type Slot = {
   start: string; // ISO
@@ -55,10 +62,13 @@ export function computeDaySlots(opts: {
   now: Date;
   /** Cal.com-approved starts (epoch ms). null = Cal.com not in use. */
   externalStarts?: Set<number> | null;
-  /** Seats the party needs. Defaults to the experience minimum. */
+  /** Seats the party needs. Defaults to the experience minimum (or 1 for private sessions). */
   guests?: number;
+  /** True when checking availability for a private buyout (requires a completely empty slot). */
+  isPrivate?: boolean;
 }): DayAvailability {
   const { experience: e, dateKey, durationMinutes, busy, now } = opts;
+  const isPrivate = Boolean(opts.isPrivate);
   const windows = e.schedule[String(weekdayOf(dateKey))] ?? [];
   const slots: Slot[] = [];
   const earliest = new Date(now.getTime() + e.leadTimeHours * 3600_000);
@@ -82,8 +92,15 @@ export function computeDaySlots(opts: {
           overlaps(new Date(start.getTime() - bufferMs), new Date(end.getTime() + bufferMs), b.start, b.end),
         );
         // Same experience, same start & end = the same shared session: it takes seats instead of blocking.
+        // Private bookings never share: neither an incoming private booking nor an existing private booking can join.
         const joins = (b: Interval) =>
-          Boolean(e.id) && b.kind !== "block" && b.experienceId === e.id && b.start.getTime() === t && b.end.getTime() === end.getTime();
+          !isPrivate &&
+          !b.isPrivate &&
+          Boolean(e.id) &&
+          b.kind !== "block" &&
+          b.experienceId === e.id &&
+          b.start.getTime() === t &&
+          b.end.getTime() === end.getTime();
         const blocker = hits.find((b) => !joins(b));
         const taken = hits.reduce((n, b) => n + (b.guests ?? 0), 0);
         if (blocker) reason = blocker.kind === "block" ? "blocked" : "booked";
@@ -119,6 +136,7 @@ export async function loadBusy(
       holdExpiresAt: bookings.holdExpiresAt,
       experienceId: bookings.experienceId,
       guests: bookings.guests,
+      isPrivate: bookings.isPrivate,
     })
     .from(bookings)
     .where(
@@ -152,6 +170,7 @@ export async function loadBusy(
         kind: r.status === "pending_payment" ? ("hold" as const) : ("booking" as const),
         experienceId: r.experienceId,
         guests: r.guests,
+        isPrivate: r.isPrivate,
       })),
     ...blockRows.map((b) => ({ start: b.startAt, end: b.endAt, kind: "block" as const })),
   ];
@@ -182,6 +201,7 @@ export async function getAvailability(opts: {
   ignoreBookingId?: string;
   /** Seats the party needs (reschedules). Defaults to the experience minimum. */
   guests?: number;
+  isPrivate?: boolean;
   now?: Date;
 }): Promise<{ days: DayAvailability[]; calendarError?: boolean }> {
   const db = await getDb();
@@ -215,7 +235,16 @@ export async function getAvailability(opts: {
   }
 
   const days = dateRange(opts.fromKey, opts.toKey).map((dateKey) =>
-    computeDaySlots({ experience: opts.experience, dateKey, durationMinutes: opts.durationMinutes, busy, now, externalStarts, guests: opts.guests }),
+    computeDaySlots({
+      experience: opts.experience,
+      dateKey,
+      durationMinutes: opts.durationMinutes,
+      busy,
+      now,
+      externalStarts,
+      guests: opts.guests,
+      isPrivate: opts.isPrivate,
+    }),
   );
   const rules = await loadPriceRules(db);
   for (const s of days.flatMap((d) => d.slots)) {
@@ -228,7 +257,16 @@ export async function getAvailability(opts: {
 /** Re-check a single slot inside a transaction (call after taking the advisory lock). */
 export async function isSlotFree(
   tx: Tx,
-  opts: { experience: Experience; start: Date; durationMinutes: number; guests?: number; ignoreBookingId?: string; now?: Date; skipNotice?: boolean },
+  opts: {
+    experience: Experience;
+    start: Date;
+    durationMinutes: number;
+    guests?: number;
+    isPrivate?: boolean;
+    ignoreBookingId?: string;
+    now?: Date;
+    skipNotice?: boolean;
+  },
 ): Promise<{ ok: true; shared: boolean } | { ok: false; reason: NonNullable<Slot["reason"]> | "outside_hours" }> {
   const now = opts.now ?? new Date();
   const dateKey = localDateKey(opts.start);
@@ -241,7 +279,15 @@ export async function isSlotFree(
     now,
   });
   const exp = opts.skipNotice ? { ...opts.experience, leadTimeHours: 0, maxAdvanceDays: 3650 } : opts.experience;
-  const day = computeDaySlots({ experience: exp, dateKey, durationMinutes: opts.durationMinutes, busy, now, guests: opts.guests });
+  const day = computeDaySlots({
+    experience: exp,
+    dateKey,
+    durationMinutes: opts.durationMinutes,
+    busy,
+    now,
+    guests: opts.guests,
+    isPrivate: opts.isPrivate,
+  });
   const slot = day.slots.find((s) => new Date(s.start).getTime() === opts.start.getTime());
   if (!slot) return { ok: false, reason: "outside_hours" };
   if (!slot.available) return { ok: false, reason: slot.reason ?? "booked" };

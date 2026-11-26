@@ -20,6 +20,7 @@ export type NewBookingPrefill = {
   date?: string;
   time?: string;
   guests?: number;
+  isPrivate?: boolean;
   name?: string;
   email?: string;
   phone?: string;
@@ -54,6 +55,7 @@ export function NewBookingForm({
   const exp = experiences.find((e) => e.id === expId) ?? first;
   const [duration, setDuration] = useState(exp?.durations[0] ?? 120);
   const [guests, setGuests] = useState(prefill.guests ?? exp?.minGuests ?? 1);
+  const [isPrivate, setIsPrivate] = useState(Boolean(prefill.isPrivate));
   const [date, setDate] = useState(prefill.date ?? today);
   const [time, setTime] = useState(prefill.time ?? "");
   const [slot, setSlot] = useState<string | null>(null);
@@ -146,6 +148,21 @@ export function NewBookingForm({
             {exp && <span className={a.hint}>Usually {exp.minGuests}–{exp.maxGuests}</span>}
           </div>
         </div>
+        <label className={a.check}>
+          <input
+            type="checkbox"
+            name="isPrivate"
+            checked={isPrivate}
+            onChange={(e) => {
+              setIsPrivate(e.target.checked);
+              setSlot(null);
+            }}
+          />
+          <span>
+            Private session — blocks the entire time slot exclusively
+            <span className={a.cellSub}>Prevents other groups from joining this session on the website.</span>
+          </span>
+        </label>
         <div className={a.formRow}>
           <div className={a.field}>
             <label htmlFor="nb-date">Date</label>
@@ -172,6 +189,7 @@ export function NewBookingForm({
             date={date}
             duration={duration}
             guests={guests}
+            isPrivate={isPrivate}
             value={slot}
             name="nbSlot"
             onPick={(iso) => {

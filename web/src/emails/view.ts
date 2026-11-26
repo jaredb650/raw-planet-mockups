@@ -80,7 +80,7 @@ export function buildBookingView(input: BookingViewInput): BookingView {
   const priceLines: PriceLine[] = [];
   if (b.subtotalCents > 0) {
     priceLines.push({
-      label: `${name} · ${fmtDur(b.durationMinutes, lang)}${e.pricingMode === "per_person" ? ` · ${fmtGuests(b.guests, lang)}` : ""}`,
+      label: `${name}${b.isPrivate ? (es ? " (Privada)" : " (Private)") : ""} · ${fmtDur(b.durationMinutes, lang)}${e.pricingMode === "per_person" ? ` · ${fmtGuests(b.guests, lang)}` : ""}`,
       amount: money(b.subtotalCents),
     });
   }
@@ -89,7 +89,7 @@ export function buildBookingView(input: BookingViewInput): BookingView {
     priceLines.push({ label: input.promoCode ? `${es ? "Código" : "Code"} ${input.promoCode}` : es ? "Descuento" : "Discount", amount: `−${money(b.discountCents)}`, muted: true });
   if (b.giftCardCents > 0) priceLines.push({ label: es ? "Tarjeta de regalo" : "Gift card", amount: `−${money(b.giftCardCents)}`, muted: true });
 
-  const summary = `${name} · Raw Planet`;
+  const summary = `${name}${b.isPrivate ? (es ? " (Privada)" : " (Private)") : ""} · Raw Planet`;
   const calDescription = [`${es ? "Reserva" : "Booking"} ${b.code}`, arrivalFor(e.arrivalInstructions), manage ? `${es ? "Gestionar" : "Manage"}: ${manage}` : null]
     .filter(Boolean)
     .join("\n\n");
@@ -112,6 +112,7 @@ export function buildBookingView(input: BookingViewInput): BookingView {
     durationLabel: fmtDur(b.durationMinutes, lang),
     guests: b.guests,
     guestsLabel: fmtGuests(b.guests, lang),
+    isPrivate: Boolean(b.isPrivate),
     locationArea: e.locationArea,
     address,
     mapUrl: mapUrlFor(address),
@@ -155,8 +156,12 @@ export function bookingIcsFields(v: BookingView, booking: Booking) {
     uid: `${booking.id}@rawplanetexperiences.com`,
     start: booking.startAt,
     end: booking.endAt,
-    summary: `${v.experienceName} · Raw Planet`,
-    description: [`${es ? "Reserva" : "Booking"} ${v.code} · ${v.guestsLabel}`, v.arrivalInstructions, v.manageUrl ? `${es ? "Gestionar" : "Manage"}: ${v.manageUrl}` : null]
+    summary: `${v.experienceName}${v.isPrivate ? (es ? " (Privada)" : " (Private)") : ""} · Raw Planet`,
+    description: [
+      `${es ? "Reserva" : "Booking"} ${v.code} · ${v.guestsLabel}${v.isPrivate ? (es ? " · Sesión privada" : " · Private session") : ""}`,
+      v.arrivalInstructions,
+      v.manageUrl ? `${es ? "Gestionar" : "Manage"}: ${v.manageUrl}` : null,
+    ]
       .filter(Boolean)
       .join("\n\n"),
     location: v.address ?? v.locationArea,

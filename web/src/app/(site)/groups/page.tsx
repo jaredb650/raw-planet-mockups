@@ -16,9 +16,9 @@ import { getActiveExperiences, getPublishedReviews } from "@/lib/queries/public"
 import styles from "./groups.module.css";
 
 export const metadata: Metadata = {
-  title: "Private sessions & groups",
+  title: "Groups & custom inquiries",
   description:
-    "Book a completely private music production, DJ or meditation session in NYC at a premium rate, or plan a birthday, team event or corporate wellness day with us.",
+    "Book a private music production, DJ or meditation session directly online, or send a custom inquiry for corporate events, birthdays, larger groups and special setups in NYC.",
   alternates: { canonical: "/groups" },
   openGraph: { url: "/groups" },
 };
@@ -31,9 +31,9 @@ const OCCASIONS = [
 ];
 
 const STEPS = [
-  { t: "Send a request", d: "Which experience, who's coming and roughly when." },
-  { t: "We confirm the details", d: "Alex replies with the date, timings and the price, usually within a day." },
-  { t: "Lock it in", d: "Once it's confirmed, the session is yours alone." },
+  { t: "Tell us what you have in mind", d: "Share your group size, occasion, rough dates and any custom requests." },
+  { t: "We put together a plan", d: "Alex replies with availability, custom options and pricing — usually within a day." },
+  { t: "Lock it in", d: "Once everything looks good, we reserve the studio for your event." },
 ];
 
 const GROUP_WORDS = /group|colleague|team|birthday|friends|party|bachelor/i;
@@ -52,14 +52,14 @@ export default async function GroupsPage({ searchParams }: PageProps<"/groups">)
       <JsonLd
         data={breadcrumbJsonLd([
           { name: "Home", path: "/" },
-          { name: "Private sessions", path: "/groups" },
+          { name: "Groups & inquiries", path: "/groups" },
         ])}
       />
       <PageHeader
-        crumbs={[{ name: "Private sessions & groups" }]}
-        eyebrow="Private sessions & groups"
-        title="Private sessions"
-        lede="Our regular sessions are public and shared with other guests. If you'd like the room to yourselves, any experience can be booked as a completely private session at a premium rate."
+        crumbs={[{ name: "Groups & custom inquiries" }]}
+        eyebrow="Groups & custom inquiries"
+        title="Custom events & groups"
+        lede="Need a private session for your group? You can book any experience privately right on our calendar. Planning a corporate event, bigger group, or something custom? Reach out below and we'll put it together with you."
         aside={
           <div className={styles.art}>
             <div className={styles.img}>
@@ -69,37 +69,51 @@ export default async function GroupsPage({ searchParams }: PageProps<"/groups">)
         }
       >
         <div className={styles.ctas}>
-          <a href="#request" className="btn btn--accent">
-            Request a private session
-          </a>
-          <Link href="/experiences" className="btn btn--ghost">
-            See the experiences
+          <Link href="/book?private=1" className="btn btn--accent">
+            Book a private session
           </Link>
+          <a href="#request" className="btn btn--ghost">
+            Send a custom inquiry
+          </a>
         </div>
       </PageHeader>
 
       <section className={styles.rates} aria-labelledby="rates-title">
         <div className="wrap">
           <h2 id="rates-title" className={styles.h2}>
-            Private session rates
+            Book a private session online
           </h2>
           <ul className={styles.rateGrid}>
             {experiences.map((e) => {
-              const cents = PRIVATE_SESSION_CENTS[e.theme];
+              const cents = e.meta ? e.meta.privateRateCents : (PRIVATE_SESSION_CENTS[e.theme] ?? null);
               return (
                 <li key={e.slug} data-theme={themeOf(e)}>
                   <h3>{e.name}</h3>
-                  <p className={styles.rate}>{cents ? formatMoney(cents) : "Please reach out"}</p>
-                  <p>{cents ? "Premium rate for a completely private session." : "Tell us about your group and we'll put a quote together."}</p>
-                  <a href="#request" className="btn btn--sm">
-                    {cents ? "Request this session" : "Ask for a quote"}
-                    <span className="sr-only">: {e.name}</span>
-                  </a>
+                  <p className={styles.rate}>{cents ? `From ${formatMoney(cents)}` : "Custom quote"}</p>
+                  <p>
+                    {cents
+                      ? `Private buyout minimum for up to ${e.maxGuests} guests. Reserves the entire slot exclusively.`
+                      : "Tell us about your group and we'll put a quote together."}
+                  </p>
+                  {cents ? (
+                    <Link href={`/book/${e.slug}?private=1`} className="btn btn--sm">
+                      Book private online
+                      <span className="sr-only">: {e.name}</span>
+                    </Link>
+                  ) : (
+                    <a href="#request" className="btn btn--sm">
+                      Ask for a quote
+                      <span className="sr-only">: {e.name}</span>
+                    </a>
+                  )}
                 </li>
               );
             })}
           </ul>
-          <p className={styles.small}>For any private session or special request, we suggest reaching out first so we can confirm the date and details with you.</p>
+          <p className={styles.small}>
+            Private bookings reserve the whole time slot exclusively for your group (if your group&rsquo;s standard per-person total is higher than
+            the buyout minimum, standard per-person pricing applies). Need more guests, custom hours, or an off-site event? Use the inquiry form below.
+          </p>
         </div>
       </section>
 
@@ -123,7 +137,7 @@ export default async function GroupsPage({ searchParams }: PageProps<"/groups">)
         <div className={`wrap ${styles.reqGrid}`}>
           <div className={styles.reqIntro}>
             <h2 id="req-title" className={styles.h2}>
-              How it works
+              Custom &amp; corporate inquiries
             </h2>
             <ol className={styles.steps}>
               {STEPS.map((s, i) => (
@@ -139,15 +153,15 @@ export default async function GroupsPage({ searchParams }: PageProps<"/groups">)
               ))}
             </ol>
             <p className={styles.small}>
-              Happy to share the room? Public sessions can be{" "}
-              <Link href="/experiences" className="link">
-                booked online
-              </Link>{" "}
-              right away, for one guest or a group.
+              Ready to pick a time now? Both shared and private sessions can be{" "}
+              <Link href="/book" className="link">
+                booked directly online
+              </Link>
+              .
             </p>
           </div>
           <div className={styles.formCard}>
-            <h3 className={styles.formTitle}>Your request</h3>
+            <h3 className={styles.formTitle}>Send an inquiry</h3>
             <InquiryForm variant="group" experiences={experiences.map((e) => ({ slug: e.slug, shortName: e.shortName }))} initialExperience={initialExperience} />
           </div>
         </div>

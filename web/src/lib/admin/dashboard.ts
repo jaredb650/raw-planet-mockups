@@ -22,6 +22,7 @@ export type SessionRow = {
   endAt: string;
   status: string;
   guests: number;
+  isPrivate: boolean;
   contactName: string;
   contactEmail: string;
   contactPhone: string | null;
@@ -62,6 +63,7 @@ export async function getSessions(from: Date, to: Date): Promise<SessionRow[]> {
     endAt: b.endAt.toISOString(),
     status: b.status,
     guests: b.guests,
+    isPrivate: b.isPrivate,
     contactName: b.contactName,
     contactEmail: b.contactEmail,
     contactPhone: b.contactPhone,

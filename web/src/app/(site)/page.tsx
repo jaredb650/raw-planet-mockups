@@ -45,7 +45,9 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
   const quotes = rest.slice(0, 4);
   const nameBySlug = Object.fromEntries(experiences.map((e) => [e.slug, e.shortName]));
   const { heroMain, heroSnap, host } = SITE_MEDIA;
-  const privateRates = experiences.filter((e) => PRIVATE_SESSION_CENTS[e.theme]);
+  const privateRates = experiences
+    .map((e) => ({ e, cents: e.meta ? e.meta.privateRateCents : (PRIVATE_SESSION_CENTS[e.theme] ?? null) }))
+    .filter((x): x is { e: (typeof experiences)[number]; cents: number } => Boolean(x.cents && x.cents > 0));
 
   return (
     <MoodProvider items={experiences.map((e) => ({ slug: e.slug, theme: e.theme }))} initialSlug={initialSlug} initialPicked={Boolean(requestedSlug)}>
@@ -225,7 +227,10 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
                 Book an <span className="tt">experience</span>
               </h2>
             </div>
-            <p>Pick an experience, a day and a start time. You&rsquo;ll see the total before you pay, and you can move or cancel yourself from your confirmation email.</p>
+            <p>
+              Pick an experience, choose Shared or Private, and grab a time. You&rsquo;ll see the full total before you pay, and you can move or
+              cancel yourself from your confirmation email.
+            </p>
           </div>
           <HomeBooking experiences={experiences} />
         </div>
@@ -252,24 +257,27 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           </div>
           <div className={`${styles.extra} ${styles.extraGroup}`}>
             <div>
-              <h3>Private sessions</h3>
+              <h3>Groups &amp; custom inquiries</h3>
               <p>
-                Want the room to yourselves? Any experience can be booked as a completely private session at a premium rate. Team outings,
-                birthdays and company events are welcome too.
+                Book any experience privately right on the calendar — or reach out for corporate events, larger groups, or custom studio setups.
               </p>
             </div>
             <div className={styles.extraFoot}>
-              <ul className={styles.chips} aria-label="Private session rates">
-                {privateRates.map((e) => (
+              <ul className={styles.chips} aria-label="Private session buyout minimums">
+                {privateRates.map(({ e, cents }) => (
                   <li key={e.slug}>
-                    {e.shortName} {formatMoney(PRIVATE_SESSION_CENTS[e.theme])}
+                    {e.shortName} {formatMoney(cents)}
                   </li>
                 ))}
-                <li>Meditation: ask us</li>
               </ul>
-              <Link href="/groups" className="btn btn--light">
-                Ask about a private session
-              </Link>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <Link href="/book?private=1" className="btn btn--light">
+                  Book private
+                </Link>
+                <Link href="/groups" className="btn btn--ghost">
+                  Custom inquiry
+                </Link>
+              </div>
             </div>
           </div>
         </div>

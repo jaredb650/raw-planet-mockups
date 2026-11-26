@@ -29,6 +29,7 @@ export type BookingView = {
   durationLabel: string;
   guests: number;
   guestsLabel: string;
+  isPrivate: boolean;
   locationArea: string;
   /** Full address when Alex has entered one (null when it's still a placeholder). */
   address: string | null;

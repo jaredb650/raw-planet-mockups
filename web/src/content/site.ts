@@ -89,10 +89,11 @@ export function hostsLine(theme: string): string {
   return `${HOST.name} and ${n === 1 ? "one co-host" : n === 2 ? "two co-hosts" : `${n} co-hosts`}`;
 }
 
-/** Premium rate for a completely private session, keyed by theme. No entry = quoted on request. */
+/** Minimum buyout rate for a completely private session, keyed by theme. No entry = quoted on request. */
 export const PRIVATE_SESSION_CENTS: Record<string, number> = {
   production: 65000,
   dj: 45000,
+  wellness: 120000,
 };
 
 export type FaqCategory = "experiences" | "booking" | "payment" | "changes" | "groups" | "visit";
@@ -197,7 +198,7 @@ export const FAQ: FaqEntry[] = [
     category: "booking",
     home: true,
     q: "How many people can come?",
-    a: "All sessions are public: book for yourself or for your group, and you may share the session with other guests. {{capacity}}. If you'd like the room to yourselves, ask us about a private session.",
+    a: "Standard sessions are shared: book for yourself or your group, and other guests may join the same time slot up to the room's capacity. {{capacity}}. Want the entire studio exclusively for your group? Toggle Private on the booking calendar.",
   },
   {
     category: "booking",
@@ -233,22 +234,22 @@ export const FAQ: FaqEntry[] = [
   {
     category: "groups",
     q: "Can I book a completely private session?",
-    a: "Yes, at a premium rate: {{privateRates}}. For a private Meditation Experience, reach out and we'll put a quote together. For any private session, send us a request and we'll confirm the date and details with you.",
+    a: "Yes — switch to Private right on the booking calendar for any open time slot to reserve the entire studio exclusively for your group. Private buyout minimums are {{privateRates}} (if your group's per-person total is higher than the minimum, standard per-person pricing applies). Private bookings are available on open time slots with no other guests booked yet.",
   },
   {
     category: "groups",
     q: "Do you host birthdays, bachelorettes and team outings?",
-    a: "All the time. Groups can book a public session online, up to the session's capacity. For a private session or anything custom, send us a request.",
+    a: "All the time. You can book either a shared session or an exclusive private session right on the calendar. For larger groups, corporate events, or custom requests, send us an inquiry on the Groups & inquiries page.",
   },
   {
     category: "groups",
     q: "How does the Meditation Experience work for groups?",
-    a: "The Meditation Experience has a minimum booking of 6 guests and holds up to 15. Book online, or send us a request for a private session or a larger group.",
+    a: "Shared Meditation sessions have a minimum booking of 6 guests and hold up to 15. You can also book a Private Meditation session directly on the calendar for any group size up to 15 ($1,200 minimum buyout), or send a custom inquiry for larger groups or off-site events.",
   },
   {
     category: "groups",
     q: "Do you do corporate events?",
-    a: "Yes. The Music Production, Learn to DJ and Meditation experiences all work for teams. Tell us your group size, dates and what you have in mind and we'll put together a plan and a quote.",
+    a: "Yes. The Music Production, Learn to DJ and Meditation experiences all work for teams. Book a private session directly online or send a custom inquiry with your group size, dates and what you have in mind.",
   },
 ];
 

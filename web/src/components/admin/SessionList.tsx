@@ -35,6 +35,7 @@ export function SessionList({ sessions, now }: { sessions: SessionRow[]; now: Da
                 {b.contactName}
               </Link>
               <div className={s.tags}>
+                {b.isPrivate && <Pill tone="info">Private</Pill>}
                 {b.status !== "confirmed" && <BookingStatusPill status={b.status as BookingStatus} />}
                 {b.checkedInAt && b.status !== "no_show" && <Pill tone="success">Checked in</Pill>}
                 {b.occasion && <Pill tone="accent">{b.occasion}</Pill>}

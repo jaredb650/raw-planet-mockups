@@ -34,10 +34,11 @@ export function useAvailability(opts: {
   slug: string | null;
   duration: number;
   month: MonthKey;
+  isPrivate?: boolean;
   booking?: { code: string; token: string } | null;
 }): Result {
-  const { slug, duration, month, booking } = opts;
-  const key = slug ? `${slug}|${duration}|${month}|${booking?.code ?? ""}` : "";
+  const { slug, duration, month, isPrivate = false, booking } = opts;
+  const key = slug ? `${slug}|${duration}|${isPrivate ? "p" : "s"}|${month}|${booking?.code ?? ""}` : "";
   const [state, setState] = useState<{ key: string; status: Result["status"]; entry: CacheEntry | null; error: string | null }>({
     key: "",
     status: "idle",
@@ -63,6 +64,7 @@ export function useAvailability(opts: {
       from: firstOfMonth(month),
       to: lastOfMonth(month),
       duration: String(duration),
+      ...(isPrivate ? { private: "1" } : {}),
       ...(booking ? { booking: booking.code, t: booking.token } : {}),
     });
     fetch(`/api/availability?${qs}`, { signal: ctrl.signal, cache: "no-store" })
@@ -80,7 +82,7 @@ export function useAvailability(opts: {
         setState({ key, status: "error", entry: null, error: err.message || "We couldn't load times." });
       });
     return () => ctrl.abort();
-  }, [key, slug, duration, month, booking, nonce]);
+  }, [key, slug, duration, month, isPrivate, booking, nonce]);
 
   const reload = useCallback(() => {
     cache.delete(key);

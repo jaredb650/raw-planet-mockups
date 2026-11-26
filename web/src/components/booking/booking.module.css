@@ -124,6 +124,22 @@
 .chip[aria-pressed="true"] { background: var(--ink); color: var(--cream); }
 .chip[aria-pressed="true"] small { color: inherit; opacity: 0.8; }
 
+.modeGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.modeBtn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  text-align: left; font: 700 0.95rem/1.15 var(--body);
+  padding: 12px 14px; border-radius: var(--r-md);
+  border: 2px solid var(--ink); background: var(--surface); color: var(--ink); cursor: pointer;
+  transition: background-color 0.15s;
+}
+.modeBtn small { font-weight: 500; font-size: 0.8rem; line-height: 1.25; color: var(--ink-soft); }
+.modeBtn .modeRate { font-weight: 700; font-size: 0.85rem; color: var(--ink); margin-top: 2px; font-variant-numeric: tabular-nums; }
+@media (hover: hover) { .modeBtn:hover:not([aria-pressed="true"]) { background: var(--mist); } }
+.modeBtn[aria-pressed="true"] { background: var(--ink); color: var(--cream); }
+.modeBtn[aria-pressed="true"] small,
+.modeBtn[aria-pressed="true"] .modeRate { color: inherit; opacity: 0.85; }
+.modeNote { margin: 8px 0 0; font-size: 0.84rem; color: var(--ink-soft); }
+
 .slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 @container bw (min-width: 420px) and (max-width: 799px) { .slots { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .slot {

@@ -85,6 +85,7 @@ export default async function BookingDetailPage({
           <span className={a.row} style={{ gap: 6 }}>
             <BookingStatusPill status={b.status} />
             <PaymentPill status={b.paymentStatus} />
+            {b.isPrivate && <Pill tone="info">Private</Pill>}
             {b.checkedInAt && b.status !== "no_show" && <Pill tone="success">Checked in</Pill>}
             <Link className={`${a.btn} ${a.btnSm}`} href={`/admin/bookings/new?rebook=${b.id}`}>
               <Icon name="plus" size={15} /> Book again
@@ -121,6 +122,8 @@ export default async function BookingDetailPage({
                 <dd>
                   <ExpName theme={x.theme} name={x.name} />
                 </dd>
+                <dt>Session type</dt>
+                <dd>{b.isPrivate ? "Private — exclusive studio buyout" : "Shared public session"}</dd>
                 <dt>Guests</dt>
                 <dd>{b.guests}</dd>
                 <dt>Booked via</dt>

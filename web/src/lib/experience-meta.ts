@@ -85,7 +85,7 @@ export function defaultMetaForSlug(slug: string): ExperienceMeta {
     return {
       videos: studioVideosForTag("meditation"),
       hostsLabel: hostsLine("wellness"),
-      privateRateCents: null,
+      privateRateCents: PRIVATE_SESSION_CENTS.wellness ?? 120000,
       hasDeliverable: false,
       takeHome: TAKE_HOME_DEFAULTS["sound-meditation"],
       perfectFor: [...(PERFECT_FOR.wellness ?? [])],

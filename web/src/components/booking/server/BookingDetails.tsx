@@ -20,12 +20,18 @@ export function BookingDetails({ booking: b, experience: e }: { booking: Booking
     <div className={styles.card}>
       <div className={styles.cardHead}>
         <h2 className={styles.cardTitle}>{e.name}</h2>
-        <span className="pill tabular">{b.code}</span>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          {b.isPrivate ? <span className="pill">Private session</span> : null}
+          <span className="pill tabular">{b.code}</span>
+        </div>
       </div>
       <dl className={styles.facts}>
         <Fact label="When">
           {fmtDateLong(b.startAt)}
           <small>{fmtTimeRange(b.startAt, b.endAt)} · New York time · {fmtDuration(b.durationMinutes)}</small>
+        </Fact>
+        <Fact label="Session">
+          {b.isPrivate ? "Private — studio reserved exclusively for your group" : "Shared public session"}
         </Fact>
         <Fact label="Guests">
           {guestsLabel(b.guests)}

@@ -18,6 +18,8 @@ export default async function BookPage({ searchParams }: { searchParams: Promise
   const initialSlug = experiences.some((e) => e.slug === slug) ? slug : undefined;
   const guests = Number(one(sp.guests));
   const duration = Number(one(sp.duration));
+  const privateParam = one(sp.private);
+  const initialPrivate = privateParam === "1" || privateParam === "true";
 
   return (
     <section className={styles.page}>
@@ -28,8 +30,8 @@ export default async function BookPage({ searchParams }: { searchParams: Promise
             <h1 className={styles.title}>Find your time</h1>
           </div>
           <p className="lede">
-            Sessions start every two hours from 10am. Pick the room you want, then a day and a start time. You&rsquo;ll see the
-            full price before you pay.
+            Sessions start every two hours from 10am. Book a shared session or toggle Private to reserve the entire studio
+            exclusively for your group. You&rsquo;ll see the full price before you pay.
           </p>
         </header>
         <BookingPicker
@@ -38,6 +40,7 @@ export default async function BookPage({ searchParams }: { searchParams: Promise
           initialDate={one(sp.date)}
           initialDuration={Number.isFinite(duration) ? duration : undefined}
           initialGuests={Number.isFinite(guests) && guests > 0 ? guests : undefined}
+          initialPrivate={initialPrivate}
         />
       </div>
     </section>

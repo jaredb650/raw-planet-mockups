@@ -189,6 +189,8 @@ export const bookings = pgTable(
     endAt: ts("end_at").notNull(),
     durationMinutes: integer("duration_minutes").notNull(),
     guests: integer("guests").notNull(),
+    /** True when the guest bought out the whole time slot exclusively. */
+    isPrivate: boolean("is_private").notNull().default(false),
     resourceGroup: text("resource_group").notNull(),
 
     // Snapshot of contact details at booking time (customer row may change later)

@@ -11,11 +11,13 @@ import type { PublicExperience } from "@/lib/queries/public";
 export function BookingSlot({
   experiences,
   initialSlug,
+  initialPrivate,
   compact,
 }: {
   experiences: PublicExperience[];
   initialSlug?: string;
+  initialPrivate?: boolean;
   compact?: boolean;
 }) {
-  return <BookingWidget experiences={experiences} initialSlug={initialSlug} compact={compact} />;
+  return <BookingWidget experiences={experiences} initialSlug={initialSlug} initialPrivate={initialPrivate} compact={compact} />;
 }

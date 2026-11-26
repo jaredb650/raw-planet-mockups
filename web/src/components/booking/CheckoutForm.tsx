@@ -9,7 +9,7 @@ import { formatMoney } from "@/lib/money";
 import { fmtDuration, fmtTimeRange } from "@/lib/time";
 import { longDate } from "./dates";
 import { GuestStepper } from "./GuestStepper";
-import { cancellationLine, displayQuote, groupHint, guestsLabel, themeOf } from "./format";
+import { cancellationLine, displayQuote, groupHint, guestsLabel, minGuestsFor, themeOf } from "./format";
 import styles from "./pages.module.css";
 
 type QuoteView = { totalCents: number; lines: QuoteLine[] };
@@ -34,6 +34,7 @@ export function CheckoutForm({
   end,
   duration,
   initialGuests,
+  isPrivate = false,
   adjustPercent,
   seatsLeft,
 }: {
@@ -43,6 +44,8 @@ export function CheckoutForm({
   end: string;
   duration: number;
   initialGuests: number;
+  /** True when the guest is booking a private buyout of the whole time slot. */
+  isPrivate?: boolean;
   /** Smart pricing for this slot, so the first paint already shows the real price. */
   adjustPercent?: number;
   /** Seats still open when other guests have already joined this session. */
@@ -65,7 +68,7 @@ export function CheckoutForm({
 
   const [requote, setRequote] = useState(0);
 
-  const quoteKey = JSON.stringify([guests, addonIds, promo, giftCode, requote]);
+  const quoteKey = JSON.stringify([guests, isPrivate, addonIds, promo, giftCode, requote]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -73,7 +76,16 @@ export function CheckoutForm({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: ctrl.signal,
-      body: JSON.stringify({ experience: e.slug, start, duration, guests, addonIds, promoCode: promo, giftCardCode: giftCode }),
+      body: JSON.stringify({
+        experience: e.slug,
+        start,
+        duration,
+        guests,
+        isPrivate,
+        addonIds,
+        promoCode: promo,
+        giftCardCode: giftCode,
+      }),
     })
       .then((r) => r.json().then((body) => ({ ok: r.ok, body })))
       .then(({ ok, body }) => {
@@ -98,17 +110,22 @@ export function CheckoutForm({
         }));
       });
     return () => ctrl.abort();
-  }, [quoteKey, e.slug, start, duration, guests, addonIds, promo, giftCode]);
+  }, [quoteKey, e.slug, start, duration, guests, isPrivate, addonIds, promo, giftCode]);
 
   // Until the server answers, show the local estimate (codes not applied yet).
-  const local = displayQuote(e, duration, guests, adjustPercent);
+  const local = displayQuote(e, duration, guests, adjustPercent, isPrivate);
   const fresh = quote?.key === quoteKey ? quote : null;
   const view: QuoteView | null = fresh?.view ?? quote?.view ?? (local ? { totalCents: local.totalCents, lines: local.lines } : null);
   const promoError = promo && fresh ? fresh.promoError : null;
   const giftError = giftCode && fresh ? fresh.giftCardError : null;
   const total = view?.totalCents ?? 0;
   const theme = themeOf(e);
-  const changeHref = `/book/${e.slug}?${new URLSearchParams({ date, duration: String(duration), guests: String(guests) })}`;
+  const changeHref = `/book/${e.slug}?${new URLSearchParams({
+    date,
+    duration: String(duration),
+    guests: String(guests),
+    ...(isPrivate ? { private: "1" } : {}),
+  })}`;
 
   async function submit(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
@@ -136,6 +153,7 @@ export function CheckoutForm({
           start,
           duration,
           guests,
+          isPrivate,
           expectedTotalCents: view?.totalCents,
           addonIds,
           promoCode: promo,
@@ -212,11 +230,15 @@ export function CheckoutForm({
             <h2 className={styles.cardTitle}>Who&rsquo;s coming?</h2>
             <GuestStepper
               value={guests}
-              min={e.minGuests}
-              max={Math.min(e.maxGuests, seatsLeft ?? e.maxGuests)}
+              min={minGuestsFor(e, isPrivate)}
+              max={isPrivate ? e.maxGuests : Math.min(e.maxGuests, seatsLeft ?? e.maxGuests)}
               onChange={setGuests}
               label="Guests"
-              hint={seatsLeft ? `${seatsLeft} ${seatsLeft === 1 ? "spot" : "spots"} left at this time` : groupHint(e)}
+              hint={
+                !isPrivate && seatsLeft
+                  ? `${seatsLeft} ${seatsLeft === 1 ? "spot" : "spots"} left at this time`
+                  : groupHint(e, isPrivate)
+              }
             />
           </div>
 
@@ -459,6 +481,11 @@ export function CheckoutForm({
         <div className={styles.summary} data-theme={theme}>
           <div className={styles.summaryTop}>
             <h2>{e.name}</h2>
+            {isPrivate ? (
+              <span className="pill" style={{ marginTop: 8, display: "inline-flex" }}>
+                Private session
+              </span>
+            ) : null}
           </div>
           <div className={styles.summaryBody}>
             <dl className={styles.facts}>
@@ -486,7 +513,12 @@ export function CheckoutForm({
                   <IconPeople />
                   <span className="sr-only">Guests</span>
                 </dt>
-                <dd>{guestsLabel(guests)}</dd>
+                <dd>
+                  {guestsLabel(guests)}
+                  <small>
+                    {isPrivate ? "Private — studio reserved exclusively for your group" : "Shared public session — other guests may join"}
+                  </small>
+                </dd>
               </div>
               <div>
                 <dt>
@@ -500,7 +532,7 @@ export function CheckoutForm({
               </div>
             </dl>
             <Link href={changeHref} className="link small">
-              Change date or time
+              Change date, time or session type
             </Link>
             {view ? (
               <ul className={styles.lines} aria-live="polite">

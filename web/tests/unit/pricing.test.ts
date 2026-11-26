@@ -91,6 +91,61 @@ describe("computeQuote", () => {
     const q50 = computeQuote({ experience: perPerson, durationMinutes: 120, guests: 1, giftCardBalanceCents: 14950 });
     expect(q50.totalCents).toBe(50);
   });
+  it("private session applies Option A automatic buyout floor and adds extra hours on top", () => {
+    const prod = {
+      ...perPerson,
+      maxGuests: 15,
+      durationOptions: [
+        { minutes: 120, priceCents: 15000 },
+        { minutes: 180, priceCents: 15000, flatCents: 15000 },
+      ],
+    };
+    // 2 guests regular = $300 < $650 buyout → $650
+    const qSmall = computeQuote({ experience: prod, durationMinutes: 120, guests: 2, isPrivate: true, privateRateCents: 65000 });
+    expect(qSmall.isPrivate).toBe(true);
+    expect(qSmall.privateBuyoutApplied).toBe(true);
+    expect(qSmall.subtotalCents).toBe(65000);
+    expect(qSmall.totalCents).toBe(65000);
+
+    // 5 guests regular = $750 > $650 buyout → $750 (per-person total wins)
+    const qLarge = computeQuote({ experience: prod, durationMinutes: 120, guests: 5, isPrivate: true, privateRateCents: 65000 });
+    expect(qLarge.isPrivate).toBe(true);
+    expect(qLarge.privateBuyoutApplied).toBe(false);
+    expect(qLarge.subtotalCents).toBe(75000);
+    expect(qLarge.totalCents).toBe(75000);
+
+    // 2 guests private + 1 extra hour ($150 flat) = $650 + $150 = $800
+    const qExtra = computeQuote({ experience: prod, durationMinutes: 180, guests: 2, isPrivate: true, privateRateCents: 65000 });
+    expect(qExtra.privateBuyoutApplied).toBe(true);
+    expect(qExtra.extraTimeCents).toBe(15000);
+    expect(qExtra.subtotalCents).toBe(80000);
+    expect(qExtra.totalCents).toBe(80000);
+
+    // DJ $450 buyout for 1 guest, 4 guests regular = $540 > $450
+    const dj = { ...perPerson, maxGuests: 5, durationOptions: [{ minutes: 120, priceCents: 13500 }] };
+    expect(computeQuote({ experience: dj, durationMinutes: 120, guests: 1, isPrivate: true, privateRateCents: 45000 }).totalCents).toBe(45000);
+    expect(computeQuote({ experience: dj, durationMinutes: 120, guests: 4, isPrivate: true, privateRateCents: 45000 }).totalCents).toBe(54000);
+
+    // Smart pricing applies on top of buyout
+    const qSmart = computeQuote({ experience: prod, durationMinutes: 120, guests: 2, isPrivate: true, privateRateCents: 65000, priceRule: { name: "Weekday", adjustPercent: -10 } });
+    expect(qSmart.priceAdjustCents).toBe(-6500);
+    expect(qSmart.subtotalCents).toBe(58500);
+  });
+  it("private session allows 1 guest even when shared minGuests is higher, and rejects quote-only experiences", () => {
+    const meditation = { ...perPerson, minGuests: 6, maxGuests: 15, durationOptions: [{ minutes: 120, priceCents: 8500 }] };
+    // Shared rejects 2 guests
+    expect(() => computeQuote({ experience: meditation, durationMinutes: 120, guests: 2 })).toThrow(PricingError);
+    // Private allows 1–5 guests at $1,200 buyout; 15 guests regular = $1,275 > $1,200
+    const qPrivate = computeQuote({ experience: meditation, durationMinutes: 120, guests: 2, isPrivate: true, privateRateCents: 120000 });
+    expect(qPrivate.totalCents).toBe(120000);
+    expect(qPrivate.privateBuyoutApplied).toBe(true);
+    const qFull = computeQuote({ experience: meditation, durationMinutes: 120, guests: 15, isPrivate: true, privateRateCents: 120000 });
+    expect(qFull.totalCents).toBe(127500);
+    expect(qFull.privateBuyoutApplied).toBe(false);
+    // Rejects private when no privateRateCents configured
+    expect(() => computeQuote({ experience: meditation, durationMinutes: 120, guests: 2, isPrivate: true, privateRateCents: null })).toThrow(PricingError);
+    expect(() => computeQuote({ experience: meditation, durationMinutes: 120, guests: 2, isPrivate: true, privateRateCents: 0 })).toThrow(PricingError);
+  });
 });
 
 describe("isHigherPriceSlot", () => {

@@ -34,31 +34,63 @@ export function fromPriceLabel(e: PublicExperience): string {
   return `${new Set(prices).size > 1 || e.priceVaries ? "From " : ""}${formatMoney(Math.min(...prices))} ${unit}`;
 }
 
+/** Minimum buyout rate in cents for a private session, or null if quoted on request. */
+export function privateRateOf(e: Pick<PublicExperience, "meta">): number | null {
+  const rate = e.meta?.privateRateCents;
+  return rate && rate > 0 ? rate : null;
+}
+
+export function minGuestsFor(e: Pick<PublicExperience, "minGuests">, isPrivate = false): number {
+  return isPrivate ? 1 : e.minGuests;
+}
+
 /** Chip label for a duration option: "2 hours · $150", or "3 hours · +$150" when the extra time is a flat fee. */
-export function durationChip(e: PublicExperience, minutes: number): { title: string; price: string } {
+export function durationChip(e: PublicExperience, minutes: number, isPrivate = false): { title: string; price: string } {
   const opt = e.durationOptions.find((o) => o.minutes === minutes);
-  const price = !opt ? "" : opt.flatCents ? `+${formatMoney(opt.flatCents)}` : formatMoney(opt.priceCents);
+  const privateRate = isPrivate ? privateRateOf(e) : null;
+  const price = !opt
+    ? ""
+    : opt.flatCents
+      ? `+${formatMoney(opt.flatCents)}`
+      : privateRate
+        ? `From ${formatMoney(privateRate)}`
+        : formatMoney(opt.priceCents);
   return { title: opt?.label || fmtDuration(minutes), price };
 }
 
 /** Sensible starting guest count: 2, or the minimum for groups. */
-export function defaultGuests(e: Pick<PublicExperience, "minGuests" | "maxGuests">): number {
-  return Math.min(e.maxGuests, Math.max(e.minGuests, 2));
+export function defaultGuests(e: Pick<PublicExperience, "minGuests" | "maxGuests">, isPrivate = false): number {
+  return Math.min(e.maxGuests, Math.max(minGuestsFor(e, isPrivate), 2));
 }
 
-export function clampGuests(e: Pick<PublicExperience, "minGuests" | "maxGuests">, n: number): number {
-  return Math.min(e.maxGuests, Math.max(e.minGuests, Math.round(n) || e.minGuests));
+export function clampGuests(e: Pick<PublicExperience, "minGuests" | "maxGuests">, n: number, isPrivate = false): number {
+  const min = minGuestsFor(e, isPrivate);
+  return Math.min(e.maxGuests, Math.max(min, Math.round(n) || min));
 }
 
-export function groupHint(e: Pick<PublicExperience, "minGuests" | "maxGuests">): string {
+export function groupHint(e: Pick<PublicExperience, "minGuests" | "maxGuests">, isPrivate = false): string {
+  if (isPrivate) return `Up to ${e.maxGuests} guests · studio reserved exclusively`;
   if (e.minGuests >= 5) return `Groups of ${e.minGuests} to ${e.maxGuests}`;
   return `Up to ${e.maxGuests} guests`;
 }
 
 /** Client-side, display-only quote (the server re-quotes at checkout). */
-export function displayQuote(e: PublicExperience, minutes: number, guests: number, adjustPercent = 0): Quote | null {
+export function displayQuote(
+  e: PublicExperience,
+  minutes: number,
+  guests: number,
+  adjustPercent = 0,
+  isPrivate = false,
+): Quote | null {
   try {
-    return computeQuote({ experience: e, durationMinutes: minutes, guests, priceRule: { name: "", adjustPercent } });
+    return computeQuote({
+      experience: e,
+      durationMinutes: minutes,
+      guests,
+      isPrivate,
+      privateRateCents: privateRateOf(e),
+      priceRule: { name: "", adjustPercent },
+    });
   } catch (err) {
     if (err instanceof PricingError) return null;
     throw err;

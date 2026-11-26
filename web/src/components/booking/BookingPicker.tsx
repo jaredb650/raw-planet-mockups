@@ -21,6 +21,8 @@ import {
   fromPriceLabel,
   groupHint,
   guestsLabel,
+  minGuestsFor,
+  privateRateOf,
   slotPriceCopy,
   sortedDurations,
   themeOf,
@@ -34,6 +36,7 @@ export type BookingPickerProps = {
   initialDate?: string;
   initialDuration?: number;
   initialGuests?: number;
+  initialPrivate?: boolean;
   /** Banner above the picker, e.g. "Your spot was released". */
   notice?: ReactNode;
   /** Label of the continue button. */
@@ -43,7 +46,7 @@ export type BookingPickerProps = {
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Experience tabs → month calendar → start times → guests → continue.
+ * Experience tabs → month calendar → session type → start times → guests → continue.
  * Picks the first open day automatically and skips ahead to the next month
  * when the current one is fully booked. Continue goes to /book/[slug].
  */
@@ -54,6 +57,7 @@ export function BookingPicker({
   initialDate,
   initialDuration,
   initialGuests,
+  initialPrivate = false,
   notice,
   ctaLabel = "Continue",
 }: BookingPickerProps) {
@@ -71,12 +75,17 @@ export function BookingPicker({
   const [slug, setSlug] = useState(first?.slug ?? "");
   const exp = list.find((e) => e.slug === slug) ?? first;
 
+  const [isPrivate, setIsPrivate] = useState(() => Boolean(initialPrivate && first && privateRateOf(first)));
   const [duration, setDuration] = useState(() => {
     if (!first) return 0;
     const opts = sortedDurations(first);
     return opts.some((o) => o.minutes === initialDuration) ? initialDuration! : opts[0].minutes;
   });
-  const [guests, setGuests] = useState(() => (first ? (initialGuests ? clampGuests(first, initialGuests) : defaultGuests(first)) : 1));
+  const [guests, setGuests] = useState(() => {
+    if (!first) return 1;
+    const priv = Boolean(initialPrivate && privateRateOf(first));
+    return initialGuests ? clampGuests(first, initialGuests, priv) : defaultGuests(first, priv);
+  });
   const validInitial = initialDate && DATE_RE.test(initialDate) && initialDate >= today ? initialDate : null;
   const [month, setMonth] = useState<MonthKey>(monthOf(validInitial ?? today));
   const [pickedDate, setPickedDate] = useState<string | null>(validInitial);
@@ -87,8 +96,10 @@ export function BookingPicker({
 
   const minMonth = monthOf(today);
   const maxMonth = exp ? monthOf(addDays(today, exp.maxAdvanceDays)) : minMonth;
+  const privateRate = exp ? privateRateOf(exp) : null;
+  const effectivePrivate = Boolean(isPrivate && privateRate);
 
-  const avail = useAvailability({ slug: exp?.slug ?? null, duration, month });
+  const avail = useAvailability({ slug: exp?.slug ?? null, duration, month, isPrivate: effectivePrivate });
   const loading = avail.status === "loading" || avail.status === "idle";
 
   // Adjusting state during render (not in an effect) so the skip happens before paint.
@@ -122,22 +133,34 @@ export function BookingPicker({
 
   const theme = themeOf(exp);
   const durations = sortedDurations(exp);
-  const quote = displayQuote(exp, duration, guests, startSlot?.adjustPercent);
+  const quote = displayQuote(exp, duration, guests, startSlot?.adjustPercent, effectivePrivate);
   // When any open time today differs from list price, every time shows its real price up front.
   const openSlots = day?.slots.filter((s) => s.available) ?? [];
   const priced = openSlots.some((s) => s.adjustPercent);
   const copy = slotPriceCopy(guests);
-  const slotSubtotal = (adjustPercent?: number) => displayQuote(exp, duration, guests, adjustPercent)?.subtotalCents ?? null;
+  const slotSubtotal = (adjustPercent?: number) =>
+    displayQuote(exp, duration, guests, adjustPercent, effectivePrivate)?.subtotalCents ?? null;
   const fromCents = priced && !start ? Math.min(...openSlots.map((s) => slotSubtotal(s.adjustPercent) ?? Infinity)) : null;
 
   function selectExperience(next: PublicExperience) {
     if (next.slug === slug) return;
     setSlug(next.slug);
+    const nextPrivate = Boolean(isPrivate && privateRateOf(next));
+    if (nextPrivate !== isPrivate) setIsPrivate(nextPrivate);
     const opts = sortedDurations(next);
     if (!opts.some((o) => o.minutes === duration)) setDuration(opts[0].minutes);
-    setGuests((g) => (g < next.minGuests || g > next.maxGuests ? defaultGuests(next) : g));
+    const min = minGuestsFor(next, nextPrivate);
+    setGuests((g) => (g < min || g > next.maxGuests ? defaultGuests(next, nextPrivate) : g));
     setPickedStart(null);
     setAuto({ hops: 0, navigated: Boolean(pickedDate) });
+  }
+
+  function setSessionPrivate(nextPrivate: boolean) {
+    if (nextPrivate === effectivePrivate) return;
+    setIsPrivate(nextPrivate);
+    const min = minGuestsFor(exp, nextPrivate);
+    setGuests((g) => (g < min ? min : Math.min(exp.maxGuests, g)));
+    setPickedStart(null);
   }
 
   function onTabKey(e: KeyboardEvent<HTMLButtonElement>, i: number) {
@@ -153,15 +176,25 @@ export function BookingPicker({
   }
 
   const timeText = startSlot ? fmtTimeRange(startSlot.start, startSlot.end) : null;
+  const modePrefix = effectivePrivate ? "Private · " : "";
   let summary: string;
   if (!date) summary = loading ? "Finding open times…" : "Choose a day, then a time.";
-  else if (state === "full") summary = `${shortDate(date)} is fully booked. Join the waitlist or pick another day.`;
-  else if (!start) summary = `${exp.shortName}, ${shortDate(date)}. Now pick a time.`;
-  else summary = `${exp.shortName}, ${shortDate(date)}, ${timeText}, ${guestsLabel(guests)}`;
+  else if (state === "full")
+    summary = effectivePrivate
+      ? `${shortDate(date)} has no open private slots. Try Shared, another day, or join the waitlist.`
+      : `${shortDate(date)} is fully booked. Join the waitlist or pick another day.`;
+  else if (!start) summary = `${modePrefix}${exp.shortName}, ${shortDate(date)}. Now pick a time.`;
+  else summary = `${modePrefix}${exp.shortName}, ${shortDate(date)}, ${timeText}, ${guestsLabel(guests)}`;
 
   const href =
     date && start
-      ? `/book/${exp.slug}?${new URLSearchParams({ date, start, duration: String(duration), guests: String(guests) })}`
+      ? `/book/${exp.slug}?${new URLSearchParams({
+          date,
+          start,
+          duration: String(duration),
+          guests: String(guests),
+          ...(effectivePrivate ? { private: "1" } : {}),
+        })}`
       : null;
 
   const multi = list.length > 1;
@@ -241,6 +274,41 @@ export function BookingPicker({
         />
 
         <div className={styles.side}>
+          {privateRate ? (
+            <div>
+              <h4 className={styles.sideTitle} id={`${uid}-mode`}>
+                Session type
+              </h4>
+              <div className={styles.modeGrid} role="group" aria-labelledby={`${uid}-mode`}>
+                <button
+                  type="button"
+                  className={styles.modeBtn}
+                  aria-pressed={!effectivePrivate}
+                  onClick={() => setSessionPrivate(false)}
+                >
+                  <span>Shared</span>
+                  <span className={styles.modeRate}>{fromPriceLabel(exp)}</span>
+                  <small>May include other guests</small>
+                </button>
+                <button
+                  type="button"
+                  className={styles.modeBtn}
+                  aria-pressed={effectivePrivate}
+                  onClick={() => setSessionPrivate(true)}
+                >
+                  <span>Private</span>
+                  <span className={styles.modeRate}>From {formatMoney(privateRate)}</span>
+                  <small>Entire studio to yourselves</small>
+                </button>
+              </div>
+              {effectivePrivate ? (
+                <p className={styles.modeNote}>
+                  Reserves the whole slot exclusively for your group. Only open times with no other bookings are shown.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           {durations.length > 1 ? (
             <div>
               <h4 className={styles.sideTitle} id={`${uid}-dur`}>
@@ -248,7 +316,7 @@ export function BookingPicker({
               </h4>
               <div className={styles.chips} role="group" aria-labelledby={`${uid}-dur`}>
                 {durations.map((o) => {
-                  const c = durationChip(exp, o.minutes);
+                  const c = durationChip(exp, o.minutes, effectivePrivate);
                   return (
                     <button
                       key={o.minutes}
@@ -292,7 +360,7 @@ export function BookingPicker({
               onSelect={(iso) => {
                 setPickedStart(iso);
                 const left = seatsOf(iso);
-                if (left && guests > left) setGuests(left);
+                if (!effectivePrivate && left && guests > left) setGuests(left);
               }}
               loading={loading}
               priceOf={
@@ -306,7 +374,9 @@ export function BookingPicker({
               priceNote={priced ? copy.note : undefined}
               emptyText={
                 avail.status === "ready" && !date
-                  ? "No open times this month. Try the next one."
+                  ? effectivePrivate
+                    ? "No open private times this month. Try Shared or check next month."
+                    : "No open times this month. Try the next one."
                   : "Pick a day on the calendar to see what's open."
               }
             />
@@ -314,10 +384,14 @@ export function BookingPicker({
 
           <GuestStepper
             value={guests}
-            min={exp.minGuests}
-            max={Math.min(exp.maxGuests, startSlot?.seatsLeft ?? exp.maxGuests)}
+            min={minGuestsFor(exp, effectivePrivate)}
+            max={effectivePrivate ? exp.maxGuests : Math.min(exp.maxGuests, startSlot?.seatsLeft ?? exp.maxGuests)}
             onChange={setGuests}
-            hint={startSlot?.seatsLeft ? `${startSlot.seatsLeft} ${startSlot.seatsLeft === 1 ? "spot" : "spots"} left at this time` : groupHint(exp)}
+            hint={
+              !effectivePrivate && startSlot?.seatsLeft
+                ? `${startSlot.seatsLeft} ${startSlot.seatsLeft === 1 ? "spot" : "spots"} left at this time`
+                : groupHint(exp, effectivePrivate)
+            }
           />
 
           <div className={styles.summary} data-sticky={!compact || undefined}>
@@ -327,12 +401,22 @@ export function BookingPicker({
             <div className={styles.total}>
               <span>
                 {fromCents === null ? "Total" : "From"}
-                {quote && exp.pricingMode === "per_person" && (guests > 1 || quote.extraTimeCents > 0) && !priced ? (
-                  <small className="muted">
-                    {" "}
-                    {formatMoney((quote.baseCents - quote.extraTimeCents) / guests)} × {guests}
-                    {quote.extraTimeCents > 0 ? ` + ${formatMoney(quote.extraTimeCents)}` : ""}
-                  </small>
+                {quote && !priced ? (
+                  effectivePrivate ? (
+                    <small className="muted">
+                      {" "}
+                      {quote.privateBuyoutApplied
+                        ? "Private buyout"
+                        : `${formatMoney((quote.baseCents - quote.extraTimeCents) / guests)} × ${guests} · Private`}
+                      {quote.extraTimeCents > 0 ? ` + ${formatMoney(quote.extraTimeCents)}` : ""}
+                    </small>
+                  ) : exp.pricingMode === "per_person" && (guests > 1 || quote.extraTimeCents > 0) ? (
+                    <small className="muted">
+                      {" "}
+                      {formatMoney((quote.baseCents - quote.extraTimeCents) / guests)} × {guests}
+                      {quote.extraTimeCents > 0 ? ` + ${formatMoney(quote.extraTimeCents)}` : ""}
+                    </small>
+                  ) : null
                 ) : null}
               </span>
               <strong className="tabular">{quote ? formatMoney(fromCents ?? quote.subtotalCents) : "—"}</strong>

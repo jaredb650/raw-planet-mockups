@@ -1,6 +1,8 @@
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { adminGuard } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { bookings } from "@/lib/db/schema";
 import { getAvailability, getExperienceBySlugOrId } from "@/lib/booking/availability";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +12,7 @@ const q = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   duration: z.coerce.number().int().min(15).max(24 * 60),
   guests: z.coerce.number().int().min(1).max(200).optional(),
+  private: z.enum(["1", "true", "0", "false"]).optional(),
   ignore: z.string().optional(),
 });
 
@@ -24,6 +27,11 @@ export async function GET(req: Request) {
   const db = await getDb();
   const experience = await getExperienceBySlugOrId(db, experienceId);
   if (!experience) return Response.json({ error: "Experience not found" }, { status: 404 });
+  let isPrivate = parsed.data.private === "1" || parsed.data.private === "true";
+  if (!parsed.data.private && ignore) {
+    const [existing] = await db.select({ isPrivate: bookings.isPrivate }).from(bookings).where(eq(bookings.id, ignore)).limit(1);
+    if (existing) isPrivate = existing.isPrivate;
+  }
   // The host isn't bound by the public booking window.
   const res = await getAvailability({
     experience: { ...experience, maxAdvanceDays: 3650 },
@@ -31,6 +39,7 @@ export async function GET(req: Request) {
     toKey: date,
     durationMinutes: duration,
     guests,
+    isPrivate,
     ignoreBookingId: ignore || undefined,
   });
   const day = res.days[0];

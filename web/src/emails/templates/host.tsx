@@ -18,6 +18,7 @@ export type HostBookingView = {
   timeLabel: string;
   durationLabel: string;
   guests: number;
+  isPrivate: boolean;
   contactName: string;
   contactEmail: string | null;
   contactPhone: string | null;
@@ -53,10 +54,10 @@ export function hostBookingAlertEmail(v: HostBookingView): EmailOutput {
   const k = KIND[v.kind];
   const accent = accentFor(v.theme);
   const soon = v.kind !== "cancelled" && v.hoursUntil >= 0 && v.hoursUntil < 48;
-  const subject = `${v.kind === "new" ? "💰 " : v.kind === "cancelled" ? "✕ " : "↻ "}${k.label}: ${v.experienceName}, ${v.dateLabel} ${v.timeLabel.split(" – ")[0]} · ${v.contactName} (${v.guests})`;
+  const subject = `${v.kind === "new" ? "💰 " : v.kind === "cancelled" ? "✕ " : "↻ "}${k.label}${v.isPrivate ? " [PRIVATE]" : ""}: ${v.experienceName}, ${v.dateLabel} ${v.timeLabel.split(" – ")[0]} · ${v.contactName} (${v.guests})`;
   const preview =
     v.kind === "new"
-      ? `${v.total} via ${v.sourceLabel}. ${v.guests} guest${v.guests === 1 ? "" : "s"}${v.occasion ? `, ${v.occasion}` : ""}.`
+      ? `${v.isPrivate ? "Private buyout · " : ""}${v.total} via ${v.sourceLabel}. ${v.guests} guest${v.guests === 1 ? "" : "s"}${v.occasion ? `, ${v.occasion}` : ""}.`
       : v.kind === "cancelled"
         ? `${v.refundLabel ?? "No refund"}. The slot is open again.`
         : `Was ${v.previousLabel}.`;
@@ -65,6 +66,12 @@ export function hostBookingAlertEmail(v: HostBookingView): EmailOutput {
     <Layout lang="en" audience="host" theme={v.theme} preview={preview}>
       <div style={{ marginBottom: "12px" }}>
         <Pill bg={k.bg}>{k.label}</Pill> <Pill bg={accent.soft}>{v.sourceLabel}</Pill>
+        {v.isPrivate ? (
+          <>
+            {" "}
+            <Pill bg={C.purple} color={C.white}>Private</Pill>
+          </>
+        ) : null}
         {v.language === "es" ? (
           <>
             {" "}
@@ -103,6 +110,7 @@ export function hostBookingAlertEmail(v: HostBookingView): EmailOutput {
         accent={accent.strong}
         rows={[
           { label: "Code", value: <Code>{v.code}</Code> },
+          v.isPrivate ? { label: "Session", value: "Private — exclusive studio buyout", strong: true } : null,
           v.contactEmail ? { label: "Email", value: <A href={`mailto:${v.contactEmail}`}>{v.contactEmail}</A> } : null,
           v.contactPhone && tel
             ? {

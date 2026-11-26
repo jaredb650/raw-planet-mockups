@@ -207,9 +207,9 @@ export default async function EditExperiencePage({
                 <input id="x-extra" name="extraGuest" inputMode="decimal" className={a.input} defaultValue={dollars(x.extraGuestCents)} />
               </div>
               <div className={a.field}>
-                <label htmlFor="x-priv">Private session rate ($)</label>
-                <input id="x-priv" name="privateRate" inputMode="decimal" className={a.input} defaultValue={meta.privateRateCents ? dollars(meta.privateRateCents) : ""} placeholder="Ask us" />
-                <span className={a.hint}>Leave blank to show “Ask us”.</span>
+                <label htmlFor="x-priv">Private session minimum buyout ($)</label>
+                <input id="x-priv" name="privateRate" inputMode="decimal" className={a.input} defaultValue={meta.privateRateCents ? dollars(meta.privateRateCents) : ""} placeholder="Quote only" />
+                <span className={a.hint}>Enables the Private toggle on the booking calendar. Leave blank for quote-only.</span>
               </div>
             </div>
           </div>

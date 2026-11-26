@@ -92,6 +92,13 @@ function sessionRows(
 ) {
   return [
     { label: t("experience", v.lang), value: v.experienceName, strong: true },
+    v.isPrivate
+      ? {
+          label: es(v) ? "Sesión" : "Session",
+          value: es(v) ? "Privada (exclusiva para tu grupo)" : "Private (exclusive to your group)",
+          strong: true,
+        }
+      : null,
     { label: t("when", v.lang), value: whenValue(v), strong: true },
     { label: t("duration", v.lang), value: v.durationLabel },
     { label: t("guests", v.lang), value: v.guestsLabel },
@@ -216,7 +223,14 @@ export function bookingConfirmationEmail(v: BookingView): EmailOutput {
       manageUrl={v.manageUrl}
     >
       <Eyebrow>
-        {es(v) ? "Reserva confirmada" : "Booking confirmed"} · {v.code}
+        {es(v)
+          ? v.isPrivate
+            ? "Sesión privada confirmada"
+            : "Reserva confirmada"
+          : v.isPrivate
+            ? "Private session confirmed"
+            : "Booking confirmed"}{" "}
+        · {v.code}
       </Eyebrow>
       <H1>
         {v.isGift
@@ -580,6 +594,12 @@ export function bookingReminderEmail(
               }
             : null,
           { label: t("guests", v.lang), value: v.guestsLabel },
+          v.isPrivate
+            ? {
+                label: es(v) ? "Sesión" : "Session",
+                value: es(v) ? "Privada (exclusiva para tu grupo)" : "Private (exclusive to your group)",
+              }
+            : null,
           hostContactRow(v),
         ]}
       />

@@ -91,6 +91,7 @@ export default async function ManifestPage({ searchParams }: { searchParams: Pro
                   <td data-label="Party">{s.guests}</td>
                   <td data-label="Details">
                     <span>
+                      {s.isPrivate && <span className={`${m.line} ${m.strong}`}>Private session</span>}
                       {s.occasion && <span className={m.line}>{s.occasion}</span>}
                       {s.isGift && <span className={m.line}>Gift{s.giftRecipientName ? ` for ${s.giftRecipientName}` : ""}</span>}
                       <span className={m.line}>{s.language === "es" ? "Spanish" : "English"}</span>

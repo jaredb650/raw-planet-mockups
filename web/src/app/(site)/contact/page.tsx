@@ -54,9 +54,9 @@ export default async function ContactPage() {
             </div>
             <div className={styles.tile}>
               <h2 className={styles.h3}>Planning for a group?</h2>
-              <p>Private sessions, parties and team days get their own request form.</p>
+              <p>Book a private session online, or send a custom inquiry for corporate events, parties and larger groups.</p>
               <Link href="/groups#request" className="btn btn--ghost btn--sm">
-                Group request
+                Custom inquiry
               </Link>
             </div>
             <div className={styles.tile}>

@@ -177,6 +177,7 @@ export async function createManualAction(_p: ActionResult, fd: FormData): Promis
       start: start.toISOString(),
       durationMinutes: v.durationMinutes,
       guests: v.guests,
+      isPrivate: bool(fd, "isPrivate"),
       contact: { name: v.name, email: v.email, phone: v.phone || null },
       source: v.source,
       totalCents: totalRaw ? cents(fd, "totalPrice", 0) : undefined,

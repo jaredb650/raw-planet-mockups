@@ -12,6 +12,10 @@ export type QuoteInput = {
   >;
   durationMinutes: number;
   guests: number;
+  /** True when reserving the entire time slot exclusively for this party. */
+  isPrivate?: boolean;
+  /** Minimum buyout rate in cents for a private session (required when isPrivate is true). */
+  privateRateCents?: number | null;
   addons?: { addon: Pick<Addon, "id" | "name" | "priceCents" | "pricing">; quantity?: number }[];
   promo?: Pick<
     PromoCode,
@@ -38,6 +42,8 @@ export type Quote = {
   promoError: string | null;
   giftCardCents: number;
   totalCents: number; // amount to charge by card
+  isPrivate: boolean;
+  privateBuyoutApplied: boolean;
   lines: QuoteLine[];
 };
 
@@ -130,34 +136,51 @@ export function validatePromo(
 
 export function computeQuote(input: QuoteInput): Quote {
   const { experience: e, durationMinutes, guests } = input;
+  const isPrivate = Boolean(input.isPrivate);
   const now = input.now ?? new Date();
-  if (!Number.isInteger(guests) || guests < e.minGuests || guests > e.maxGuests)
+  if (isPrivate && (!input.privateRateCents || input.privateRateCents <= 0)) {
+    throw new PricingError("Private sessions for this experience are quoted on request.");
+  }
+  // A private buyout guarantees the minimum studio fee regardless of headcount,
+  // so parties smaller than the shared minimum (e.g. Meditation's 6-guest shared min) can book privately.
+  const minGuests = isPrivate ? 1 : e.minGuests;
+  if (!Number.isInteger(guests) || guests < minGuests || guests > e.maxGuests)
     throw new PricingError(
-      e.minGuests === e.maxGuests
-        ? `This experience is for exactly ${e.minGuests} guests.`
-        : `Choose between ${e.minGuests} and ${e.maxGuests} guests.`,
+      minGuests === e.maxGuests
+        ? `This experience is for exactly ${minGuests} guests.`
+        : `Choose between ${minGuests} and ${e.maxGuests} guests.`,
     );
 
   const { priceCents: unit, flatCents: flat = 0 } = durationOption(e, durationMinutes);
   const lines: QuoteLine[] = [];
   const extra = e.pricingMode === "per_person" ? 0 : Math.max(0, guests - e.includedGuests);
-  let baseCents = (e.pricingMode === "per_person" ? unit * guests : unit) + flat;
-  let extraGuestsCents = e.extraGuestCents > 0 ? extra * e.extraGuestCents : 0;
+  const regularBase = e.pricingMode === "per_person" ? unit * guests : unit;
+  const regularExtraGuests = e.extraGuestCents > 0 ? extra * e.extraGuestCents : 0;
+  const regularSessionCents = regularBase + regularExtraGuests;
+
+  const privateBuyoutApplied = isPrivate && (input.privateRateCents ?? 0) > regularSessionCents;
+  let baseCents = (privateBuyoutApplied ? input.privateRateCents! : regularBase) + flat;
+  let extraGuestsCents = privateBuyoutApplied ? 0 : regularExtraGuests;
 
   // Smart pricing is folded into the session lines: it is the price of this slot, never a fee line.
   const listCents = baseCents + extraGuestsCents;
   const subtotalCents = adjustedCents(listCents, input.priceRule?.adjustPercent ?? 0);
   const priceAdjustCents = subtotalCents - listCents;
-  if (priceAdjustCents !== 0) {
+  if (priceAdjustCents !== 0 && listCents > 0) {
     extraGuestsCents = Math.round((extraGuestsCents * subtotalCents) / listCents / 100) * 100;
     baseCents = subtotalCents - extraGuestsCents;
   }
   const extraTimeCents = flat > 0 ? Math.min(baseCents, adjustedCents(flat, input.priceRule?.adjustPercent ?? 0)) : 0;
-  lines.push(
-    e.pricingMode === "per_person"
-      ? { label: `${guests} × guest`, amountCents: baseCents - extraTimeCents, kind: "base" }
-      : { label: "Session", amountCents: baseCents - extraTimeCents, kind: "base" },
-  );
+  const baseLabel = isPrivate
+    ? privateBuyoutApplied
+      ? `Private session (${guests} ${guests === 1 ? "guest" : "guests"})`
+      : e.pricingMode === "per_person"
+        ? `Private session (${guests} × guest)`
+        : "Private session"
+    : e.pricingMode === "per_person"
+      ? `${guests} × guest`
+      : "Session";
+  lines.push({ label: baseLabel, amountCents: baseCents - extraTimeCents, kind: "base" });
   if (extraTimeCents > 0) lines.push({ label: "Extra studio time", amountCents: extraTimeCents, kind: "base" });
   if (extraGuestsCents > 0) lines.push({ label: `${extra} extra guest${extra > 1 ? "s" : ""}`, amountCents: extraGuestsCents, kind: "guests" });
 
@@ -209,6 +232,8 @@ export function computeQuote(input: QuoteInput): Quote {
     promoError,
     giftCardCents,
     totalCents,
+    isPrivate,
+    privateBuyoutApplied,
     lines,
   };
 }

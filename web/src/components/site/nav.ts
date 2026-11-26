@@ -19,7 +19,7 @@ export function mainNav(experiences: { slug: string; name: string }[]): NavItem[
       label: "Experiences",
       children: [...experiences.map((e) => ({ href: `/experiences/${e.slug}`, label: e.name })), { href: "/experiences", label: "All experiences" }],
     },
-    { href: "/groups", label: "Private sessions" },
+    { href: "/groups", label: "Groups & inquiries" },
     { href: "/gift-cards", label: "Gift cards" },
     { label: "More", children: MORE_NAV },
   ];

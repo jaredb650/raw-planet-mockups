@@ -26,7 +26,7 @@ export function SiteFooter({ experiences }: { experiences: { slug: string; short
                 {e.shortName}
               </Link>
             ))}
-            <Link href="/groups">Private sessions &amp; groups</Link>
+            <Link href="/groups">Groups &amp; custom inquiries</Link>
           </div>
           <div>
             <h2 className={styles.h}>Plan</h2>

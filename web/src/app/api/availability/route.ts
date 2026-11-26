@@ -14,6 +14,7 @@ import { getDb } from "@/lib/db";
 import { getAvailability, getExperienceBySlugOrId } from "@/lib/booking/availability";
 import { adjustedCents, durationPrice, isHigherPriceSlot } from "@/lib/booking/pricing";
 import { getBookingForCustomer } from "@/lib/booking/service";
+import { getExperienceMeta } from "@/lib/experience-meta-db";
 import { addDaysKey } from "@/lib/time";
 import { LIMITS, clientIp, dateKeySchema, fieldErrors, jsonError, rateLimit, tooMany } from "../_lib/http";
 
@@ -24,6 +25,7 @@ const querySchema = z.object({
   from: dateKeySchema,
   to: dateKeySchema,
   duration: z.coerce.number().int().min(15).max(24 * 60),
+  private: z.enum(["1", "true", "0", "false"]).optional(),
   booking: z.string().max(20).optional(),
   t: z.string().max(64).optional(),
 });
@@ -45,19 +47,24 @@ export async function GET(req: NextRequest) {
 
   const toKey = q.to > addDaysKey(q.from, MAX_DAYS - 1) ? addDaysKey(q.from, MAX_DAYS - 1) : q.to;
 
-  let ownBooking: { id: string; guests: number; startAt: Date; subtotalCents: number; priceAdjustCents: number } | undefined;
+  let ownBooking:
+    | { id: string; guests: number; isPrivate: boolean; startAt: Date; subtotalCents: number; priceAdjustCents: number }
+    | undefined;
   if (q.booking && q.t) {
     const own = await getBookingForCustomer(q.booking, q.t);
     if (own && own.experienceId === experience.id) {
       ownBooking = {
         id: own.id,
         guests: own.guests,
+        isPrivate: own.isPrivate,
         startAt: own.startAt,
         subtotalCents: own.subtotalCents,
         priceAdjustCents: own.priceAdjustCents,
       };
     }
   }
+
+  const isPrivate = ownBooking ? ownBooking.isPrivate : q.private === "1" || q.private === "true";
 
   const { days, calendarError } = await getAvailability({
     experience,
@@ -66,14 +73,21 @@ export async function GET(req: NextRequest) {
     durationMinutes: q.duration,
     ignoreBookingId: ownBooking?.id,
     guests: ownBooking?.guests,
+    isPrivate,
   });
   const durOpt = experience.durationOptions.find((o) => o.minutes === q.duration);
-  const unitCents = (durOpt?.priceCents ?? durationPrice(experience, q.duration)) + (durOpt?.flatCents ?? 0);
+  const meta = isPrivate && !ownBooking ? await getExperienceMeta(experience.id, experience.slug) : null;
+  const baseUnit =
+    isPrivate && meta?.privateRateCents
+      ? meta.privateRateCents
+      : (durOpt?.priceCents ?? durationPrice(experience, q.duration));
+  const unitCents = baseUnit + (durOpt?.flatCents ?? 0);
 
   return Response.json(
     {
       experience: experience.slug,
       duration: q.duration,
+      isPrivate,
       from: q.from,
       to: toKey,
       days: days.map((d) => {

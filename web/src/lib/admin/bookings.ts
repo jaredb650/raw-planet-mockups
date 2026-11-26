@@ -114,6 +114,7 @@ export type BookingListRow = {
   startAt: Date;
   endAt: Date;
   guests: number;
+  isPrivate: boolean;
   contactName: string;
   contactEmail: string;
   contactPhone: string | null;
@@ -138,6 +139,7 @@ const listCols = {
   startAt: bookings.startAt,
   endAt: bookings.endAt,
   guests: bookings.guests,
+  isPrivate: bookings.isPrivate,
   contactName: bookings.contactName,
   contactEmail: bookings.contactEmail,
   contactPhone: bookings.contactPhone,

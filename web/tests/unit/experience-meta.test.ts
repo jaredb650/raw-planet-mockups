@@ -20,7 +20,7 @@ describe("experience-meta", () => {
     expect(defaultMetaForSlug("dj-session").hasDeliverable).toBe(false);
     expect(defaultMetaForSlug("dj-session").privateRateCents).toBe(45000);
     expect(defaultMetaForSlug("sound-meditation").hasDeliverable).toBe(false);
-    expect(defaultMetaForSlug("sound-meditation").privateRateCents).toBeNull();
+    expect(defaultMetaForSlug("sound-meditation").privateRateCents).toBe(120000);
 
     const custom = defaultMetaForSlug("beat-making-for-kids");
     expect(custom.hasDeliverable).toBe(false);

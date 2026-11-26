@@ -436,6 +436,7 @@ async function hostView(r: Loaded, kind: HostBookingView["kind"]): Promise<HostB
     timeLabel: fmtRange(b.startAt, b.endAt, "en"),
     durationLabel: fmtDur(b.durationMinutes, "en"),
     guests: b.guests,
+    isPrivate: Boolean(b.isPrivate),
     contactName: b.contactName,
     contactEmail: isDeliverable(b.contactEmail) ? b.contactEmail : null,
     contactPhone: b.contactPhone,
@@ -755,6 +756,7 @@ export async function tryHostDigest(now = new Date()): Promise<SendStatus> {
       phone: b.contactPhone,
       notes: b.customerNotes || null,
       flags: [
+        b.isPrivate ? "Private" : null,
         b.occasion,
         b.language === "es" ? "Español" : null,
         returning.has(b.contactEmail.toLowerCase()) ? "Returning guest" : null,

@@ -250,11 +250,12 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
               )}
               {isGroupOnly ? (
                 <p className={styles.groupNote}>
-                  The minimum booking is {e.minGuests} guests, and a session holds up to {e.maxGuests}. For a private session or a larger group,{" "}
+                  Shared sessions start at {e.minGuests} guests and hold up to {e.maxGuests}. Want the room exclusively for a smaller group? Toggle{" "}
+                  <strong>Private</strong> on the calendar below, or{" "}
                   <Link href={`/groups?experience=${e.slug}`} className="link">
-                    send us a request
-                  </Link>
-                  .
+                    send a custom inquiry
+                  </Link>{" "}
+                  for larger groups or corporate events.
                 </p>
               ) : null}
             </section>
@@ -300,26 +301,32 @@ export default async function ExperiencePage({ params }: PageProps<"/experiences
                 </li>
               ) : null}
               <li>
-                <span>Private session</span>
-                <strong className="tabular">{privateCents ? formatMoney(privateCents) : "Ask us"}</strong>
+                <span>Private buyout</span>
+                <strong className="tabular">{privateCents ? `From ${formatMoney(privateCents)}` : "Ask us"}</strong>
               </li>
             </ul>
             <a href="#book" className="btn btn--accent btn--block">
               Check dates
             </a>
             <ul className={styles.assure}>
+              <li>Book shared or private directly online</li>
               <li>Free cancellation up to {e.cancellationHours}h before</li>
               <li>Move your booking yourself, online</li>
-              <li>Pay securely; see the total before you pay</li>
             </ul>
             <p className={styles.giftLine}>
               <Link href="/gift-cards" className="link">
                 Give it as a gift
               </Link>
               {" · "}
-              <Link href={`/groups?experience=${e.slug}`} className="link">
-                Private session
-              </Link>
+              {privateCents ? (
+                <Link href={`/book/${e.slug}?private=1`} className="link">
+                  Book private
+                </Link>
+              ) : (
+                <Link href={`/groups?experience=${e.slug}`} className="link">
+                  Custom inquiry
+                </Link>
+              )}
             </p>
           </div>
         </aside>

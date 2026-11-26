@@ -84,4 +84,25 @@ describe("computeDaySlots", () => {
     const d = computeDaySlots({ experience: shared, dateKey: "2026-11-10", durationMinutes: 120, busy, now: NOW, externalStarts: new Set<number>() });
     expect(d.slots.filter((s) => s.available).map((s) => s.start)).toEqual([start.toISOString()]);
   });
+  it("private bookings require a completely empty slot and block shared bookings", () => {
+    const shared = { ...exp, id: "prod", minGuests: 1, maxGuests: 15 };
+    const start = fromLocal("2026-11-10", "12:00");
+    const end = new Date(start.getTime() + 2 * 3600_000);
+    // An existing shared booking blocks a private booking on that slot
+    const sharedBusy = [{ start, end, kind: "booking" as const, experienceId: "prod", guests: 2, isPrivate: false }];
+    const privAttempt = computeDaySlots({ experience: shared, dateKey: "2026-11-10", durationMinutes: 120, busy: sharedBusy, now: NOW, guests: 2, isPrivate: true });
+    expect(privAttempt.slots[1]).toMatchObject({ available: false, reason: "booked" });
+    expect(privAttempt.slots[0]).toMatchObject({ available: true });
+    expect(privAttempt.slots[0].seatsLeft).toBeUndefined();
+
+    // An existing private booking blocks a shared booking on that slot even with seats left
+    const privBusy = [{ start, end, kind: "booking" as const, experienceId: "prod", guests: 2, isPrivate: true }];
+    const sharedAttempt = computeDaySlots({ experience: shared, dateKey: "2026-11-10", durationMinutes: 120, busy: privBusy, now: NOW, guests: 1, isPrivate: false });
+    expect(sharedAttempt.slots[1]).toMatchObject({ available: false, reason: "booked" });
+
+    // Private meditation with 2 guests succeeds on an empty slot despite shared minGuests=6
+    const meditation = { ...shared, id: "med", minGuests: 6 };
+    const privMed = computeDaySlots({ experience: meditation, dateKey: "2026-11-10", durationMinutes: 120, busy: [], now: NOW, guests: 2, isPrivate: true });
+    expect(privMed.slots[1]).toMatchObject({ available: true });
+  });
 });

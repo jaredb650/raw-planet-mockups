@@ -82,6 +82,13 @@ export default async function ExperiencesPage() {
                   ))}
                 </tr>
                 <tr>
+                  <th scope="row">Private buyout</th>
+                  {experiences.map((e) => {
+                    const rate = e.meta?.privateRateCents;
+                    return <td key={e.slug}>{rate ? `From ${formatMoney(rate)}` : "Custom quote"}</td>;
+                  })}
+                </tr>
+                <tr>
                   <th scope="row">Extra hours</th>
                   {experiences.map((e) => {
                     const extra = extraHourCents(e);
@@ -142,7 +149,7 @@ export default async function ExperiencesPage() {
               Ask Alex
             </Link>
             <Link href="/groups" className="btn btn--ghost">
-              Private sessions
+              Groups &amp; inquiries
             </Link>
           </div>
         </div>

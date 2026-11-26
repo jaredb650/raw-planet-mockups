@@ -30,6 +30,7 @@ export function SlotPicker({
   date,
   duration,
   guests,
+  isPrivate,
   ignoreBookingId,
   value,
   onPick,
@@ -39,12 +40,13 @@ export function SlotPicker({
   date: string;
   duration: number;
   guests?: number;
+  isPrivate?: boolean;
   ignoreBookingId?: string;
   value: string | null;
   onPick: (iso: string | null) => void;
   name?: string;
 }) {
-  const key = experienceId && date && duration ? `${experienceId}|${date}|${duration}|${guests ?? ""}|${ignoreBookingId ?? ""}` : "";
+  const key = experienceId && date && duration ? `${experienceId}|${date}|${duration}|${guests ?? ""}|${isPrivate ? "1" : "0"}|${ignoreBookingId ?? ""}` : "";
   const [state, setState] = useState<{ key: string; slots: PickerSlot[]; open: boolean; calendarError: boolean; error?: string } | null>(null);
 
   useEffect(() => {
@@ -52,6 +54,7 @@ export function SlotPicker({
     const ctrl = new AbortController();
     const qs = new URLSearchParams({ experienceId, date, duration: String(duration) });
     if (guests && guests > 0) qs.set("guests", String(guests));
+    if (isPrivate) qs.set("private", "1");
     if (ignoreBookingId) qs.set("ignore", ignoreBookingId);
     fetch(`/api/admin/availability?${qs}`, { signal: ctrl.signal, cache: "no-store" })
       .then(async (r) => {
@@ -63,7 +66,7 @@ export function SlotPicker({
         if (e.name !== "AbortError") setState({ key, slots: [], open: true, calendarError: false, error: String(e.message ?? e) });
       });
     return () => ctrl.abort();
-  }, [key, experienceId, date, duration, guests, ignoreBookingId]);
+  }, [key, experienceId, date, duration, guests, isPrivate, ignoreBookingId]);
 
   const loading = Boolean(key) && state?.key !== key;
   const slots = state?.key === key ? state.slots : [];

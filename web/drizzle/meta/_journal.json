@@ -29,6 +29,13 @@
       "when": 1794607666831,
       "tag": "0003_client_revisions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795732322427,
+      "tag": "0004_private_sessions",
+      "breakpoints": true
     }
   ]
 }

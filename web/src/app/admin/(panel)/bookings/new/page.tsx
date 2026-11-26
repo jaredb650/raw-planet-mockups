@@ -74,6 +74,7 @@ export default async function NewBookingPage({ searchParams }: { searchParams: P
       Object.assign(prefill, {
         experienceId: prefill.experienceId ?? b.experienceId,
         guests: b.guests,
+        isPrivate: b.isPrivate,
         name: b.contactName,
         email: b.contactEmail.endsWith(".invalid") ? undefined : b.contactEmail,
         phone: b.contactPhone ?? undefined,
