@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
+  blocks,
   bookingEvents,
   bookings,
   calendarFeeds,
@@ -12,8 +13,46 @@ import {
   refunds,
   reviews,
 } from "@/lib/db/schema";
+import { syncCalendarFeedsIfStale } from "@/lib/feeds";
 import { addDaysKey, fromLocal, localDateKey, todayKey, weekdayOf } from "@/lib/time";
 import { getDeliverableExperienceIds } from "@/lib/experience-meta-db";
+
+export type ExternalBlockRow = {
+  id: string;
+  startAt: string;
+  endAt: string;
+  title: string;
+  feedName: string;
+};
+
+/** Synced external calendar events (e.g. Airbnb / Google Calendar) starting in [from, to). */
+export async function getExternalBlocks(from: Date, to: Date): Promise<ExternalBlockRow[]> {
+  await syncCalendarFeedsIfStale();
+  const db = await getDb();
+  const rows = await db
+    .select({
+      id: blocks.id,
+      startAt: blocks.startAt,
+      endAt: blocks.endAt,
+      reason: blocks.reason,
+      feedName: calendarFeeds.name,
+    })
+    .from(blocks)
+    .innerJoin(calendarFeeds, eq(calendarFeeds.id, blocks.feedId))
+    .where(and(gte(blocks.startAt, from), lt(blocks.startAt, to)))
+    .orderBy(asc(blocks.startAt));
+  return rows.map((r) => {
+    const prefix = `${r.feedName}: `;
+    const title = r.reason.startsWith(prefix) ? r.reason.slice(prefix.length) : r.reason || "Busy";
+    return {
+      id: r.id,
+      startAt: r.startAt.toISOString(),
+      endAt: r.endAt.toISOString(),
+      title,
+      feedName: r.feedName,
+    };
+  });
+}
 
 export type SessionRow = {
   id: string;

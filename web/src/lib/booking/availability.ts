@@ -22,6 +22,7 @@ import { and, eq, gt, inArray, isNull, lt, or } from "drizzle-orm";
 import { getDb, type DB, type Tx } from "@/lib/db";
 import { blocks, bookings, experiences, pricingRules, type Experience } from "@/lib/db/schema";
 import { calAvailableStarts } from "@/lib/integrations/calcom";
+import { syncCalendarFeedsIfStale } from "@/lib/feeds";
 import { addDaysKey, dateRange, fromLocal, localDateKey, overlaps, weekdayOf } from "@/lib/time";
 import { pickPriceRule } from "./pricing";
 
@@ -204,6 +205,7 @@ export async function getAvailability(opts: {
   isPrivate?: boolean;
   now?: Date;
 }): Promise<{ days: DayAvailability[]; calendarError?: boolean }> {
+  await syncCalendarFeedsIfStale();
   const db = await getDb();
   const now = opts.now ?? new Date();
   const from = fromLocal(opts.fromKey, "00:00");

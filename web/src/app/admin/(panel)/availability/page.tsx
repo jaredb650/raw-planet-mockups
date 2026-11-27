@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { blocks, calendarFeeds, experiences, waitlist, type WeeklySchedule } from "@/lib/db/schema";
 import { getCalendarFeedUrl } from "@/lib/calendar-feed";
+import { syncCalendarFeedsIfStale } from "@/lib/feeds";
 import { integrations } from "@/lib/config";
 import { fmt, fmtTimeRange, fromLocal, localDateKey, todayKey } from "@/lib/time";
 import { PageHeader, Panel, Empty } from "@/components/admin/PageHeader";
@@ -53,6 +54,7 @@ function hoursSummary(s: WeeklySchedule) {
 
 export default async function AvailabilityPage() {
   await requireAdmin();
+  await syncCalendarFeedsIfStale();
   const db = await getDb();
   const now = new Date();
   const today = todayKey(now);

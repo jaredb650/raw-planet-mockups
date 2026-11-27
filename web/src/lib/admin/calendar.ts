@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, eq, gt, inArray, lt, ne, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { blocks, bookings, calendarFeeds, events, experiences } from "@/lib/db/schema";
+import { syncCalendarFeedsIfStale } from "@/lib/feeds";
 
 export type CalItem = {
   id: string;
@@ -18,6 +19,7 @@ export type CalItem = {
 
 /** Everything that occupies time in [from, to): sessions, checkout holds, blocks (manual + imported), community events. */
 export async function getCalendarItems(from: Date, to: Date, now = new Date()): Promise<CalItem[]> {
+  await syncCalendarFeedsIfStale();
   const db = await getDb();
   const [bk, bl, ev] = await Promise.all([
     db

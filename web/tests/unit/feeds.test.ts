@@ -84,6 +84,19 @@ describe("syncCalendarFeeds", () => {
     expect(f.lastError).toContain("500");
   });
 
+  it("syncCalendarFeedsIfStale skips fresh feeds and syncs stale ones", async () => {
+    await m.db.update(m.s.calendarFeeds).set({ active: true, lastSyncedAt: new Date() }).where(m.eq(m.s.calendarFeeds.id, feedId));
+    expect(await m.feeds.syncCalendarFeedsIfStale({ maxAgeMs: 60_000 })).toBe(false);
+
+    body = cal(ev("stale-1", day(2, 16), day(2, 18)));
+    await m.db
+      .update(m.s.calendarFeeds)
+      .set({ lastSyncedAt: new Date(Date.now() - 5 * 60_000) })
+      .where(m.eq(m.s.calendarFeeds.id, feedId));
+    expect(await m.feeds.syncCalendarFeedsIfStale({ maxAgeMs: 60_000 })).toBe(true);
+    expect((await blocksOf()).length).toBe(1);
+  });
+
   it("frees a paused feed's times on the next full sync", async () => {
     await m.db.update(m.s.calendarFeeds).set({ active: false }).where(m.eq(m.s.calendarFeeds.id, feedId));
     expect(await m.feeds.syncCalendarFeeds()).toEqual([]);

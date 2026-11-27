@@ -46,6 +46,7 @@ import {
 import { createCheckoutSession, expireCheckoutSession, refundPayment } from "@/lib/integrations/stripe";
 import * as notify from "@/lib/email/notify";
 import { getExperienceMeta } from "@/lib/experience-meta-db";
+import { syncCalendarFeedsIfStale } from "@/lib/feeds";
 
 export class BookingError extends Error {
   constructor(
@@ -259,6 +260,7 @@ export async function createBooking(input: CreateBookingInput): Promise<CreateBo
     throw new BookingError("Online payments aren't set up yet. Please contact us to book.", "payment");
   const end = new Date(start.getTime() + input.durationMinutes * 60_000);
   const holdExpiresAt = new Date(Date.now() + CHECKOUT_HOLD_MINUTES * 60_000);
+  await syncCalendarFeedsIfStale();
 
   let joinsSession = false;
   const booking = await db.transaction(async (tx) => {
@@ -902,6 +904,7 @@ export async function rescheduleBooking(
     }
   }
   const previousStart = b.startAt;
+  if (!opts.force) await syncCalendarFeedsIfStale();
 
   const updated = await db.transaction(async (tx) => {
     await lockResource(tx, b.resourceGroup);

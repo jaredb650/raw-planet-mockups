@@ -86,10 +86,10 @@ async function assertPublicHost(u: URL): Promise<void> {
   if (!ips.length || ips.some(isPrivateIp)) throw new Error("That feed address isn't reachable from the internet.");
 }
 
-async function fetchFeed(url: string): Promise<string> {
+async function fetchFeed(url: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<string> {
   let target = new URL(normalizeFeedUrl(url));
   if (!/^https?:$/.test(target.protocol)) throw new Error("Feed URL must start with https:// or webcal://");
-  const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
+  const signal = AbortSignal.timeout(timeoutMs);
   let res: Response | null = null;
   // Follow redirects by hand so every hop is checked. shortcut: DNS is checked before fetch, not pinned; fine for an admin-only setting.
   for (let hop = 0; hop < 4; hop++) {
@@ -152,16 +152,16 @@ export async function previewCalendarFeed(url: string, now = new Date()): Promis
 }
 
 function errMsg(err: unknown): string {
-  if (err instanceof Error) return err.name === "TimeoutError" ? "Feed timed out after 15 seconds" : err.message;
+  if (err instanceof Error) return err.name === "TimeoutError" ? "Feed timed out" : err.message;
   return String(err);
 }
 
-async function syncOne(feed: CalendarFeed, now: Date): Promise<FeedSyncResult> {
+async function syncOne(feed: CalendarFeed, now: Date, timeoutMs = FETCH_TIMEOUT_MS): Promise<FeedSyncResult> {
   const db = await getDb();
   const base = { feedId: feed.id, name: feed.name, events: 0, added: 0, updated: 0, removed: 0, skippedOwn: 0 };
   let text: string;
   try {
-    text = await fetchFeed(feed.url);
+    text = await fetchFeed(feed.url, timeoutMs);
   } catch (err) {
     const error = errMsg(err);
     await db.update(calendarFeeds).set({ lastError: error }).where(eq(calendarFeeds.id, feed.id));
@@ -243,9 +243,10 @@ async function syncOne(feed: CalendarFeed, now: Date): Promise<FeedSyncResult> {
  * per-feed errors are returned and saved on the feed's `lastError`.
  * A full sync also frees the blocks of paused feeds (paused = ignored).
  */
-export async function syncCalendarFeeds(feedId?: string): Promise<FeedSyncResult[]> {
+export async function syncCalendarFeeds(feedId?: string, opts?: { timeoutMs?: number }): Promise<FeedSyncResult[]> {
   const db = await getDb();
   const now = new Date();
+  const timeoutMs = opts?.timeoutMs ?? FETCH_TIMEOUT_MS;
   const feeds = feedId
     ? await db.select().from(calendarFeeds).where(eq(calendarFeeds.id, feedId))
     : await db.select().from(calendarFeeds).where(eq(calendarFeeds.active, true));
@@ -256,7 +257,7 @@ export async function syncCalendarFeeds(feedId?: string): Promise<FeedSyncResult
   }
   for (const feed of feeds) {
     try {
-      out.push(await syncOne(feed, now));
+      out.push(await syncOne(feed, now, timeoutMs));
     } catch (err) {
       const error = errMsg(err);
       console.error(`[feeds] ${feed.name} failed`, err);
@@ -265,6 +266,49 @@ export async function syncCalendarFeeds(feedId?: string): Promise<FeedSyncResult
     }
   }
   return out;
+}
+
+const DEFAULT_STALE_MS = 2 * 60_000;
+const INTERACTIVE_TIMEOUT_MS = 5_000;
+const RETRY_COOLDOWN_MS = 60_000;
+let staleSyncInFlight: Promise<boolean> | null = null;
+let lastStaleSyncAttemptMs = 0;
+
+/**
+ * On-demand freshness guard: if any active feed hasn't synced within `maxAgeMs`
+ * (default 2 min), syncs it immediately so availability, checkout, and admin
+ * views stay accurate even when background cron schedules are delayed.
+ * Coalesces concurrent callers, enforces a per-instance retry cooldown, and never throws.
+ */
+export async function syncCalendarFeedsIfStale(opts?: { maxAgeMs?: number; timeoutMs?: number }): Promise<boolean> {
+  if (staleSyncInFlight) return staleSyncInFlight;
+  const maxAgeMs = opts?.maxAgeMs ?? DEFAULT_STALE_MS;
+  const timeoutMs = opts?.timeoutMs ?? INTERACTIVE_TIMEOUT_MS;
+  const nowMs = Date.now();
+  if (nowMs - lastStaleSyncAttemptMs < Math.min(RETRY_COOLDOWN_MS, maxAgeMs)) return false;
+
+  staleSyncInFlight = (async () => {
+    try {
+      const db = await getDb();
+      const active = await db
+        .select({ id: calendarFeeds.id, lastSyncedAt: calendarFeeds.lastSyncedAt })
+        .from(calendarFeeds)
+        .where(eq(calendarFeeds.active, true));
+      if (!active.length) return false;
+      const stale = active.some((f) => !f.lastSyncedAt || Date.now() - f.lastSyncedAt.getTime() >= maxAgeMs);
+      if (!stale) return false;
+      lastStaleSyncAttemptMs = Date.now();
+      await syncCalendarFeeds(undefined, { timeoutMs });
+      return true;
+    } catch (err) {
+      console.error("[feeds] stale sync failed", err);
+      return false;
+    } finally {
+      staleSyncInFlight = null;
+    }
+  })();
+
+  return staleSyncInFlight;
 }
 
 /** Remove every block a feed created (e.g. right after pausing it, to free its times now). */

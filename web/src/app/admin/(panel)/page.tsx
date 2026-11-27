@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
-import { getAttention, getKpis, getSessions, weekStartKey } from "@/lib/admin/dashboard";
+import { getAttention, getExternalBlocks, getKpis, getSessions, weekStartKey, type ExternalBlockRow } from "@/lib/admin/dashboard";
 import { getOpportunities } from "@/lib/admin/opportunities";
 import { integrations, stripeDashboardUrl } from "@/lib/config";
-import { addDaysKey, fmt, fmtDateLong, fmtTime, fromLocal, localDateKey, todayKey } from "@/lib/time";
+import { addDaysKey, fmt, fmtDateLong, fmtTime, fmtTimeRange, fromLocal, localDateKey, todayKey } from "@/lib/time";
 import { formatMoney } from "@/lib/money";
 import { waiverUrlFor } from "@/lib/waiver-token";
 import { PageHeader, Panel, Empty } from "@/components/admin/PageHeader";
@@ -30,28 +30,65 @@ const SOURCE_COLOR: Record<string, string> = {
   cal: "#5a7fa0",
 };
 
+function ExternalList({ items, dateKey }: { items: ExternalBlockRow[]; dateKey: string }) {
+  if (!items.length) return null;
+  return (
+    <ul className={t.sessions}>
+      {items.map((b) => (
+        <li key={b.id} className={t.session}>
+          <div className={t.time}>
+            <span className={t.timeMain}>{fmtTimeRange(b.startAt, b.endAt)}</span>
+          </div>
+          <div className={t.body}>
+            <div className={t.what}>
+              <Pill tone="accent">{b.feedName}</Pill>
+              <span className={a.muted}> · Blocks website availability</span>
+            </div>
+            <Link href={`/admin/calendar?view=day&date=${dateKey}`} className={t.guest}>
+              {b.title}
+            </Link>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default async function TodayPage() {
   await requireAdmin();
   const now = new Date();
   const today = todayKey(now);
   const tomorrow = addDaysKey(today, 1);
-  const [sessions, kpis, att, opportunities] = await Promise.all([
-    getSessions(fromLocal(today), fromLocal(addDaysKey(today, 2))),
+  const rangeStart = fromLocal(today);
+  const rangeEnd = fromLocal(addDaysKey(today, 2));
+  const [sessions, externalBlocks, kpis, att, opportunities] = await Promise.all([
+    getSessions(rangeStart, rangeEnd),
+    getExternalBlocks(rangeStart, rangeEnd),
     getKpis(now),
     getAttention(now),
     getOpportunities(now),
   ]);
   const todays = sessions.filter((s) => localDateKey(new Date(s.startAt)) === today);
   const tomorrows = sessions.filter((s) => localDateKey(new Date(s.startAt)) === tomorrow);
+  const todayExt = externalBlocks.filter((b) => localDateKey(new Date(b.startAt)) === today);
+  const tomorrowExt = externalBlocks.filter((b) => localDateKey(new Date(b.startAt)) === tomorrow);
   const next = sessions.find((s) => new Date(s.endAt) > now && s.status === "confirmed");
+  const nextExt = externalBlocks.find((b) => new Date(b.endAt) > now);
 
   const subParts = [fmtDateLong(now)];
-  if (next) {
+  if (next && (!nextExt || new Date(next.startAt) <= new Date(nextExt.startAt))) {
     const live = new Date(next.startAt) <= now;
     subParts.push(
       live
         ? `${next.contactName} is in session now`
         : `Next: ${next.contactName}, ${localDateKey(new Date(next.startAt)) === today ? "" : "tomorrow "}${fmtTime(next.startAt)}`,
+    );
+  } else if (nextExt) {
+    const live = new Date(nextExt.startAt) <= now;
+    subParts.push(
+      live
+        ? `${nextExt.feedName}: ${nextExt.title} is on now`
+        : `Next (${nextExt.feedName}): ${localDateKey(new Date(nextExt.startAt)) === today ? "" : "tomorrow "}${fmtTime(nextExt.startAt)}`,
     );
   } else subParts.push("Nothing else booked today or tomorrow");
 
@@ -59,6 +96,8 @@ export default async function TodayPage() {
   const deltaPct = kpis.revenueLastMonthToDate > 0 ? Math.round((delta / kpis.revenueLastMonthToDate) * 100) : null;
   const attentionCount =
     att.calendarErrors.length + att.deliverables.length + att.inquiries.length + att.reviews.length + att.failedEmails.length + att.feeds.length + att.waivers.length;
+  const todayTotal = todays.length + todayExt.length;
+  const tomorrowTotal = tomorrows.length + tomorrowExt.length;
 
   return (
     <div className={a.page}>
@@ -81,7 +120,7 @@ export default async function TodayPage() {
         <div className={a.stack}>
           <Panel
             title={<span className={t.dayHead}>Today <span className={a.muted} style={{ fontWeight: 500 }}>{fmt(now, "EEE MMM d")}</span></span>}
-            count={todays.length ? plural(todays.length, "session") : undefined}
+            count={todayTotal ? plural(todayTotal, "session") : undefined}
             action={
               <span className={a.row}>
                 <Link className={a.panelLink} href={`/admin/manifest?date=${today}`}>Manifest</Link>
@@ -89,14 +128,33 @@ export default async function TodayPage() {
               </span>
             }
           >
-            {todays.length ? <SessionList sessions={todays} now={now} /> : <Empty>No sessions today.</Empty>}
+            {todayTotal ? (
+              <>
+                {todays.length > 0 && <SessionList sessions={todays} now={now} />}
+                <ExternalList items={todayExt} dateKey={today} />
+              </>
+            ) : (
+              <Empty>No sessions today.</Empty>
+            )}
           </Panel>
           <Panel
             title={<span className={t.dayHead}>Tomorrow <span className={a.muted} style={{ fontWeight: 500 }}>{fmt(fromLocal(tomorrow, "12:00"), "EEE MMM d")}</span></span>}
-            count={tomorrows.length ? plural(tomorrows.length, "session") : undefined}
-            action={<Link className={a.panelLink} href={`/admin/manifest?date=${tomorrow}`}>Manifest</Link>}
+            count={tomorrowTotal ? plural(tomorrowTotal, "session") : undefined}
+            action={
+              <span className={a.row}>
+                <Link className={a.panelLink} href={`/admin/manifest?date=${tomorrow}`}>Manifest</Link>
+                <Link className={a.panelLink} href={`/admin/calendar?view=day&date=${tomorrow}`}>Calendar</Link>
+              </span>
+            }
           >
-            {tomorrows.length ? <SessionList sessions={tomorrows} now={now} /> : <Empty>Nothing booked tomorrow.</Empty>}
+            {tomorrowTotal ? (
+              <>
+                {tomorrows.length > 0 && <SessionList sessions={tomorrows} now={now} />}
+                <ExternalList items={tomorrowExt} dateKey={tomorrow} />
+              </>
+            ) : (
+              <Empty>Nothing booked tomorrow.</Empty>
+            )}
           </Panel>
         </div>
 
