@@ -8,16 +8,18 @@
  * lease (`cronLock`) also stops whole runs from overlapping.
  */
 import "server-only";
-import { and, eq, gt, gte, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { bookingEvents, bookings, emailLog, giftCards, reviews } from "@/lib/db/schema";
+import { bookingEvents, bookings, customers, emailLog, giftCards, reviews } from "@/lib/db/schema";
 import { expireStaleHolds, logEvent } from "@/lib/booking/service";
+import { expireStaleGiftCards } from "@/lib/giftcards";
 import { localDateKey } from "@/lib/time";
 import { syncCalendarFeeds } from "@/lib/feeds";
 import { weekStartKey } from "@/lib/admin/dashboard";
 import { finishCampaigns, sendWinBacks } from "@/lib/admin/campaigns";
 import {
   tryAbandonedCheckout,
+  tryBookingConfirmation,
   tryBookingReminder,
   tryFollowup,
   tryGiftCardEmails,
@@ -35,6 +37,7 @@ import {
   guestAutomationAllowed,
   MAX_SEND_ATTEMPTS,
   nyHour,
+  REMINDER_LEAD_H,
   reminderDue,
   reviewNudgeDue,
   weeklyReportDue,
@@ -55,7 +58,20 @@ export type JobResult = {
   error?: string;
 };
 
-export const JOBS = ["expireHolds", "syncFeeds", "giftCardDelivery", "reminders", "abandonedCheckouts", "followups", "reviewNudges", "hostDigest", "weeklyReport", "campaignQueue", "winBack"] as const;
+export const JOBS = [
+  "expireHolds",
+  "syncFeeds",
+  "confirmations",
+  "giftCardDelivery",
+  "reminders",
+  "abandonedCheckouts",
+  "followups",
+  "reviewNudges",
+  "hostDigest",
+  "weeklyReport",
+  "campaignQueue",
+  "winBack",
+] as const;
 export type JobName = (typeof JOBS)[number];
 
 type Tally = { sent: number; skipped: number; failed: number; detail?: unknown };
@@ -73,7 +89,16 @@ async function failures(template: string, bookingId: string): Promise<number> {
   return Number(row?.n ?? 0);
 }
 
-type ClaimCol = "reminderSentAt" | "followupSentAt" | "reviewRequestSentAt" | "abandonedEmailSentAt";
+async function recentTemplateFailures(template: string, since: Date): Promise<number> {
+  const db = await getDb();
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(emailLog)
+    .where(and(eq(emailLog.template, template), eq(emailLog.status, "failed"), gte(emailLog.createdAt, since)));
+  return Number(row?.n ?? 0);
+}
+
+type ClaimCol = "confirmationSentAt" | "reminderSentAt" | "followupSentAt" | "reviewRequestSentAt" | "abandonedEmailSentAt";
 
 /** Claim → send → release on failure (bounded) → timeline entry on success. */
 async function claimAndSend(opts: {
@@ -105,13 +130,51 @@ async function claimAndSend(opts: {
 
 /* ------------------------------------------------------------------ */
 
+/** Retry confirmation emails that failed during Stripe webhook / checkout fulfillment. */
+async function confirmations(now: Date): Promise<Tally> {
+  const db = await getDb();
+  const t = tally();
+  const rows = await db
+    .select()
+    .from(bookings)
+    .where(
+      and(
+        eq(bookings.status, "confirmed"),
+        isNull(bookings.confirmationSentAt),
+        gte(bookings.createdAt, new Date(now.getTime() - 2 * DAY)),
+        // Give the inline confirmation send 2 minutes to finish before cron picks it up.
+        lte(bookings.updatedAt, new Date(now.getTime() - 2 * 60_000)),
+      ),
+    );
+  for (const b of rows) {
+    if (!guestAutomationAllowed(b)) continue;
+    const s = await claimAndSend({
+      bookingId: b.id,
+      col: "confirmationSentAt",
+      template: "booking_confirmation",
+      now,
+      send: () => tryBookingConfirmation(b.id),
+      timeline: "Confirmation email sent (retry)",
+    });
+    if (s !== "taken") count(t, s);
+  }
+  return t;
+}
+
 async function reminders(now: Date): Promise<Tally> {
   const db = await getDb();
   const t = tally();
   const rows = await db
     .select()
     .from(bookings)
-    .where(and(eq(bookings.status, "confirmed"), isNull(bookings.reminderSentAt), gt(bookings.startAt, new Date(now.getTime() + H)), lte(bookings.startAt, new Date(now.getTime() + 24 * H))));
+    .where(
+      and(
+        eq(bookings.status, "confirmed"),
+        isNull(bookings.reminderSentAt),
+        gt(bookings.startAt, new Date(now.getTime() + H)),
+        lte(bookings.startAt, new Date(now.getTime() + REMINDER_LEAD_H * H)),
+      ),
+    );
   for (const b of rows) {
     if (!guestAutomationAllowed(b) || !reminderDue(b, now)) continue;
     const s = await claimAndSend({ bookingId: b.id, col: "reminderSentAt", template: "booking_reminder", now, send: () => tryBookingReminder(b.id, now), timeline: "Reminder email sent" });
@@ -180,28 +243,45 @@ async function abandonedCheckouts(now: Date): Promise<Tally> {
         eq(bookings.source, "direct"),
         isNull(bookings.abandonedEmailSentAt),
         lte(bookings.updatedAt, new Date(now.getTime() - 45 * 60_000)),
-        gte(bookings.updatedAt, new Date(now.getTime() - DAY)),
+        gte(bookings.updatedAt, new Date(now.getTime() - 2 * DAY)),
       ),
     );
   for (const b of rows) {
     if (!guestAutomationAllowed(b)) continue;
+    const emailLower = b.contactEmail.trim().toLowerCase();
+    const [unsub] = await db
+      .select({ unsubscribedAt: customers.unsubscribedAt })
+      .from(customers)
+      .where(eq(customers.email, emailLower))
+      .limit(1);
+    if (unsub?.unsubscribedAt) continue;
     const [again] = await db
       .select({ id: bookings.id })
       .from(bookings)
       .where(
         and(
-          sql`lower(${bookings.contactEmail}) = ${b.contactEmail.toLowerCase()}`,
+          sql`lower(${bookings.contactEmail}) = ${emailLower}`,
           gt(bookings.createdAt, b.createdAt),
           inArray(bookings.status, ["pending_payment", "confirmed", "completed"]),
         ),
       )
       .limit(1);
-    const [byGuest] = await db
+    const [skipReason] = await db
       .select({ id: bookingEvents.id })
       .from(bookingEvents)
-      .where(and(eq(bookingEvents.bookingId, b.id), eq(bookingEvents.type, "expired"), eq(bookingEvents.message, "Cancelled before payment")))
+      .where(
+        and(
+          eq(bookingEvents.bookingId, b.id),
+          eq(bookingEvents.type, "expired"),
+          or(
+            eq(bookingEvents.message, "Cancelled before payment"),
+            sql`${bookingEvents.message} like 'Calendar rejected%'`,
+            sql`${bookingEvents.message} like 'Checkout could not be started%'`,
+          ),
+        ),
+      )
       .limit(1);
-    if (!abandonedDue(b, now, { rebooked: Boolean(again), cancelledByGuest: Boolean(byGuest) })) continue;
+    if (!abandonedDue(b, now, { rebooked: Boolean(again), cancelledByGuest: Boolean(skipReason) })) continue;
     const s = await claimAndSend({
       bookingId: b.id,
       col: "abandonedEmailSentAt",
@@ -221,7 +301,14 @@ async function giftCardDelivery(now: Date): Promise<Tally> {
   const rows = await db
     .select()
     .from(giftCards)
-    .where(and(eq(giftCards.status, "active"), isNull(giftCards.deliveredAt), lte(giftCards.deliverAt, now), sql`${giftCards.recipientEmail} is not null`));
+    .where(
+      and(
+        eq(giftCards.status, "active"),
+        isNull(giftCards.deliveredAt),
+        or(isNull(giftCards.deliverAt), lte(giftCards.deliverAt, now)),
+        sql`${giftCards.recipientEmail} is not null`,
+      ),
+    );
   for (const c of rows) {
     if (!giftCardDeliveryDue(c, now)) continue;
     const [claimed] = await db
@@ -236,7 +323,14 @@ async function giftCardDelivery(now: Date): Promise<Tally> {
       const [f] = await db
         .select({ n: sql<number>`count(*)::int` })
         .from(emailLog)
-        .where(and(eq(emailLog.template, "gift_card_recipient"), eq(emailLog.to, c.recipientEmail!), eq(emailLog.status, "failed"), gte(emailLog.createdAt, since)));
+        .where(
+          and(
+            eq(emailLog.template, "gift_card_recipient"),
+            sql`lower(${emailLog.to}) = ${c.recipientEmail!.trim().toLowerCase()}`,
+            eq(emailLog.status, "failed"),
+            gte(emailLog.createdAt, since),
+          ),
+        );
       if (Number(f?.n ?? 0) < MAX_SEND_ATTEMPTS) await db.update(giftCards).set({ deliveredAt: null }).where(eq(giftCards.id, c.id));
     }
     count(t, s);
@@ -251,7 +345,9 @@ async function hostDigest(now: Date): Promise<Tally> {
   if (!digestDue(now, last, today)) return t;
   await setSetting("lastDigestDate", today); // claim for today
   const s = await tryHostDigest(now);
-  if (s === "failed") await setSetting("lastDigestDate", last ?? "");
+  if (s === "failed" && (await recentTemplateFailures("host_digest", new Date(now.getTime() - DAY))) < MAX_SEND_ATTEMPTS) {
+    await setSetting("lastDigestDate", last ?? "");
+  }
   count(t, s);
   return t;
 }
@@ -277,17 +373,23 @@ async function weeklyReport(now: Date): Promise<Tally> {
   if (!weeklyReportDue(now, last, week, today)) return t;
   await setSetting("lastWeeklyReportWeek", week); // claim for this week
   const s = await tryWeeklyReport(now);
-  if (s === "failed") await setSetting("lastWeeklyReportWeek", last ?? "");
+  if (s === "failed" && (await recentTemplateFailures("host_weekly_report", new Date(now.getTime() - 2 * DAY))) < MAX_SEND_ATTEMPTS) {
+    await setSetting("lastWeeklyReportWeek", last ?? "");
+  }
   count(t, s);
   return t;
 }
 
 const RUNNERS: Record<JobName, (now: Date, budgetMs: number) => Promise<Tally>> = {
-  expireHolds: async (now) => ({ ...tally(), detail: { expired: await expireStaleHolds(now) } }),
-  syncFeeds: async () => {
-    const res = await syncCalendarFeeds();
+  expireHolds: async (now) => {
+    const [expired, giftCardsExpired] = await Promise.all([expireStaleHolds(now), expireStaleGiftCards(now)]);
+    return { ...tally(), detail: { expired, giftCardsExpired } };
+  },
+  syncFeeds: async (_now, budgetMs) => {
+    const res = await syncCalendarFeeds(undefined, { timeoutMs: Math.min(12_000, Math.max(4_000, Math.floor(budgetMs / 2))) });
     return { sent: 0, skipped: 0, failed: res.filter((r) => !r.ok).length, detail: res };
   },
+  confirmations,
   giftCardDelivery,
   reminders,
   abandonedCheckouts,
@@ -303,7 +405,7 @@ const LOCK = "cronLock";
 const LOCK_TTL_MS = 9 * 60_000;
 const CRON_BUDGET_MS = 50_000;
 
-export type CronRun = { ok: boolean; startedAt: string; ms: number; locked?: boolean; jobs: JobResult[] };
+export type CronRun = { ok: boolean; startedAt: string; ms: number; locked?: boolean; budgetExhausted?: boolean; jobs: JobResult[] };
 
 /** Run every job (or `only` those named), in a safe order. Never throws. */
 export async function runJobs(opts: { only?: JobName[]; now?: Date } = {}): Promise<CronRun> {
@@ -314,11 +416,15 @@ export async function runJobs(opts: { only?: JobName[]; now?: Date } = {}): Prom
     return { ok: true, locked: true, startedAt: now.toISOString(), ms: Date.now() - started, jobs: [] };
   }
   const jobs: JobResult[] = [];
+  let budgetExhausted = false;
   try {
     for (const job of JOBS) {
       if (opts.only && !opts.only.includes(job)) continue;
       const remainingMs = deadline - Date.now();
-      if (remainingMs <= 1500 && jobs.length > 0) break;
+      if (remainingMs <= 1500 && jobs.length > 0) {
+        budgetExhausted = true;
+        break;
+      }
       const t0 = Date.now();
       try {
         const r = await RUNNERS[job](now, Math.max(0, remainingMs));
@@ -331,6 +437,7 @@ export async function runJobs(opts: { only?: JobName[]; now?: Date } = {}): Prom
   } finally {
     await releaseLease(LOCK).catch(() => {});
   }
-  await setSetting("lastCronRun", { at: now.toISOString(), ok: jobs.every((j) => j.ok) }).catch(() => {});
-  return { ok: jobs.every((j) => j.ok), startedAt: now.toISOString(), ms: Date.now() - started, jobs };
+  const ok = !budgetExhausted && jobs.every((j) => j.ok);
+  await setSetting("lastCronRun", { at: now.toISOString(), ok }).catch(() => {});
+  return { ok, startedAt: now.toISOString(), ms: Date.now() - started, ...(budgetExhausted ? { budgetExhausted: true } : {}), jobs };
 }

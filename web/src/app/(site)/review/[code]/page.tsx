@@ -33,7 +33,8 @@ export default async function ReviewPage({ params, searchParams }: PageProps<"/r
 
   const [exp, existing] = await Promise.all([getExperienceSummary(booking.experienceId), getReviewForBooking(booking.id)]);
   const expName = exp?.shortName ?? "your";
-  const firstName = booking.contactName.trim().split(/\s+/)[0] ?? "";
+  const attendeeName = booking.isGift && booking.giftRecipientName ? booking.giftRecipientName : booking.contactName;
+  const firstName = attendeeName.trim().split(/\s+/)[0] ?? "";
 
   if (existing) {
     return (

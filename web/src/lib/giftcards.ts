@@ -12,13 +12,13 @@
  */
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 import { getDb, type Tx } from "@/lib/db";
 import { customers, giftCards, giftCardTransactions, type GiftCard } from "@/lib/db/schema";
 import { integrations, siteUrl } from "@/lib/config";
 import { newGiftCardCode, normalizeCode } from "@/lib/ids";
 import { formatMoney } from "@/lib/money";
-import { fromLocal, localDateKey } from "@/lib/time";
+import { fromLocal, isValidDateKey, localDateKey } from "@/lib/time";
 import { createCheckoutSession } from "@/lib/integrations/stripe";
 import * as notify from "@/lib/email/notify";
 
@@ -53,9 +53,9 @@ export function giftCardLinkToken(giftCardId: string): string {
 
 export function verifyGiftCardLinkToken(giftCardId: string, token: string | null | undefined): boolean {
   if (!token) return false;
-  const expected = giftCardLinkToken(giftCardId);
-  if (expected.length !== token.length) return false;
-  return timingSafeEqual(Buffer.from(expected), Buffer.from(token));
+  const expected = Buffer.from(giftCardLinkToken(giftCardId));
+  const got = Buffer.from(token);
+  return expected.length === got.length && timingSafeEqual(expected, got);
 }
 
 export function giftCardSuccessPath(giftCardId: string): string {
@@ -110,7 +110,7 @@ export async function createGiftCardPurchase(input: GiftCardPurchaseInput): Prom
 
   let deliverAt: Date | null = null;
   if (input.deliverOn) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.deliverOn)) throw new GiftCardError("Pick a valid delivery date.");
+    if (!isValidDateKey(input.deliverOn)) throw new GiftCardError("Pick a valid delivery date.");
     const today = localDateKey(new Date());
     if (input.deliverOn > today) {
       if (!recipientEmail) throw new GiftCardError("Add the recipient's email so we can deliver it on that date.");
@@ -147,24 +147,29 @@ export async function createGiftCardPurchase(input: GiftCardPurchaseInput): Prom
     return { url: siteUrl(`/checkout/test/gift_card/${card.id}?t=${giftCardLinkToken(card.id)}`) };
   }
   const forWhom = card.recipientName ? ` for ${card.recipientName}` : "";
-  const session = await createCheckoutSession({
-    kind: "gift_card",
-    refId: card.id,
-    email: purchaserEmail,
-    description: `Raw Planet gift card ${formatMoney(amount)}${forWhom}`,
-    lines: [
-      {
-        name: `Raw Planet gift card — ${formatMoney(amount)}`,
-        description: card.recipientName ? `For ${card.recipientName}` : "Good for any session",
-        amountCents: amount,
-      },
-    ],
-    successUrl: siteUrl(`${giftCardSuccessPath(card.id)}&session_id={CHECKOUT_SESSION_ID}`),
-    cancelUrl: siteUrl(`/gift-cards?cancelled=1`),
-    expiresInMinutes: 60,
-  });
-  await db.update(giftCards).set({ stripeCheckoutSessionId: session.id }).where(eq(giftCards.id, card.id));
-  return { url: session.url };
+  try {
+    const session = await createCheckoutSession({
+      kind: "gift_card",
+      refId: card.id,
+      email: purchaserEmail,
+      description: `Raw Planet gift card ${formatMoney(amount)}${forWhom}`,
+      lines: [
+        {
+          name: `Raw Planet gift card — ${formatMoney(amount)}`,
+          description: card.recipientName ? `For ${card.recipientName}` : "Good for any session",
+          amountCents: amount,
+        },
+      ],
+      successUrl: siteUrl(`${giftCardSuccessPath(card.id)}&session_id={CHECKOUT_SESSION_ID}`),
+      cancelUrl: siteUrl(`/gift-cards?cancelled=1`),
+      expiresInMinutes: 60,
+    });
+    await db.update(giftCards).set({ stripeCheckoutSessionId: session.id }).where(eq(giftCards.id, card.id));
+    return { url: session.url };
+  } catch (err) {
+    await expireGiftCardPurchase(card.id);
+    throw err;
+  }
 }
 
 async function upsertGiftCardCustomer(
@@ -232,9 +237,15 @@ export async function fulfillGiftCard(
   }
 
   const sendRecipientNow = Boolean(activated.recipientEmail) && (!activated.deliverAt || activated.deliverAt <= new Date());
-  const status = await notify.tryGiftCardEmails(activated.id, { purchaserReceipt: true, recipient: sendRecipientNow, skipDedupe: true });
-  // Without a recipient email the purchaser's receipt carries the card, so it's delivered now (if the email went out).
-  if ((sendRecipientNow || !activated.recipientEmail) && status === "sent") {
+  // Send recipient email independently from purchaser receipt so a failed receipt never leaves
+  // `deliveredAt` null and triggers duplicate recipient deliveries on cron retry.
+  const recipientStatus = sendRecipientNow
+    ? await notify.tryGiftCardEmails(activated.id, { purchaserReceipt: false, recipient: true, skipDedupe: true })
+    : "skipped";
+  const receiptStatus = await notify.tryGiftCardEmails(activated.id, { purchaserReceipt: true, recipient: false, skipDedupe: true });
+
+  const delivered = activated.recipientEmail ? sendRecipientNow && recipientStatus === "sent" : receiptStatus === "sent";
+  if (delivered) {
     const [u] = await db.update(giftCards).set({ deliveredAt: new Date() }).where(eq(giftCards.id, activated.id)).returning();
     return u;
   }
@@ -248,6 +259,18 @@ export async function expireGiftCardPurchase(giftCardId: string): Promise<void> 
     .update(giftCards)
     .set({ status: "void" })
     .where(and(eq(giftCards.id, giftCardId), eq(giftCards.status, "pending_payment")));
+}
+
+/** Expire stale unpaid gift card checkouts (called from cron expireHolds). */
+export async function expireStaleGiftCards(now = new Date()): Promise<number> {
+  const db = await getDb();
+  const cutoff = new Date(now.getTime() - 75 * 60_000);
+  const rows = await db
+    .update(giftCards)
+    .set({ status: "void" })
+    .where(and(eq(giftCards.status, "pending_payment"), lt(giftCards.createdAt, cutoff)))
+    .returning({ id: giftCards.id });
+  return rows.length;
 }
 
 /* ------------------------------------------------------------------ */

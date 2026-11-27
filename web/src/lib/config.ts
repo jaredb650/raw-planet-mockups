@@ -22,7 +22,9 @@ export const BUSINESS = {
 } as const;
 
 export function siteUrl(path = ""): string {
-  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3300").replace(/\/$/, "");
+  const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
+  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? (vercelHost ? `https://${vercelHost}` : "http://localhost:3300");
+  const base = raw.replace(/\/$/, "");
   return `${base}${path.startsWith("/") || path === "" ? path : `/${path}`}`;
 }
 

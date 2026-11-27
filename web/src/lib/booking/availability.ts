@@ -33,6 +33,8 @@ export type Interval = {
   experienceId?: string;
   guests?: number;
   isPrivate?: boolean;
+  /** Buffer minutes of the existing booking's own experience (enforced symmetrically). */
+  bufferMinutes?: number;
 };
 
 export type Slot = {
@@ -52,7 +54,18 @@ type ScheduleExperience = Pick<
   Experience,
   "schedule" | "slotStepMinutes" | "bufferMinutes" | "leadTimeHours" | "maxAdvanceDays"
 > &
-  Partial<Pick<Experience, "id" | "minGuests" | "maxGuests">>;
+  Partial<Pick<Experience, "id" | "minGuests" | "maxGuests" | "pricingMode">>;
+
+function parseHhMm(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+function fmtHhMm(totalMinutes: number): string {
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
 
 /** Pure: candidate slots for one local day given busy intervals. Unit-tested. */
 export function computeDaySlots(opts: {
@@ -70,18 +83,20 @@ export function computeDaySlots(opts: {
 }): DayAvailability {
   const { experience: e, dateKey, durationMinutes, busy, now } = opts;
   const isPrivate = Boolean(opts.isPrivate);
+  const canShare = !isPrivate && e.pricingMode !== "per_session";
   const windows = e.schedule[String(weekdayOf(dateKey))] ?? [];
   const slots: Slot[] = [];
   const earliest = new Date(now.getTime() + e.leadTimeHours * 3600_000);
   const latestDay = addDaysKey(localDateKey(now), e.maxAdvanceDays);
-  const bufferMs = e.bufferMinutes * 60_000;
+  const candidateBufferMs = e.bufferMinutes * 60_000;
   const step = Math.max(15, e.slotStepMinutes);
 
   for (const w of windows) {
-    const winStart = fromLocal(dateKey, w.start);
-    const lastStart = fromLocal(dateKey, w.end).getTime();
-    for (let t = winStart.getTime(); t <= lastStart; t += step * 60_000) {
-      const start = new Date(t);
+    const startMin = parseHhMm(w.start);
+    const endMin = parseHhMm(w.end);
+    for (let min = startMin; min <= endMin; min += step) {
+      const start = fromLocal(dateKey, fmtHhMm(min));
+      const t = start.getTime();
       const end = new Date(t + durationMinutes * 60_000);
       let reason: Slot["reason"];
       let seatsLeft: number | undefined;
@@ -89,13 +104,15 @@ export function computeDaySlots(opts: {
       else if (start < earliest) reason = "notice";
       else if (dateKey > latestDay) reason = "too_far";
       else {
-        const hits = busy.filter((b) =>
-          overlaps(new Date(start.getTime() - bufferMs), new Date(end.getTime() + bufferMs), b.start, b.end),
-        );
+        const hits = busy.filter((b) => {
+          const busyBufferMs = (b.bufferMinutes ?? 0) * 60_000;
+          const effBufferMs = Math.max(candidateBufferMs, busyBufferMs);
+          return overlaps(new Date(t - effBufferMs), new Date(end.getTime() + effBufferMs), b.start, b.end);
+        });
         // Same experience, same start & end = the same shared session: it takes seats instead of blocking.
-        // Private bookings never share: neither an incoming private booking nor an existing private booking can join.
+        // Private bookings and per_session experiences never share.
         const joins = (b: Interval) =>
-          !isPrivate &&
+          canShare &&
           !b.isPrivate &&
           Boolean(e.id) &&
           b.kind !== "block" &&
@@ -108,7 +125,7 @@ export function computeDaySlots(opts: {
         else if (taken > 0) {
           seatsLeft = Math.max(0, (e.maxGuests ?? 0) - taken);
           if (seatsLeft < (opts.guests ?? e.minGuests ?? 1)) reason = "booked";
-        } else if (opts.externalStarts && !opts.externalStarts.has(start.getTime())) reason = "calendar";
+        } else if (opts.externalStarts && !opts.externalStarts.has(t)) reason = "calendar";
       }
       slots.push({
         start: start.toISOString(),
@@ -138,8 +155,10 @@ export async function loadBusy(
       experienceId: bookings.experienceId,
       guests: bookings.guests,
       isPrivate: bookings.isPrivate,
+      bufferMinutes: experiences.bufferMinutes,
     })
     .from(bookings)
+    .leftJoin(experiences, eq(bookings.experienceId, experiences.id))
     .where(
       and(
         eq(bookings.resourceGroup, opts.resourceGroup),
@@ -172,6 +191,7 @@ export async function loadBusy(
         experienceId: r.experienceId,
         guests: r.guests,
         isPrivate: r.isPrivate,
+        bufferMinutes: r.bufferMinutes ?? 0,
       })),
     ...blockRows.map((b) => ({ start: b.startAt, end: b.endAt, kind: "block" as const })),
   ];

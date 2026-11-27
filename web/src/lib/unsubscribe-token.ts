@@ -14,8 +14,9 @@ export function unsubToken(customerId: string): string {
 
 export function unsubTokenValid(customerId: string, token: string): boolean {
   if (!customerId || !token) return false;
-  const expected = unsubToken(customerId);
-  return expected.length === token.length && timingSafeEqual(Buffer.from(expected), Buffer.from(token));
+  const a = Buffer.from(unsubToken(customerId));
+  const b = Buffer.from(token);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /** One URL serves the human page (GET) and the RFC 8058 one-click POST. */

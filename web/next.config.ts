@@ -24,7 +24,20 @@ const nextConfig: NextConfig = {
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(self), browsing-topics=()" },
       {
         key: "Content-Security-Policy",
-        value: "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://checkout.stripe.com",
+        value: [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+          "style-src 'self' 'unsafe-inline'",
+          "font-src 'self'",
+          "img-src 'self' data: blob: https:",
+          "media-src 'self' https:",
+          "frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://player.vimeo.com",
+          "connect-src 'self' https://challenges.cloudflare.com",
+          "base-uri 'self'",
+          "object-src 'none'",
+          "frame-ancestors 'none'",
+          "form-action 'self' https://checkout.stripe.com",
+        ].join("; "),
       },
     ];
     const privateTokenHeaders = [

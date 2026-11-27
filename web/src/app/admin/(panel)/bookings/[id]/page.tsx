@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { eq } from "drizzle-orm";
+import { isAdmin, requireAdmin } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { bookings } from "@/lib/db/schema";
 import { getBookingDetail } from "@/lib/admin/bookings";
 import { refundForCancellation } from "@/lib/booking/pricing";
 import { canCheckIn } from "@/lib/booking/service";
@@ -32,9 +35,16 @@ import a from "@/components/admin/admin.module.css";
 import d from "@/components/admin/detail.module.css";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  if (!(await isAdmin())) return { title: "Booking" };
   const { id } = await params;
-  const r = await getBookingDetail(id).catch(() => null);
-  return { title: r ? `${r.booking.contactName} · ${r.booking.code}` : "Booking" };
+  const db = await getDb();
+  const [b] = await db
+    .select({ contactName: bookings.contactName, code: bookings.code })
+    .from(bookings)
+    .where(eq(bookings.id, id))
+    .limit(1)
+    .catch(() => []);
+  return { title: b ? `${b.contactName} · ${b.code}` : "Booking" };
 }
 
 const ACTOR: Record<string, string> = { admin: "You", customer: "Guest", system: "System" };

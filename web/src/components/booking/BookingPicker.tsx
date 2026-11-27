@@ -407,7 +407,9 @@ export function BookingPicker({
                       {" "}
                       {quote.privateBuyoutApplied
                         ? "Private buyout"
-                        : `${formatMoney((quote.baseCents - quote.extraTimeCents) / guests)} × ${guests} · Private`}
+                        : exp.pricingMode === "per_person"
+                          ? `${formatMoney((quote.baseCents - quote.extraTimeCents) / guests)} × ${guests} · Private`
+                          : "Private session"}
                       {quote.extraTimeCents > 0 ? ` + ${formatMoney(quote.extraTimeCents)}` : ""}
                     </small>
                   ) : exp.pricingMode === "per_person" && (guests > 1 || quote.extraTimeCents > 0) ? (

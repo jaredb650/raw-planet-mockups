@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { bookings, inquiries, waitlist } from "@/lib/db/schema";
 import { experienceOptions } from "@/lib/admin/bookings";
-import { todayKey } from "@/lib/time";
+import { isValidDateKey, todayKey } from "@/lib/time";
 import { PageHeader, Panel } from "@/components/admin/PageHeader";
 import { NewBookingForm, type NewBookingPrefill } from "@/components/admin/NewBookingForm";
 import { createManualAction } from "../actions";
@@ -20,7 +20,7 @@ export default async function NewBookingPage({ searchParams }: { searchParams: P
   const prefill: NewBookingPrefill = {};
   const date = one(sp.date);
   const time = one(sp.time);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) prefill.date = date;
+  if (isValidDateKey(date)) prefill.date = date;
   if (/^\d{2}:\d{2}$/.test(time)) prefill.time = time;
   if (one(sp.exp)) prefill.experienceId = one(sp.exp);
   if (["airbnb", "viator", "phone", "manual"].includes(one(sp.source))) prefill.source = one(sp.source);
@@ -41,7 +41,7 @@ export default async function NewBookingPage({ searchParams }: { searchParams: P
         experienceId: prefill.experienceId ?? inq.experienceId ?? undefined,
         notes: inq.message ? `From inquiry: ${inq.message}` : undefined,
       } satisfies NewBookingPrefill);
-      if (!prefill.date && inq.preferredDate && /^\d{4}-\d{2}-\d{2}$/.test(inq.preferredDate)) prefill.date = inq.preferredDate;
+      if (!prefill.date && inq.preferredDate && isValidDateKey(inq.preferredDate)) prefill.date = inq.preferredDate;
     }
   }
 

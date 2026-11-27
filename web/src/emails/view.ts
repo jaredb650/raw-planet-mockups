@@ -23,6 +23,7 @@ import {
   money,
   type Lang,
 } from "./i18n";
+import { defaultMetaForSlug } from "@/lib/experience-meta";
 import type { BookingView } from "./types";
 
 const PLACEHOLDER = /exact address|confirmed with your booking|sent with your confirmation|address (?:will be )?sent|\btb[ad]\b/i;
@@ -54,6 +55,7 @@ export type BookingViewInput = {
   promoCode?: string | null;
   hostPhone?: string | null;
   hostWhatsapp?: string | null;
+  hasDeliverable?: boolean;
   /** Force a language (e.g. the gift recipient's); default = booking language. */
   lang?: Lang;
   /**
@@ -90,7 +92,9 @@ export function buildBookingView(input: BookingViewInput): BookingView {
   if (b.giftCardCents > 0) priceLines.push({ label: es ? "Tarjeta de regalo" : "Gift card", amount: `−${money(b.giftCardCents)}`, muted: true });
 
   const summary = `${name}${b.isPrivate ? (es ? " (Privada)" : " (Private)") : ""} · Raw Planet`;
-  const calDescription = [`${es ? "Reserva" : "Booking"} ${b.code}`, arrivalFor(e.arrivalInstructions), manage ? `${es ? "Gestionar" : "Manage"}: ${manage}` : null]
+  // Never embed the secret manageToken in third-party calendar links or shared .ics files.
+  const publicManageUrl = siteUrl("/manage");
+  const calDescription = [`${es ? "Reserva" : "Booking"} ${b.code}`, arrivalFor(e.arrivalInstructions), manage ? `${es ? "Gestionar" : "Manage"}: ${publicManageUrl}` : null]
     .filter(Boolean)
     .join("\n\n");
 
@@ -146,25 +150,28 @@ export function buildBookingView(input: BookingViewInput): BookingView {
     hostWhatsapp: input.hostWhatsapp ?? null,
     deliverableUrl: b.deliverableUrl,
     deliverableReady: b.deliverableStatus === "delivered" && Boolean(b.deliverableUrl),
+    hasDeliverable: input.hasDeliverable ?? defaultMetaForSlug(e.slug).hasDeliverable,
   };
 }
 
 /** Calendar invite fields for a booking (shared by email attachments). */
 export function bookingIcsFields(v: BookingView, booking: Booking) {
   const es = v.lang === "es";
+  const publicManageUrl = siteUrl("/manage");
   return {
     uid: `${booking.id}@rawplanetexperiences.com`,
     start: booking.startAt,
     end: booking.endAt,
+    dtstamp: booking.updatedAt,
     summary: `${v.experienceName}${v.isPrivate ? (es ? " (Privada)" : " (Private)") : ""} · Raw Planet`,
     description: [
       `${es ? "Reserva" : "Booking"} ${v.code} · ${v.guestsLabel}${v.isPrivate ? (es ? " · Sesión privada" : " · Private session") : ""}`,
       v.arrivalInstructions,
-      v.manageUrl ? `${es ? "Gestionar" : "Manage"}: ${v.manageUrl}` : null,
+      v.manageUrl ? `${es ? "Gestionar" : "Manage"}: ${publicManageUrl}` : null,
     ]
       .filter(Boolean)
       .join("\n\n"),
     location: v.address ?? v.locationArea,
-    url: v.manageUrl || undefined,
+    url: v.manageUrl ? publicManageUrl : undefined,
   };
 }

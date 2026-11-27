@@ -17,7 +17,9 @@ export default async function GiftCardSuccessPage({ searchParams }: { searchPara
   if (!id || !verifyGiftCardLinkToken(id, k)) notFound();
   let card = await getGiftCard(id);
   if (!card) notFound();
-  if (card.status === "pending_payment") card = await reconcileGiftCardPayment(card, typeof sp.session_id === "string" ? sp.session_id : null);
+  if (card.status === "pending_payment" || (card.status === "void" && !card.stripePaymentIntentId)) {
+    card = await reconcileGiftCardPayment(card, typeof sp.session_id === "string" ? sp.session_id : null);
+  }
 
   if (card.status === "pending_payment") {
     return (

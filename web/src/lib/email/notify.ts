@@ -40,7 +40,7 @@ import {
 } from "@/lib/db/schema";
 import { BUSINESS, hostNotificationEmail, siteUrl } from "@/lib/config";
 import { buildIcs, googleCalendarUrl, type IcsEvent } from "@/lib/ics";
-import { addDaysKey, fmt, fromLocal, localDateKey } from "@/lib/time";
+import { addDaysKey, fmt, fromLocal, isValidDateKey, localDateKey } from "@/lib/time";
 import { getStringSetting } from "@/lib/automation/settings";
 import { getDeliverableExperienceIds } from "@/lib/experience-meta-db";
 import { renderEmail } from "@/emails/render";
@@ -100,11 +100,11 @@ async function deliver(opts: {
   out: EmailOutput;
   bookingId?: string | null;
   replyTo?: string;
-  ics?: { filename: string; content: string };
+  ics?: { filename: string; content: string; method?: "PUBLISH" | "CANCEL" };
   skipDedupe?: boolean;
 }): Promise<SendStatus> {
   if (!isDeliverable(opts.to)) return "skipped";
-  const to = opts.to.trim();
+  const to = opts.to.trim().toLowerCase();
   const db = await getDb();
   if (!opts.skipDedupe) {
     const [dupe] = await db
@@ -113,7 +113,7 @@ async function deliver(opts: {
       .where(
         and(
           eq(emailLog.template, opts.template),
-          eq(emailLog.to, to),
+          sql`lower(${emailLog.to}) = ${to}`,
           eq(emailLog.subject, opts.out.subject),
           opts.bookingId ? eq(emailLog.bookingId, opts.bookingId) : sql`${emailLog.bookingId} is null`,
           inArray(emailLog.status, ["sent", "logged"]),
@@ -132,7 +132,9 @@ async function deliver(opts: {
     template: opts.template,
     bookingId: opts.bookingId ?? null,
     replyTo: opts.replyTo,
-    attachments: opts.ics ? [{ filename: opts.ics.filename, content: opts.ics.content, contentType: "text/calendar; charset=utf-8; method=PUBLISH" }] : undefined,
+    attachments: opts.ics
+      ? [{ filename: opts.ics.filename, content: opts.ics.content, contentType: `text/calendar; charset=utf-8; method=${opts.ics.method ?? "PUBLISH"}` }]
+      : undefined,
   });
   return res.ok ? "sent" : "failed";
 }
@@ -184,7 +186,16 @@ async function hostContacts() {
 }
 
 async function viewFor(r: Loaded, audience: "purchaser" | "recipient" = "purchaser"): Promise<BookingView> {
-  return buildBookingView({ booking: r.b, experience: r.e, addons: r.addons, promoCode: r.promoCode, audience, ...(await hostContacts()) });
+  const [contacts, delivIds] = await Promise.all([hostContacts(), getDeliverableExperienceIds()]);
+  return buildBookingView({
+    booking: r.b,
+    experience: r.e,
+    addons: r.addons,
+    promoCode: r.promoCode,
+    audience,
+    hasDeliverable: delivIds.includes(r.e.id),
+    ...contacts,
+  });
 }
 
 /** The person attending: the gift recipient when we have their email, else the booker. */
@@ -210,8 +221,9 @@ async function icsSequence(b: Booking): Promise<number> {
 }
 
 async function bookingIcs(v: BookingView, b: Booking, cancelled = false) {
+  const method = cancelled ? ("CANCEL" as const) : ("PUBLISH" as const);
   const ev: IcsEvent = { ...bookingIcsFields(v, b), status: cancelled ? "CANCELLED" : "CONFIRMED", sequence: await icsSequence(b) };
-  return { filename: `raw-planet-${b.code}.ics`, content: buildIcs([ev], { name: BUSINESS.name }) };
+  return { filename: `raw-planet-${b.code}.ics`, content: buildIcs([ev], { name: BUSINESS.name, method, timeZone: BUSINESS.timeZone }), method };
 }
 
 /* ------------------------------------------------------------------ */
@@ -244,7 +256,10 @@ export async function sendBookingConfirmation(bookingId: string): Promise<void> 
   await tryBookingConfirmation(bookingId);
 }
 
-export async function sendBookingCancelled(bookingId: string, refund: { cardCents: number; giftCardCents: number }): Promise<void> {
+export async function sendBookingCancelled(
+  bookingId: string,
+  refund: { cardCents: number; giftCardCents: number; offlineRefundDueCents?: number },
+): Promise<void> {
   await safe(async () => {
     const r = await loadBooking(bookingId);
     if (!r) return "skipped";
@@ -256,6 +271,7 @@ export async function sendBookingCancelled(bookingId: string, refund: { cardCent
         ...v,
         cardRefund: refund.cardCents > 0 ? money(refund.cardCents) : null,
         giftRefund: refund.giftCardCents > 0 ? money(refund.giftCardCents) : null,
+        offlineRefund: refund.offlineRefundDueCents && refund.offlineRefundDueCents > 0 ? money(refund.offlineRefundDueCents) : null,
         paidSomething: r.b.amountPaidCents > 0 || r.b.giftCardCents > 0,
       }),
       bookingId,
@@ -267,7 +283,7 @@ export async function sendBookingCancelled(bookingId: string, refund: { cardCent
     const gift = await deliver({
       template: "booking_cancelled",
       to,
-      out: bookingCancelledEmail({ ...rv, cardRefund: null, giftRefund: null, paidSomething: false }),
+      out: bookingCancelledEmail({ ...rv, cardRefund: null, giftRefund: null, offlineRefund: null, paidSomething: false }),
       bookingId,
       ics: await bookingIcs(rv, r.b, true),
     });
@@ -360,7 +376,7 @@ export async function sendDeliverableReady(bookingId: string): Promise<void> {
       bookingId,
     });
     // The purchaser of a gifted session gets a copy too (it's their booking).
-    if (who.audience === "recipient") {
+    if (who.audience === "recipient" && giftRecipientTo(r)) {
       const pv = await viewFor(r);
       await deliver({
         template: "deliverable_ready",
@@ -562,8 +578,9 @@ export async function sendInquiryEmails(inquiryId: string): Promise<void> {
     if (!q) return "skipped";
     const [exp] = q.experienceId ? await db.select().from(experiences).where(eq(experiences.id, q.experienceId)).limit(1) : [];
     const lang = await customerLang(q.email, q.language);
-    const dateLabel = (l: Lang) =>
-      q.preferredDate && /^\d{4}-\d{2}-\d{2}$/.test(q.preferredDate) ? fmtDayYear(fromLocal(q.preferredDate, "12:00"), l) : q.preferredDate;
+    const validDate = q.preferredDate && isValidDateKey(q.preferredDate) ? q.preferredDate : null;
+    const hostDateLabel = validDate ? fmtDayYear(fromLocal(validDate, "12:00"), "en") : q.preferredDate;
+    const guestDateLabel = validDate ? fmtDayYear(fromLocal(validDate, "12:00"), lang) : null;
     const base = {
       id: q.id,
       kind: q.kind as InquiryKind,
@@ -581,12 +598,12 @@ export async function sendInquiryEmails(inquiryId: string): Promise<void> {
     const guest = await deliver({
       template: "inquiry_reply",
       to: q.email,
-      out: inquiryAutoReplyEmail({ ...base, lang, experienceName: exp ? experienceName(exp, lang) : null, preferredDate: dateLabel(lang) }),
+      out: inquiryAutoReplyEmail({ ...base, lang, experienceName: exp ? experienceName(exp, lang) : null, preferredDate: guestDateLabel }),
     });
     const host = await deliver({
       template: "inquiry_host",
       to: hostNotificationEmail(),
-      out: inquiryHostAlertEmail({ ...base, lang, experienceName: exp?.name ?? null, preferredDate: dateLabel("en") }),
+      out: inquiryHostAlertEmail({ ...base, lang, experienceName: exp?.name ?? null, preferredDate: hostDateLabel }),
       replyTo: isDeliverable(q.email) ? q.email : undefined,
     });
     return worst(guest, host);
@@ -625,14 +642,15 @@ export async function sendWaitlistOpening(entryId: string): Promise<void> {
   await tryWaitlistOpening(entryId);
 }
 
-export async function sendEventRsvp(rsvpId: string): Promise<void> {
-  await safe(async () => {
+export async function tryEventRsvp(rsvpId: string): Promise<SendStatus> {
+  return safe(async () => {
     const db = await getDb();
     const [row] = await db.select({ r: eventRsvps, ev: events }).from(eventRsvps).innerJoin(events, eq(eventRsvps.eventId, events.id)).where(eq(eventRsvps.id, rsvpId)).limit(1);
     if (!row || row.r.status === "pending_payment") return "skipped";
     const { r, ev } = row;
     const lang = await customerLang(r.email, r.language);
     const cancelled = r.status === "cancelled" || ev.status === "cancelled";
+    const method = cancelled ? "CANCEL" : "PUBLISH";
     const address = realAddress(ev.address);
     const location = [ev.venue, ev.address].filter(Boolean).join(", ");
     const eventUrl = siteUrl(`/events/${ev.slug}`);
@@ -648,9 +666,10 @@ export async function sendEventRsvp(rsvpId: string): Promise<void> {
           url: eventUrl,
           status: cancelled ? "CANCELLED" : "CONFIRMED",
           sequence: Math.floor(ev.updatedAt.getTime() / 1000) % 2_000_000_000,
+          dtstamp: ev.updatedAt,
         },
       ],
-      { name: BUSINESS.name },
+      { name: BUSINESS.name, method, timeZone: BUSINESS.timeZone },
     );
     return deliver({
       template: cancelled ? "event_rsvp_cancelled" : "event_rsvp",
@@ -672,9 +691,13 @@ export async function sendEventRsvp(rsvpId: string): Promise<void> {
         googleCalendarUrl: googleCalendarUrl({ start: ev.startAt, end: ev.endAt, summary: ev.title, description: eventUrl, location: location || undefined }),
         cancelled,
       }),
-      ics: { filename: `raw-planet-${ev.slug}.ics`, content: ics },
+      ics: { filename: `raw-planet-${ev.slug}.ics`, content: ics, method },
     });
   }, "rsvp");
+}
+
+export async function sendEventRsvp(rsvpId: string): Promise<void> {
+  await tryEventRsvp(rsvpId);
 }
 
 /**

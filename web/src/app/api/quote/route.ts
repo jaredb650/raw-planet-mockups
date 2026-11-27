@@ -23,10 +23,12 @@ const quoteSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  if (!rateLimit(`quote:${clientIp(req.headers)}`, LIMITS.quote)) return tooMany();
+  const ip = clientIp(req.headers);
+  if (!rateLimit(`quote:${ip}`, LIMITS.quote)) return tooMany();
   const parsed = quoteSchema.safeParse(await readJson(req));
   if (!parsed.success) return jsonError(400, "Please check your booking details.", { fields: fieldErrors(parsed.error) });
   const q = parsed.data;
+  if ((q.promoCode || q.giftCardCode) && !rateLimit(`quote-code:${ip}`, LIMITS.quoteCode)) return tooMany();
   try {
     const db = await getDb();
     const experience = await getExperienceBySlugOrId(db, q.experience);

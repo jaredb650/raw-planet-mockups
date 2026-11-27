@@ -19,7 +19,8 @@ export async function bookingCalendarEvent(booking: Booking, experience?: Experi
     [exp] = await db.select().from(experiences).where(eq(experiences.id, booking.experienceId)).limit(1);
   }
   const confirmed = booking.status === "confirmed" || booking.status === "completed";
-  const url = siteUrl(`/manage/${booking.code}?t=${booking.manageToken}`);
+  // Never embed the secret manageToken in third-party calendar URLs or shared .ics files.
+  const url = siteUrl("/manage");
   const summary = `${exp?.name ?? "Session"} · Raw Planet`;
   const location = confirmed ? exp?.address || exp?.locationArea || "New York, NY" : exp?.locationArea ?? "New York, NY";
   const description = [

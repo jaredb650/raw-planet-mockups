@@ -59,7 +59,7 @@ export function experienceJsonLd(
       "@type": "AggregateOffer",
       priceCurrency: "USD",
       lowPrice: (fromPriceCents(e) / 100).toFixed(2),
-      highPrice: (Math.max(...e.durationOptions.map((o) => o.priceCents)) / 100).toFixed(2),
+      highPrice: (Math.max(0, ...e.durationOptions.map((o) => o.priceCents)) / 100).toFixed(2),
       offerCount: e.durationOptions.length,
       availability: "https://schema.org/InStock",
       url: `${url}#book`,
@@ -82,6 +82,7 @@ export function experienceJsonLd(
 export function eventJsonLd(ev: PublicEvent, image: string) {
   const url = siteUrl(`/events/${ev.slug}`);
   const offerUrl = ev.meetupUrl || ev.externalTicketUrl || url;
+  const resolvedImage = image && !image.startsWith("data:") ? (/^https?:\/\//i.test(image) ? image : siteUrl(image)) : null;
   return {
     "@context": "https://schema.org",
     "@type": "Event",
@@ -90,7 +91,7 @@ export function eventJsonLd(ev: PublicEvent, image: string) {
     startDate: ev.startAt,
     endDate: ev.endAt,
     url,
-    image: [siteUrl(image)],
+    ...(resolvedImage ? { image: [resolvedImage] } : {}),
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     eventStatus: ev.status === "cancelled" ? "https://schema.org/EventCancelled" : "https://schema.org/EventScheduled",
     location: {
@@ -105,7 +106,6 @@ export function eventJsonLd(ev: PublicEvent, image: string) {
       priceCurrency: "USD",
       url: offerUrl,
       availability: ev.spotsLeft === 0 ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
-      validFrom: ev.startAt,
     },
     ...(ev.capacity != null ? { maximumAttendeeCapacity: ev.capacity } : {}),
     ...(ev.spotsLeft != null ? { remainingAttendeeCapacity: ev.spotsLeft } : {}),

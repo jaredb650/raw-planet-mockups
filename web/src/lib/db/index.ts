@@ -20,11 +20,20 @@ const g = globalThis as unknown as GlobalDb;
 async function create(): Promise<DB> {
   const url = process.env.DATABASE_URL;
   if (url) {
-    const client = postgres(url, { max: Number(process.env.DATABASE_POOL_MAX ?? 5), prepare: false });
+    const client = postgres(url, {
+      max: Number(process.env.DATABASE_POOL_MAX ?? 5),
+      prepare: false,
+      idle_timeout: 20,
+      connect_timeout: 10,
+      max_lifetime: 60 * 30,
+    });
     const db = drizzlePg(client, { schema });
     // Drizzle blanks this serializer, so a Date in a raw sql`` template (no column encoder) crashes on postgres-js but not PGlite.
     client.options.serializers[1184] = (v: unknown) => (v instanceof Date ? v.toISOString() : v);
     return db;
+  }
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_PGLITE_IN_PROD !== "1") {
+    throw new Error("DATABASE_URL is not configured in production.");
   }
   const { PGlite } = await import("@electric-sql/pglite");
   const { drizzle: drizzleLite } = await import("drizzle-orm/pglite");
@@ -44,7 +53,12 @@ export const createDb = create;
 
 /** Lazily-initialised shared DB handle (survives dev hot reloads). */
 export function getDb(): Promise<DB> {
-  if (!g.__rpDb) g.__rpDb = create();
+  if (!g.__rpDb) {
+    g.__rpDb = create().catch((err) => {
+      g.__rpDb = undefined;
+      throw err;
+    });
+  }
   return g.__rpDb;
 }
 

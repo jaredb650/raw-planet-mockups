@@ -5,7 +5,7 @@ import { getDb } from "@/lib/db";
 import { experiences, pricingRules, type PricingRule } from "@/lib/db/schema";
 import { getSuggestions, HISTORY_DAYS, MIN_BOOKINGS, MIN_OPEN_WEEKS, weekGrid, type RulePrefill } from "@/lib/admin/pricing";
 import { weekStartKey } from "@/lib/admin/dashboard";
-import { addDaysKey, fmt, fmtDuration, fmtTime, fromLocal, todayKey, weekdayOf } from "@/lib/time";
+import { addDaysKey, fmt, fmtDuration, fmtTime, fromLocal, isValidDateKey, todayKey, weekdayOf } from "@/lib/time";
 import { formatMoney } from "@/lib/money";
 import { PageHeader, Panel, Empty } from "@/components/admin/PageHeader";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/admin/ActionForm";
@@ -72,7 +72,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
   const durations = exp ? [...exp.durationOptions].sort((x, y) => x.minutes - y.minutes) : [];
   const duration = durations.find((d) => d.minutes === Number(one(sp.dur)))?.minutes ?? durations[0]?.minutes;
   const weekParam = one(sp.week);
-  const week = weekStartKey(weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam) ? weekParam : addDaysKey(today, 7));
+  const week = weekStartKey(weekParam && isValidDateKey(weekParam) ? weekParam : addDaysKey(today, 7));
   const grid = exp && duration ? weekGrid(exp, rules, week, duration, now) : null;
   const gridHref = (o: { exp?: string; dur?: number; week?: string }) =>
     `/admin/pricing?${new URLSearchParams({ exp: o.exp ?? exp!.id, dur: String(o.dur ?? duration), week: o.week ?? week })}#guests-pay`;

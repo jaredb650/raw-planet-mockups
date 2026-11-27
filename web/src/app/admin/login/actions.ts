@@ -13,13 +13,11 @@ import { TURNSTILE_FAILED, verifyTurnstile } from "@/lib/turnstile";
 const THROTTLE_KEY = "adminLoginThrottle";
 const WINDOW_MS = 15 * 60_000;
 const MAX_IP_FAILS = 5;
-const MAX_GLOBAL_FAILS = 25;
 const MAX_TRACKED_IPS = 500;
 
 type Bucket = { fails: number; first: number };
 type ThrottleState = {
   ips: Record<string, Bucket>;
-  global: Bucket;
 };
 
 export type LoginState = { error?: string; at?: number } | null;
@@ -41,14 +39,7 @@ function prune(state: ThrottleState, now: number): ThrottleState {
     .filter(([, b]) => b && now - b.first <= WINDOW_MS)
     .slice(-MAX_TRACKED_IPS);
   for (const [k, b] of entries) ips[k] = b;
-  const global = state.global && now - state.global.first <= WINDOW_MS ? state.global : { fails: 0, first: now };
-  return { ips, global };
-}
-
-async function readThrottle(now: number): Promise<ThrottleState> {
-  const db = await getDb();
-  const [row] = await db.select({ value: settings.value }).from(settings).where(eq(settings.key, THROTTLE_KEY)).limit(1);
-  return prune((row?.value as ThrottleState | undefined) ?? { ips: {}, global: { fails: 0, first: now } }, now);
+  return { ips };
 }
 
 async function mutateThrottle<T>(fn: (state: ThrottleState, now: number) => { state: ThrottleState; out: T }): Promise<T> {
@@ -57,7 +48,7 @@ async function mutateThrottle<T>(fn: (state: ThrottleState, now: number) => { st
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext('rp:admin-login-throttle'))`);
     const now = Date.now();
     const [row] = await tx.select({ value: settings.value }).from(settings).where(eq(settings.key, THROTTLE_KEY)).limit(1);
-    const current = prune((row?.value as ThrottleState | undefined) ?? { ips: {}, global: { fails: 0, first: now } }, now);
+    const current = prune((row?.value as ThrottleState | undefined) ?? { ips: {} }, now);
     const { state, out } = fn(current, now);
     await tx
       .insert(settings)
@@ -72,32 +63,40 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   const key = ipKey(ip);
   const now = Date.now();
 
-  const current = await readThrottle(now);
-  const ipBucket = current.ips[key];
-  if (ipBucket && ipBucket.fails >= MAX_IP_FAILS) {
-    const mins = Math.max(1, Math.ceil((ipBucket.first + WINDOW_MS - now) / 60_000));
-    return { error: `Too many attempts. Take a breather and try again in ${mins} minute${mins === 1 ? "" : "s"}.`, at: now };
-  }
-  if (current.global.fails >= MAX_GLOBAL_FAILS) {
-    const mins = Math.max(1, Math.ceil((current.global.first + WINDOW_MS - now) / 60_000));
-    return { error: `Sign-in is temporarily paused due to too many failed attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}.`, at: now };
+  // Atomically check AND reserve a failed-attempt slot before verifying credentials so concurrent
+  // brute-force bursts can't race past MAX_IP_FAILS. Cleared immediately on valid password.
+  const pre = await mutateThrottle<{ blocked: boolean; mins: number; fails: number }>((s, ts) => {
+    const prev = s.ips[key];
+    if (prev && prev.fails >= MAX_IP_FAILS) {
+      const mins = Math.max(1, Math.ceil((prev.first + WINDOW_MS - ts) / 60_000));
+      return { state: s, out: { blocked: true, mins, fails: prev.fails } };
+    }
+    const nextIp: Bucket = prev ? { fails: prev.fails + 1, first: prev.first } : { fails: 1, first: ts };
+    return { state: { ips: { ...s.ips, [key]: nextIp } }, out: { blocked: false, mins: 0, fails: nextIp.fails } };
+  });
+
+  if (pre.blocked) {
+    return { error: `Too many attempts. Take a breather and try again in ${pre.mins} minute${pre.mins === 1 ? "" : "s"}.`, at: now };
   }
 
   const turnstile = formData.get("cf-turnstile-response");
-  if (!(await verifyTurnstile(typeof turnstile === "string" ? turnstile : null, ip))) {
+  if (!(await verifyTurnstile(typeof turnstile === "string" ? turnstile : null, ip, { failClosed: true }))) {
+    // Release the tentative failure count on Turnstile check failure so a widget hiccup doesn't lock out the owner.
+    await mutateThrottle((s) => {
+      const prev = s.ips[key];
+      if (!prev) return { state: s, out: undefined };
+      const ips = { ...s.ips };
+      if (prev.fails <= 1) delete ips[key];
+      else ips[key] = { ...prev, fails: prev.fails - 1 };
+      return { state: { ips }, out: undefined };
+    });
     return { error: TURNSTILE_FAILED, at: now };
   }
 
   const password = String(formData.get("password") ?? "");
   if (!password || !checkPassword(password)) {
-    const ipFails = await mutateThrottle((s, ts) => {
-      const prev = s.ips[key];
-      const nextIp: Bucket = prev ? { fails: prev.fails + 1, first: prev.first } : { fails: 1, first: ts };
-      const nextGlobal: Bucket = s.global.fails > 0 ? { fails: s.global.fails + 1, first: s.global.first } : { fails: 1, first: ts };
-      return { state: { ips: { ...s.ips, [key]: nextIp }, global: nextGlobal }, out: nextIp.fails };
-    });
     await new Promise((r) => setTimeout(r, 450));
-    const left = MAX_IP_FAILS - ipFails;
+    const left = MAX_IP_FAILS - pre.fails;
     return {
       error: left > 0 ? "That password isn't right. Check caps lock and try again." : "Too many attempts. Try again in 15 minutes.",
       at: Date.now(),
@@ -107,7 +106,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   await mutateThrottle((s) => {
     const ips = { ...s.ips };
     delete ips[key];
-    return { state: { ...s, ips }, out: undefined };
+    return { state: { ips }, out: undefined };
   });
   await createAdminSession();
   redirect(safeNext(String(formData.get("next") ?? "/admin")));

@@ -1,7 +1,9 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { BookingError, cancelBooking, getBookingForCustomer, rescheduleBooking } from "@/lib/booking/service";
+import { LIMITS, clientIp, rateLimit } from "@/app/api/_lib/http";
 
 export type ManageState = { error: string | null };
 
@@ -10,6 +12,10 @@ function back(code: string, token: string, done: string): never {
 }
 
 export async function rescheduleAction(_prev: ManageState, form: FormData): Promise<ManageState> {
+  const ip = clientIp(await headers());
+  if (!rateLimit(`manage-action:${ip}`, LIMITS.manageAction)) {
+    return { error: "Too many requests. Please wait a minute and try again." };
+  }
   const code = String(form.get("code") ?? "");
   const token = String(form.get("t") ?? "");
   const start = String(form.get("start") ?? "");
@@ -29,6 +35,10 @@ export async function rescheduleAction(_prev: ManageState, form: FormData): Prom
 }
 
 export async function cancelAction(_prev: ManageState, form: FormData): Promise<ManageState> {
+  const ip = clientIp(await headers());
+  if (!rateLimit(`manage-action:${ip}`, LIMITS.manageAction)) {
+    return { error: "Too many requests. Please wait a minute and try again." };
+  }
   const code = String(form.get("code") ?? "");
   const token = String(form.get("t") ?? "");
   const reason = String(form.get("reason") ?? "").trim().slice(0, 500);

@@ -5,13 +5,13 @@
  */
 import "server-only";
 import type Stripe from "stripe";
-import { eq, inArray } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { bookings, giftCards, refunds, type Booking, type GiftCard } from "@/lib/db/schema";
+import { bookings, giftCards, giftCardTransactions, refunds, type Booking, type GiftCard } from "@/lib/db/schema";
 import { integrations } from "@/lib/config";
 import { stripe } from "@/lib/integrations/stripe";
 import { expireBooking, fulfillBooking, getBooking, logEvent } from "@/lib/booking/service";
-import { expireGiftCardPurchase, fulfillGiftCard, getGiftCard, voidGiftCard } from "@/lib/giftcards";
+import { expireGiftCardPurchase, fulfillGiftCard, getGiftCard } from "@/lib/giftcards";
 import { formatMoney } from "@/lib/money";
 
 const idOf = (v: string | { id: string } | null | undefined) => (typeof v === "string" ? v : (v?.id ?? null));
@@ -62,9 +62,9 @@ async function expireSession(session: Stripe.Checkout.Session, reason: string): 
 }
 
 /**
- * Refunds issued outside our app (Stripe dashboard). Refunds we create are
- * recorded by the booking service with their stripeRefundId and carry
- * metadata.bookingId, so they're skipped here to avoid double counting.
+ * Reconcile Stripe charge refunds into `refunds` and `bookings.amountRefundedCents`.
+ * Uses a row lock + `refunds_stripe_id_uidx` (`ON CONFLICT DO NOTHING`) so concurrent
+ * webhooks and app-initiated refunds can never double-count or drop orphaned Stripe refunds.
  */
 async function syncChargeRefunds(charge: Stripe.Charge): Promise<string> {
   const paymentIntentId = idOf(charge.payment_intent);
@@ -77,63 +77,132 @@ async function syncChargeRefunds(charge: Stripe.Charge): Promise<string> {
     for await (const r of stripe().refunds.list({ charge: charge.id, limit: 100 })) stripeRefunds.push(r);
   }
 
-  const [booking] = await db.select().from(bookings).where(eq(bookings.stripePaymentIntentId, paymentIntentId)).limit(1);
-  if (!booking) {
+  const [bookingRef] = await db
+    .select({ id: bookings.id })
+    .from(bookings)
+    .where(eq(bookings.stripePaymentIntentId, paymentIntentId))
+    .limit(1);
+  if (!bookingRef) {
     const [card] = await db.select().from(giftCards).where(eq(giftCards.stripePaymentIntentId, paymentIntentId)).limit(1);
     if (card) return syncGiftCardRefund(card, charge);
     return "no matching booking";
   }
 
   const succeeded = stripeRefunds.filter((r) => r.status !== "failed" && r.status !== "canceled");
-  const ids = succeeded.map((r) => r.id);
-  const known = ids.length
-    ? new Set((await db.select({ id: refunds.stripeRefundId }).from(refunds).where(inArray(refunds.stripeRefundId, ids))).map((r) => r.id))
-    : new Set<string>();
-  const external = succeeded.filter((r) => !known.has(r.id) && !r.metadata?.bookingId);
 
-  let added = 0;
-  if (external.length) {
-    for (const r of external) {
-      await db.insert(refunds).values({
+  const outcome = await db.transaction(async (tx) => {
+    const [booking] = await tx.select().from(bookings).where(eq(bookings.id, bookingRef.id)).for("update").limit(1);
+    if (!booking) return { added: 0, refundIds: [] as string[] };
+
+    let added = 0;
+    const insertedIds: string[] = [];
+
+    if (succeeded.length) {
+      for (const r of succeeded) {
+        const [ins] = await tx
+          .insert(refunds)
+          .values({
+            bookingId: booking.id,
+            amountCents: r.amount,
+            reason: r.metadata?.bookingId ? "Refunded (reconciled from Stripe)" : "Refunded in Stripe dashboard",
+            stripeRefundId: r.id,
+            createdBy: "admin",
+          })
+          .onConflictDoNothing({ target: refunds.stripeRefundId })
+          .returning({ id: refunds.id });
+        if (ins) {
+          added += r.amount;
+          insertedIds.push(r.id);
+        }
+      }
+    } else if (!stripeRefunds.length && charge.amount_refunded > booking.amountRefundedCents) {
+      // Unexpanded payload without API access: trust the charge total.
+      added = charge.amount_refunded - booking.amountRefundedCents;
+      await tx.insert(refunds).values({
         bookingId: booking.id,
-        amountCents: r.amount,
+        amountCents: added,
         reason: "Refunded in Stripe dashboard",
-        stripeRefundId: r.id,
         createdBy: "admin",
       });
-      added += r.amount;
     }
-  } else if (!stripeRefunds.length && charge.amount_refunded > booking.amountRefundedCents) {
-    // No refund list available (e.g. unexpanded payload without API access): trust the charge total.
-    added = charge.amount_refunded - booking.amountRefundedCents;
-    await db.insert(refunds).values({ bookingId: booking.id, amountCents: added, reason: "Refunded in Stripe dashboard", createdBy: "admin" });
-  }
-  if (added <= 0) return "no new refunds";
 
-  const refunded = Math.min(booking.amountPaidCents, booking.amountRefundedCents + added);
-  await db
-    .update(bookings)
-    .set({
-      amountRefundedCents: refunded,
-      paymentStatus: refunded >= booking.amountPaidCents ? "refunded" : "partially_refunded",
-      updatedAt: new Date(),
-    })
-    .where(eq(bookings.id, booking.id));
-  await logEvent(db, booking.id, "refunded", `Refunded ${formatMoney(added, { showCents: true })} to your card`, {
-    public: true,
-    actor: "admin",
-    data: { source: "stripe_dashboard", refundIds: external.map((r) => r.id) },
+    if (added <= 0) return { added: 0, refundIds: [] as string[] };
+
+    // Recompute authoritative card refund total from the refunds table (bounded by amountPaidCents).
+    const [sumRow] = await tx
+      .select({ total: sql<number>`coalesce(sum(${refunds.amountCents} - ${refunds.giftCardCents}), 0)::int` })
+      .from(refunds)
+      .where(eq(refunds.bookingId, booking.id));
+    const refunded = Math.min(booking.amountPaidCents, Math.max(booking.amountRefundedCents, sumRow?.total ?? booking.amountRefundedCents + added));
+
+    await tx
+      .update(bookings)
+      .set({
+        amountRefundedCents: refunded,
+        paymentStatus: refunded >= booking.amountPaidCents ? "refunded" : "partially_refunded",
+        updatedAt: new Date(),
+      })
+      .where(eq(bookings.id, booking.id));
+
+    await logEvent(tx, booking.id, "refunded", `Refunded ${formatMoney(added, { showCents: true })} to your card`, {
+      public: true,
+      actor: "admin",
+      data: { source: "stripe_dashboard", refundIds: insertedIds },
+    });
+    return { added, refundIds: insertedIds };
   });
-  return `recorded ${added} cents`;
+
+  if (outcome.added <= 0) return "no new refunds";
+  return `recorded ${outcome.added} cents`;
 }
 
-async function syncGiftCardRefund(card: GiftCard, charge: Stripe.Charge): Promise<string> {
-  // A fully refunded, unused gift card is cancelled; partial refunds are left for the admin to review.
-  if (charge.refunded && card.status === "active" && card.balanceCents === card.initialCents) {
-    await voidGiftCard(card.id, "Payment refunded in Stripe");
-    return "gift card voided";
-  }
-  return "gift card refund noted";
+async function syncGiftCardRefund(cardRef: GiftCard, charge: Stripe.Charge): Promise<string> {
+  const db = await getDb();
+  return db.transaction(async (tx) => {
+    const [card] = await tx.select().from(giftCards).where(eq(giftCards.id, cardRef.id)).for("update").limit(1);
+    if (!card || card.status === "void") return "gift card already void";
+
+    if (charge.refunded) {
+      const deducted = card.balanceCents;
+      await tx.update(giftCards).set({ status: "void", balanceCents: 0 }).where(eq(giftCards.id, card.id));
+      await tx.insert(giftCardTransactions).values({
+        giftCardId: card.id,
+        amountCents: -deducted,
+        note:
+          deducted === card.initialCents
+            ? "Voided: payment refunded in Stripe"
+            : `Voided: full Stripe refund after ${formatMoney(card.initialCents - deducted)} already spent — check`,
+      });
+      return "gift card voided";
+    }
+
+    // Partial Stripe refund: deduct any newly refunded amount not yet reflected in Stripe-refund transactions.
+    const [prev] = await tx
+      .select({
+        refunded: sql<number>`coalesce(sum(case when ${giftCardTransactions.note} like 'Stripe refund%' then -${giftCardTransactions.amountCents} else 0 end), 0)::int`,
+      })
+      .from(giftCardTransactions)
+      .where(eq(giftCardTransactions.giftCardId, card.id));
+    const alreadyDeducted = prev?.refunded ?? 0;
+    const delta = Math.max(0, charge.amount_refunded - alreadyDeducted);
+    if (delta <= 0) return "gift card refund already recorded";
+
+    const deduct = Math.min(card.balanceCents, delta);
+    const nextBalance = card.balanceCents - deduct;
+    await tx
+      .update(giftCards)
+      .set({ balanceCents: nextBalance, status: nextBalance === 0 ? "depleted" : card.status })
+      .where(eq(giftCards.id, card.id));
+    await tx.insert(giftCardTransactions).values({
+      giftCardId: card.id,
+      amountCents: -deduct,
+      note:
+        deduct === delta
+          ? `Stripe refund (${formatMoney(delta, { showCents: true })})`
+          : `Stripe refund (${formatMoney(delta, { showCents: true })}; only ${formatMoney(deduct, { showCents: true })} remained — check)`,
+    });
+    return `gift card reduced by ${deduct} cents`;
+  });
 }
 
 export async function processStripeEvent(event: Stripe.Event): Promise<string> {

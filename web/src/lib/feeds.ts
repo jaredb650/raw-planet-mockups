@@ -26,10 +26,11 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import "server-only";
-import { and, eq, gt, inArray, lt, or } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { blocks, bookings, calendarFeeds, type CalendarFeed } from "@/lib/db/schema";
 import { parseIcsBusy } from "@/lib/ics";
+import { localDateKey } from "@/lib/time";
 
 export type FeedSyncResult = {
   feedId: string;
@@ -69,15 +70,44 @@ function sourceFor(url: string): "ical" | "airbnb" | "viator" {
   return "ical";
 }
 
+function extractMappedIpv4(ip: string): string | null {
+  const dotted = ip.match(/^(?:(?:0{1,4}:){5}|::)ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  if (dotted) return dotted[1];
+  const hex = ip.match(/^(?:(?:0{1,4}:){5}|::)ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
+  if (hex) {
+    const hi = parseInt(hex[1], 16);
+    const lo = parseInt(hex[2], 16);
+    return `${(hi >> 8) & 255}.${hi & 255}.${(lo >> 8) & 255}.${lo & 255}`;
+  }
+  return null;
+}
+
 /** Feeds are fetched from the server, so refuse addresses inside our own network (SSRF). */
 export function isPrivateIp(ip: string): boolean {
-  const v4 = ip.replace(/^::ffff:/i, "");
+  const trimmed = ip.trim().replace(/%.*$/, "");
+  const v4 = extractMappedIpv4(trimmed) ?? trimmed;
   if (isIP(v4) === 4) {
     const [a, b] = v4.split(".").map(Number);
-    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+    return (
+      a === 10 ||
+      a === 127 ||
+      a === 0 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      a >= 224
+    );
   }
-  const x = ip.toLowerCase();
-  return x === "::" || x === "::1" || x.startsWith("fc") || x.startsWith("fd") || x.startsWith("fe80");
+  const x = trimmed.toLowerCase();
+  return (
+    x === "::" ||
+    x === "::1" ||
+    /^0{1,4}(?::0{1,4}){6}:0{0,3}[01]$/.test(x) ||
+    /^f[cd][0-9a-f]{2}:/.test(x) ||
+    /^fe[89ab][0-9a-f]:/.test(x) ||
+    /^ff[0-9a-f]{2}:/.test(x)
+  );
 }
 
 async function assertPublicHost(u: URL): Promise<void> {
@@ -156,6 +186,19 @@ function errMsg(err: unknown): string {
   return String(err);
 }
 
+async function notifyFreedDates(resourceGroup: string, dateKeys: Iterable<string>) {
+  const unique = [...new Set(dateKeys)];
+  if (!unique.length) return;
+  try {
+    const { notifyWaitlistForDate } = await import("@/lib/booking/service");
+    for (const date of unique) {
+      await notifyWaitlistForDate(resourceGroup, date).catch((err) => console.error("[feeds] waitlist notify failed", err));
+    }
+  } catch (err) {
+    console.error("[feeds] waitlist import failed", err);
+  }
+}
+
 async function syncOne(feed: CalendarFeed, now: Date, timeoutMs = FETCH_TIMEOUT_MS): Promise<FeedSyncResult> {
   const db = await getDb();
   const base = { feedId: feed.id, name: feed.name, events: 0, added: 0, updated: 0, removed: 0, skippedOwn: 0 };
@@ -164,15 +207,18 @@ async function syncOne(feed: CalendarFeed, now: Date, timeoutMs = FETCH_TIMEOUT_
     text = await fetchFeed(feed.url, timeoutMs);
   } catch (err) {
     const error = errMsg(err);
+    feedFailedAtMs.set(feed.id, Date.now());
     await db.update(calendarFeeds).set({ lastError: error }).where(eq(calendarFeeds.id, feed.id));
     return { ...base, ok: false, error };
   }
 
+  feedFailedAtMs.delete(feed.id);
   const events = busyInWindow(text, now);
   const result = { ...base, ok: true, events: events.length };
   const source = sourceFor(feed.url);
 
-  // Our own live bookings in the window, to drop echoes (e.g. Cal.com-written Google events).
+  // Drop echoes of our own bookings: events with our UID suffix, or confirmed Cal.com-pushed bookings.
+  // Never drop real external bookings just because they share a slot with a pending hold or partial shared session.
   const own = events.length
     ? await db
         .select({ startAt: bookings.startAt, endAt: bookings.endAt })
@@ -180,12 +226,10 @@ async function syncOne(feed: CalendarFeed, now: Date, timeoutMs = FETCH_TIMEOUT_
         .where(
           and(
             eq(bookings.resourceGroup, feed.resourceGroup),
+            inArray(bookings.status, ["confirmed", "completed"]),
+            isNotNull(bookings.calBookingUid),
             lt(bookings.startAt, new Date(now.getTime() + WINDOW_AHEAD_MS)),
             gt(bookings.endAt, new Date(now.getTime() - WINDOW_PAST_MS)),
-            or(
-              inArray(bookings.status, ["confirmed", "completed"]),
-              and(eq(bookings.status, "pending_payment"), gt(bookings.holdExpiresAt, now)),
-            ),
           ),
         )
     : [];
@@ -200,11 +244,20 @@ async function syncOne(feed: CalendarFeed, now: Date, timeoutMs = FETCH_TIMEOUT_
     wanted.set(e.key, e);
   }
 
+  const freedDates = new Set<string>();
   await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`rp:feed:${feed.id}`}))`);
     const existing = await tx.select().from(blocks).where(eq(blocks.feedId, feed.id));
-    const byKey = new Map(existing.map((b) => [b.externalUid ?? "", b]));
+    const byKey = new Map<string, (typeof existing)[number]>();
     const stale: string[] = [];
-    for (const b of existing) if (!b.externalUid || !wanted.has(b.externalUid)) stale.push(b.id);
+    for (const b of existing) {
+      if (!b.externalUid || !wanted.has(b.externalUid) || byKey.has(b.externalUid)) {
+        stale.push(b.id);
+        if (b.endAt > now) freedDates.add(localDateKey(b.startAt));
+      } else {
+        byKey.set(b.externalUid, b);
+      }
+    }
     if (stale.length) {
       await tx.delete(blocks).where(inArray(blocks.id, stale));
       result.removed = stale.length;
@@ -213,16 +266,20 @@ async function syncOne(feed: CalendarFeed, now: Date, timeoutMs = FETCH_TIMEOUT_
       const reason = `${feed.name}: ${e.summary}`.slice(0, 200);
       const prev = byKey.get(e.key);
       if (!prev) {
-        await tx.insert(blocks).values({
-          startAt: e.start,
-          endAt: e.end,
-          resourceGroup: feed.resourceGroup,
-          reason,
-          source,
-          feedId: feed.id,
-          externalUid: e.key,
-        });
-        result.added++;
+        const inserted = await tx
+          .insert(blocks)
+          .values({
+            startAt: e.start,
+            endAt: e.end,
+            resourceGroup: feed.resourceGroup,
+            reason,
+            source,
+            feedId: feed.id,
+            externalUid: e.key,
+          })
+          .onConflictDoNothing()
+          .returning({ id: blocks.id });
+        if (inserted.length) result.added++;
       } else if (
         prev.endAt.getTime() !== e.end.getTime() ||
         prev.reason !== reason ||
@@ -235,6 +292,8 @@ async function syncOne(feed: CalendarFeed, now: Date, timeoutMs = FETCH_TIMEOUT_
     }
     await tx.update(calendarFeeds).set({ lastSyncedAt: now, lastError: null }).where(eq(calendarFeeds.id, feed.id));
   });
+
+  if (freedDates.size) await notifyFreedDates(feed.resourceGroup, freedDates);
   return result;
 }
 
@@ -253,13 +312,27 @@ export async function syncCalendarFeeds(feedId?: string, opts?: { timeoutMs?: nu
   const out: FeedSyncResult[] = [];
   if (!feedId) {
     const paused = await db.select({ id: calendarFeeds.id }).from(calendarFeeds).where(eq(calendarFeeds.active, false));
-    if (paused.length) await db.delete(blocks).where(inArray(blocks.feedId, paused.map((p) => p.id)));
+    if (paused.length) {
+      const cleared = await db
+        .delete(blocks)
+        .where(inArray(blocks.feedId, paused.map((p) => p.id)))
+        .returning({ resourceGroup: blocks.resourceGroup, startAt: blocks.startAt, endAt: blocks.endAt });
+      const byGroup = new Map<string, Set<string>>();
+      for (const b of cleared) {
+        if (b.endAt <= now) continue;
+        const dates = byGroup.get(b.resourceGroup) ?? new Set<string>();
+        dates.add(localDateKey(b.startAt));
+        byGroup.set(b.resourceGroup, dates);
+      }
+      for (const [rg, dates] of byGroup) await notifyFreedDates(rg, dates);
+    }
   }
   for (const feed of feeds) {
     try {
       out.push(await syncOne(feed, now, timeoutMs));
     } catch (err) {
       const error = errMsg(err);
+      feedFailedAtMs.set(feed.id, Date.now());
       console.error(`[feeds] ${feed.name} failed`, err);
       await db.update(calendarFeeds).set({ lastError: error }).where(eq(calendarFeeds.id, feed.id)).catch(() => {});
       out.push({ feedId: feed.id, name: feed.name, ok: false, events: 0, added: 0, updated: 0, removed: 0, skippedOwn: 0, error });
@@ -271,14 +344,17 @@ export async function syncCalendarFeeds(feedId?: string, opts?: { timeoutMs?: nu
 const DEFAULT_STALE_MS = 2 * 60_000;
 const INTERACTIVE_TIMEOUT_MS = 5_000;
 const RETRY_COOLDOWN_MS = 60_000;
+const FEED_FAIL_COOLDOWN_MS = 5 * 60_000;
 let staleSyncInFlight: Promise<boolean> | null = null;
 let lastStaleSyncAttemptMs = 0;
+const feedFailedAtMs = new Map<string, number>();
 
 /**
  * On-demand freshness guard: if any active feed hasn't synced within `maxAgeMs`
- * (default 2 min), syncs it immediately so availability, checkout, and admin
- * views stay accurate even when background cron schedules are delayed.
- * Coalesces concurrent callers, enforces a per-instance retry cooldown, and never throws.
+ * (default 2 min), syncs only the stale feeds concurrently so availability,
+ * checkout, and admin views stay accurate even when background cron schedules
+ * are delayed. Respects a per-feed failure cooldown so a dead feed doesn't
+ * stall every interactive request. Never throws.
  */
 export async function syncCalendarFeedsIfStale(opts?: { maxAgeMs?: number; timeoutMs?: number }): Promise<boolean> {
   if (staleSyncInFlight) return staleSyncInFlight;
@@ -290,15 +366,34 @@ export async function syncCalendarFeedsIfStale(opts?: { maxAgeMs?: number; timeo
   staleSyncInFlight = (async () => {
     try {
       const db = await getDb();
-      const active = await db
-        .select({ id: calendarFeeds.id, lastSyncedAt: calendarFeeds.lastSyncedAt })
-        .from(calendarFeeds)
-        .where(eq(calendarFeeds.active, true));
+      const active = await db.select().from(calendarFeeds).where(eq(calendarFeeds.active, true));
       if (!active.length) return false;
-      const stale = active.some((f) => !f.lastSyncedAt || Date.now() - f.lastSyncedAt.getTime() >= maxAgeMs);
-      if (!stale) return false;
-      lastStaleSyncAttemptMs = Date.now();
-      await syncCalendarFeeds(undefined, { timeoutMs });
+      const checkMs = Date.now();
+      const due = active.filter((f) => {
+        const failedAt = feedFailedAtMs.get(f.id) ?? 0;
+        if (failedAt && f.lastSyncedAt && f.lastSyncedAt.getTime() > failedAt) {
+          feedFailedAtMs.delete(f.id);
+        }
+        const isStale = !f.lastSyncedAt || checkMs - f.lastSyncedAt.getTime() >= maxAgeMs;
+        if (!isStale) return false;
+        const activeFailAt = feedFailedAtMs.get(f.id) ?? 0;
+        return checkMs - activeFailAt >= FEED_FAIL_COOLDOWN_MS;
+      });
+      if (!due.length) return false;
+      lastStaleSyncAttemptMs = checkMs;
+      const now = new Date(checkMs);
+      await Promise.allSettled(
+        due.map(async (feed) => {
+          try {
+            await syncOne(feed, now, timeoutMs);
+          } catch (err) {
+            const error = errMsg(err);
+            feedFailedAtMs.set(feed.id, Date.now());
+            console.error(`[feeds] stale sync ${feed.name} failed`, err);
+            await db.update(calendarFeeds).set({ lastError: error }).where(eq(calendarFeeds.id, feed.id)).catch(() => {});
+          }
+        }),
+      );
       return true;
     } catch (err) {
       console.error("[feeds] stale sync failed", err);
@@ -314,6 +409,18 @@ export async function syncCalendarFeedsIfStale(opts?: { maxAgeMs?: number; timeo
 /** Remove every block a feed created (e.g. right after pausing it, to free its times now). */
 export async function clearFeedBlocks(feedId: string): Promise<number> {
   const db = await getDb();
-  const rows = await db.delete(blocks).where(eq(blocks.feedId, feedId)).returning({ id: blocks.id });
+  const now = new Date();
+  const rows = await db
+    .delete(blocks)
+    .where(eq(blocks.feedId, feedId))
+    .returning({ id: blocks.id, resourceGroup: blocks.resourceGroup, startAt: blocks.startAt, endAt: blocks.endAt });
+  const byGroup = new Map<string, Set<string>>();
+  for (const b of rows) {
+    if (b.endAt <= now) continue;
+    const dates = byGroup.get(b.resourceGroup) ?? new Set<string>();
+    dates.add(localDateKey(b.startAt));
+    byGroup.set(b.resourceGroup, dates);
+  }
+  for (const [rg, dates] of byGroup) await notifyFreedDates(rg, dates);
   return rows.length;
 }

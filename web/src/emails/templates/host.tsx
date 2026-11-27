@@ -62,6 +62,8 @@ export function hostBookingAlertEmail(v: HostBookingView): EmailOutput {
         ? `${v.refundLabel ?? "No refund"}. The slot is open again.`
         : `Was ${v.previousLabel}.`;
   const tel = v.contactPhone ? v.contactPhone.replace(/[^\d+]/g, "") : null;
+  const waDigits = tel ? tel.replace(/[^\d]/g, "") : "";
+  const waHref = waDigits ? `https://wa.me/${waDigits.length === 10 ? `1${waDigits}` : waDigits}` : null;
   const element = (
     <Layout lang="en" audience="host" theme={v.theme} preview={preview}>
       <div style={{ marginBottom: "12px" }}>
@@ -120,8 +122,12 @@ export function hostBookingAlertEmail(v: HostBookingView): EmailOutput {
                     <A href={`tel:${tel}`}>{v.contactPhone}</A>
                     {"  ·  "}
                     <A href={`sms:${tel}`}>Text</A>
-                    {"  ·  "}
-                    <A href={`https://wa.me/${tel.replace(/[^\d]/g, "")}`}>WhatsApp</A>
+                    {waHref ? (
+                      <>
+                        {"  ·  "}
+                        <A href={waHref}>WhatsApp</A>
+                      </>
+                    ) : null}
                   </>
                 ),
               }
@@ -151,7 +157,9 @@ export function hostBookingAlertEmail(v: HostBookingView): EmailOutput {
           </>
         ) : null}
       </Actions>
-      {v.kind === "cancelled" ? <P small muted>The time is open on the site again, and anyone on the waitlist for that day has been emailed.</P> : null}
+      {v.kind === "cancelled" && v.cancelledBy !== "system" ? (
+        <P small muted>The time is open on the site again, and anyone on the waitlist for that day has been emailed.</P>
+      ) : null}
     </Layout>
   );
   return { subject, element };

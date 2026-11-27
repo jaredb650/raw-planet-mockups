@@ -28,12 +28,13 @@ export function inSendingHours(now: Date): boolean {
   return h >= 9 && h < 20;
 }
 
-export const REMINDER_LEAD_H = 24;
+export const REMINDER_LEAD_H = 28;
 
 /**
- * Reminder: from 24h before the start until 1h before. Skipped when the
+ * Reminder: from 28h before the start until 1h before. Skipped when the
  * booking was confirmed less than 20h before the start: the confirmation
- * email is still fresh in their inbox.
+ * email is still fresh in their inbox. Non-urgent reminders (>4h away) wait
+ * for New York daytime sending hours so guests aren't pinged at 3am.
  */
 export function reminderDue(
   b: { status: string; startAt: Date; reminderSentAt: Date | null; confirmedAt: Date | null; createdAt: Date },
@@ -42,6 +43,7 @@ export function reminderDue(
   if (b.status !== "confirmed" || b.reminderSentAt) return false;
   const until = b.startAt.getTime() - now.getTime();
   if (until > REMINDER_LEAD_H * H || until < 1 * H) return false;
+  if (until > 4 * H && !inSendingHours(now)) return false;
   const booked = (b.confirmedAt ?? b.createdAt).getTime();
   return b.startAt.getTime() - booked >= 20 * H;
 }
@@ -67,8 +69,8 @@ export function reviewNudgeDue(
 }
 
 /**
- * Abandoned checkout: one email 45 min – 24h after the hold expired, only if
- * the session is still 24h+ away and they haven't booked since.
+ * Abandoned checkout: one email 45 min – 48h after the hold expired, during
+ * daytime sending hours, only if the session is still 24h+ away and they haven't booked since.
  */
 export function abandonedDue(
   b: { status: string; source: string; abandonedEmailSentAt: Date | null; updatedAt: Date; startAt: Date },
@@ -77,17 +79,19 @@ export function abandonedDue(
 ): boolean {
   if (b.status !== "expired" || b.source !== "direct" || b.abandonedEmailSentAt) return false;
   if (ctx.rebooked || ctx.cancelledByGuest) return false;
+  if (!inSendingHours(now)) return false;
   const since = now.getTime() - b.updatedAt.getTime();
-  if (since < 45 * 60_000 || since > DAY) return false;
+  if (since < 45 * 60_000 || since > 2 * DAY) return false;
   return b.startAt.getTime() - now.getTime() >= DAY;
 }
 
-/** Scheduled gift card delivery. */
+/** Scheduled or failed immediate gift card delivery. */
 export function giftCardDeliveryDue(
   c: { status: string; recipientEmail: string | null; deliverAt: Date | null; deliveredAt: Date | null },
   now: Date,
 ): boolean {
-  return c.status === "active" && Boolean(c.recipientEmail) && !c.deliveredAt && Boolean(c.deliverAt) && c.deliverAt!.getTime() <= now.getTime();
+  if (c.status !== "active" || !c.recipientEmail || c.deliveredAt) return false;
+  return !c.deliverAt || c.deliverAt.getTime() <= now.getTime();
 }
 
 /** Host digest: once per New York day, from 7am. */
@@ -96,11 +100,11 @@ export function digestDue(now: Date, lastDigestDate: string | null | undefined, 
 }
 
 /**
- * Weekly report: once per Monday-started week, from 7am New York on Monday.
- * Later days catch up a missed Monday, so a daily cron at any hour still sends it.
+ * Weekly report: once per Monday-started week, from 7am New York on Monday
+ * (or 7am+ on later days if Monday was missed).
  */
 export function weeklyReportDue(now: Date, lastWeek: string | null | undefined, thisWeek: string, todayKey: string): boolean {
-  return lastWeek !== thisWeek && (todayKey !== thisWeek || nyHour(now) >= 7);
+  return todayKey >= thisWeek && lastWeek !== thisWeek && nyHour(now) >= 7;
 }
 
 /** Stop retrying a failed automated email after this many failures. */

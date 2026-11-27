@@ -21,6 +21,7 @@ export function reviewToken(bookingId: string): string {
 export async function getBookingForReview(code: string, token: string): Promise<Booking | undefined> {
   const b = await getBooking(normalizeCode(code));
   if (!b || !token) return undefined;
-  const expected = reviewToken(b.id);
-  return expected.length === token.length && timingSafeEqual(Buffer.from(expected), Buffer.from(token)) ? b : undefined;
+  const expected = Buffer.from(reviewToken(b.id));
+  const got = Buffer.from(token);
+  return expected.length === got.length && timingSafeEqual(expected, got) ? b : undefined;
 }

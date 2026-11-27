@@ -4,9 +4,21 @@ import "server-only";
  * Cloudflare Turnstile (bot check on public forms). With no TURNSTILE_SECRET_KEY it's a no-op,
  * like the other integrations, so local dev and tests work without keys.
  */
-export async function verifyTurnstile(token: string | null | undefined, ip?: string): Promise<boolean> {
+let warnedMissing = false;
+
+export async function verifyTurnstile(
+  token: string | null | undefined,
+  ip?: string,
+  opts?: { failClosed?: boolean },
+): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) return true;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production" && !warnedMissing) {
+      warnedMissing = true;
+      console.error("[turnstile] TURNSTILE_SECRET_KEY is not set in production");
+    }
+    return true;
+  }
   if (!token) return false;
   try {
     const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
@@ -15,11 +27,11 @@ export async function verifyTurnstile(token: string | null | undefined, ip?: str
       signal: AbortSignal.timeout(8000),
       cache: "no-store",
     });
+    if (!res.ok) throw new Error(`Turnstile HTTP ${res.status}`);
     return Boolean(((await res.json()) as { success?: boolean }).success);
   } catch (err) {
-    // Cloudflare unreachable: let real people through rather than block every booking; rate limits still apply.
     console.error("[turnstile] verify failed", err);
-    return true;
+    return opts?.failClosed ? false : true;
   }
 }
 

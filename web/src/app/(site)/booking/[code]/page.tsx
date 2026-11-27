@@ -28,7 +28,7 @@ export default async function BookingConfirmationPage({ params, searchParams }: 
   const sessionId = typeof sp.session_id === "string" ? sp.session_id : null;
   let b = await getBookingForCustomer(code, t);
   if (!b) notFound();
-  if (b.status === "pending_payment") b = await reconcileBookingPayment(b, sessionId);
+  if (b.status === "pending_payment" || b.status === "expired") b = await reconcileBookingPayment(b, sessionId);
 
   const db = await getDb();
   const [e] = await db.select().from(experiences).where(eq(experiences.id, b.experienceId)).limit(1);

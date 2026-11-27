@@ -8,25 +8,25 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { eventRsvps, events } from "@/lib/db/schema";
 import { newToken } from "@/lib/ids";
+import { isSafeHttpUrl } from "@/app/api/_lib/http";
 import { adminAction, bool, cents, int, optInt, optStr, str } from "@/lib/admin/action";
-import { sendEventRsvp } from "@/lib/email/notify";
-import { addDaysKey, fmt, fromLocal, localDateKey } from "@/lib/time";
+import { sendEventRsvp, tryEventRsvp } from "@/lib/email/notify";
+import { addDaysKey, fmt, fromLocal, isValidDateKey, localDateKey } from "@/lib/time";
 import type { ActionResult } from "@/components/admin/types";
 
-const dateKey = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date");
+const dateKey = z.string().refine(isValidDateKey, "Pick a valid date");
 const time = z.string().regex(/^\d{2}:\d{2}$/, "Pick a time");
 const optUrl = (fd: FormData, k: string, label: string) => {
   const v = optStr(fd, k);
-  if (v) z.url(`${label} must be a full https:// link`).parse(v);
+  if (v && !isSafeHttpUrl(v)) throw new Error(`${label} must be a full https:// link`);
   return v;
 };
 const optImageUrl = (fd: FormData) => {
   const v = optStr(fd, "imageUrl");
   if (!v) return null;
-  if (v.startsWith("/")) return v.slice(0, 300);
-  const parsed = z.url("Image must start with / or https://").parse(v);
-  if (!/^https?:\/\//i.test(parsed)) throw new Error("Image must start with / or https://");
-  return parsed.slice(0, 500);
+  if (v.startsWith("/") && !v.startsWith("//")) return v.slice(0, 300);
+  if (!isSafeHttpUrl(v)) throw new Error("Image must start with / or https://");
+  return v.slice(0, 500);
 };
 const slugify = (s: string) =>
   s
@@ -112,15 +112,19 @@ export async function updateEventAction(_p: ActionResult, fd: FormData): Promise
       .set({ ...shared, ...times(fd, day), status, updatedAt: new Date() })
       .where(eq(events.id, id));
     let notified = 0;
+    let notifyFailed = 0;
     if (status === "cancelled" && ev.status !== "cancelled") {
       const going = await db
         .select({ id: eventRsvps.id })
         .from(eventRsvps)
         .where(and(eq(eventRsvps.eventId, id), eq(eventRsvps.status, "going")));
-      for (const rsvp of going) {
-        await sendEventRsvp(rsvp.id);
+      const pace = going.length > 2;
+      for (let i = 0; i < going.length; i++) {
+        if (pace && i > 0) await new Promise((r) => setTimeout(r, 550));
+        const res = await tryEventRsvp(going[i].id);
+        if (res === "sent") notified++;
+        else if (res === "failed") notifyFailed++;
       }
-      notified = going.length;
     }
     let others = 0;
     if (ev.seriesId && bool(fd, "applyToSeries")) {
@@ -141,6 +145,7 @@ export async function updateEventAction(_p: ActionResult, fd: FormData): Promise
     const parts = [
       others ? `Saved, and updated ${others} later date${others === 1 ? "" : "s"} in the series.` : "Saved.",
       notified ? `Emailed ${notified} attendee${notified === 1 ? "" : "s"} about the cancellation.` : "",
+      notifyFailed ? `${notifyFailed} email${notifyFailed === 1 ? "" : "s"} couldn't be sent — check Emails.` : "",
     ].filter(Boolean);
     return parts.join(" ");
   });
@@ -199,10 +204,16 @@ export async function deleteEventAction(_p: ActionResult, fd: FormData): Promise
 
 export async function cancelRsvpAction(_p: ActionResult, fd: FormData): Promise<ActionResult> {
   return adminAction(async () => {
+    const id = z.string().min(1).parse(str(fd, "id"));
     const db = await getDb();
-    await db.update(eventRsvps).set({ status: "cancelled" }).where(eq(eventRsvps.id, z.string().min(1).parse(str(fd, "id"))));
+    const [updated] = await db
+      .update(eventRsvps)
+      .set({ status: "cancelled" })
+      .where(and(eq(eventRsvps.id, id), eq(eventRsvps.status, "going")))
+      .returning({ id: eventRsvps.id });
+    if (updated) await sendEventRsvp(updated.id);
     revalidatePath("/", "layout");
-    return "RSVP cancelled.";
+    return updated ? "RSVP cancelled and attendee notified." : "RSVP already cancelled.";
   });
 }
 

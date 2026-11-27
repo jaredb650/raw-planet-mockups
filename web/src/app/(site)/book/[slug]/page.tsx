@@ -80,6 +80,9 @@ export default async function BookExperiencePage({ params, searchParams }: Props
   }
 
   if (slot && dateKey) {
+    const requestedGuests = guests ?? defaultGuests(experience, isPrivate);
+    const initialGuests = isPrivate ? requestedGuests : Math.min(requestedGuests, slot.seatsLeft ?? experience.maxGuests);
+    const seatsReduced = !isPrivate && slot.seatsLeft != null && requestedGuests > slot.seatsLeft;
     return (
       <section className={styles.page}>
         <div className="wrap">
@@ -99,17 +102,19 @@ export default async function BookExperiencePage({ params, searchParams }: Props
               <h1 className={styles.titleSm}>Your details</h1>
             </div>
           </header>
+          {seatsReduced ? (
+            <p className="notice" role="status" style={{ marginBottom: 20 }}>
+              Only {slot.seatsLeft} {slot.seatsLeft === 1 ? "spot is" : "spots are"} left at this time, so we adjusted your group size to{" "}
+              {initialGuests}.
+            </p>
+          ) : null}
           <CheckoutForm
             experience={experience}
             date={dateKey}
             start={slot.start}
             end={slot.end}
             duration={duration}
-            initialGuests={
-              isPrivate
-                ? (guests ?? defaultGuests(experience, true))
-                : Math.min(guests ?? defaultGuests(experience), slot.seatsLeft ?? experience.maxGuests)
-            }
+            initialGuests={initialGuests}
             isPrivate={isPrivate}
             adjustPercent={slot.adjustPercent}
             seatsLeft={slot.seatsLeft}

@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, gte, ilike, inArray, lt, or, sql, type SQL } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { bookingAddons, bookingEvents, bookings, customers, emailLog, experiences, giftCards, promoCodes, refunds, waivers, type BookingSource, type BookingStatus } from "@/lib/db/schema";
-import { addDaysKey, fromLocal } from "@/lib/time";
+import { addDaysKey, fromLocal, isValidDateKey } from "@/lib/time";
 
 export const VIEWS = ["upcoming", "past", "cancelled", "holds", "all"] as const;
 export type BookingView = (typeof VIEWS)[number];
@@ -28,7 +28,7 @@ export type BookingFilters = {
 
 type SP = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
-const dateKey = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "");
+const dateKey = (v: string) => (isValidDateKey(v) ? v : "");
 
 export function parseBookingFilters(sp: SP | URLSearchParams): BookingFilters {
   const get = (k: string) => (sp instanceof URLSearchParams ? sp.get(k) ?? "" : one(sp[k]));

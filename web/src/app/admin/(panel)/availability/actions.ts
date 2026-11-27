@@ -8,13 +8,13 @@ import { adminAction, bool, int, optStr, str } from "@/lib/admin/action";
 import { clearFeedBlocks, normalizeFeedUrl, previewCalendarFeed, syncCalendarFeeds } from "@/lib/feeds";
 import { plural } from "@/components/admin/format";
 import { regenerateCalendarFeedToken } from "@/lib/calendar-feed";
-import { addDaysKey, fmtDateShort, fromLocal, localDateKey } from "@/lib/time";
+import { addDaysKey, fmtDateShort, fromLocal, isValidDateKey, localDateKey } from "@/lib/time";
 import { blockSpans } from "@/lib/admin/schedule";
 import { notifyWaitlistForDate } from "@/lib/booking/service";
 import { tryWaitlistOpening } from "@/lib/email/notify";
 import type { ActionResult } from "@/components/admin/types";
 
-const dateKey = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date");
+const dateKey = z.string().refine(isValidDateKey, "Pick a valid date");
 const time = z.string().regex(/^\d{2}:\d{2}$/, "Pick a time");
 
 async function resourceGroups(experienceId: string | null): Promise<string[]> {
@@ -63,7 +63,7 @@ export async function deleteBlockAction(_p: ActionResult, fd: FormData): Promise
     if (!b) return "Already removed.";
     if (b.source !== "manual") throw new Error("This comes from a synced calendar. Remove it there; it disappears here on the next sync.");
     // Remove the twin rows created for other resource groups at the same time (keeping experience scope intact).
-    await db
+    const deleted = await db
       .delete(blocks)
       .where(
         and(
@@ -73,12 +73,20 @@ export async function deleteBlockAction(_p: ActionResult, fd: FormData): Promise
           eq(blocks.reason, b.reason),
           b.experienceId ? eq(blocks.experienceId, b.experienceId) : isNull(blocks.experienceId),
         ),
-      );
+      )
+      .returning({ resourceGroup: blocks.resourceGroup });
+    const groups = [...new Set(deleted.map((r) => r.resourceGroup))];
     const firstDay = localDateKey(b.startAt);
     const lastDay = localDateKey(new Date(Math.max(b.startAt.getTime(), b.endAt.getTime() - 1)));
     let day = firstDay;
     for (let i = 0; i < 14 && day <= lastDay; i++, day = addDaysKey(day, 1)) {
-      await notifyWaitlistForDate(b.experienceId, day, b.experienceId ? undefined : b.resourceGroup);
+      if (b.experienceId) {
+        await notifyWaitlistForDate(b.experienceId, day);
+      } else {
+        for (const g of groups.length ? groups : [b.resourceGroup]) {
+          await notifyWaitlistForDate(null, day, g);
+        }
+      }
     }
     return "Block removed. That time is bookable again.";
   });
@@ -118,8 +126,9 @@ export async function toggleFeedAction(_p: ActionResult, fd: FormData): Promise<
 export async function deleteFeedAction(_p: ActionResult, fd: FormData): Promise<ActionResult> {
   return adminAction(async () => {
     const id = z.string().min(1).parse(str(fd, "id"));
+    await clearFeedBlocks(id);
     const db = await getDb();
-    await db.delete(calendarFeeds).where(eq(calendarFeeds.id, id)); // its blocks cascade
+    await db.delete(calendarFeeds).where(eq(calendarFeeds.id, id));
     return "Feed removed. Its busy times are free again.";
   });
 }

@@ -20,7 +20,7 @@ import {
   PriceTable,
 } from "../components/ui";
 import { alexNote, INSTAGRAM_HANDLE, signoff, t, whatToBring } from "../copy";
-import { nyTime, tr, withDot } from "../i18n";
+import { firstName, nyTime, tr, withDot } from "../i18n";
 import { accentFor, C, FONT_BODY } from "../theme";
 import type { BookingView, EmailOutput } from "../types";
 
@@ -133,7 +133,7 @@ function CalendarButtons({
   return (
     <>
       <Actions>
-        {manage ? (
+        {manage && v.manageUrl ? (
           <>
             <Btn href={v.manageUrl}>{t("manage", v.lang)}</Btn>
             <Gap />
@@ -151,6 +151,7 @@ function CalendarButtons({
 }
 
 function CancellationPanel({ v }: { v: BookingView }) {
+  if (!v.manageUrl) return null;
   const accent = accentFor(v.theme);
   return (
     <Panel bg={accent.soft}>
@@ -247,7 +248,7 @@ export function bookingConfirmationEmail(v: BookingView): EmailOutput {
             <>
               La {v.experienceName.toLowerCase()} para{" "}
               <strong>{recipient}</strong> ya está reservada.{" "}
-              {v.giftRecipientEmail
+              {v.giftRecipientEmail && v.giftRecipientEmail.toLowerCase() !== v.guestEmail.toLowerCase()
                 ? `También le enviamos un correo a ${recipient} con los detalles${v.giftMessage ? " y tu mensaje" : ""}.`
                 : `Reenvíale este correo a ${recipient} para que sepa a dónde ir.`}
             </>
@@ -255,7 +256,7 @@ export function bookingConfirmationEmail(v: BookingView): EmailOutput {
             <>
               Your {v.experienceName} gift for <strong>{recipient}</strong> is
               booked.{" "}
-              {v.giftRecipientEmail
+              {v.giftRecipientEmail && v.giftRecipientEmail.toLowerCase() !== v.guestEmail.toLowerCase()
                 ? `We've also emailed ${recipient} the details${v.giftMessage ? " along with your message" : ""}.`
                 : `Forward this email to ${recipient} so they know where to go.`}
             </>
@@ -329,7 +330,8 @@ export function giftBookingRecipientEmail(
   v: BookingView & { purchaserName: string },
 ): EmailOutput {
   const accent = accentFor(v.theme);
-  const from = v.purchaserName.split(/\s+/)[0];
+  const from = firstName(v.purchaserName) || (es(v) ? "Un amigo" : "A friend");
+  const recipFirst = v.giftRecipientName ? firstName(v.giftRecipientName) : "";
   const subject = es(v)
     ? `${from} te regaló una ${v.experienceName.toLowerCase()} 🎁`
     : `${from} booked you a ${v.experienceName} 🎁`;
@@ -341,8 +343,8 @@ export function giftBookingRecipientEmail(
       <Eyebrow>{es(v) ? "Un regalo para ti" : "A gift for you"}</Eyebrow>
       <H1>
         {es(v)
-          ? `${v.giftRecipientName ? v.giftRecipientName.split(/\s+/)[0] + ", t" : "T"}ienes una sesión reservada`
-          : `${v.giftRecipientName ? v.giftRecipientName.split(/\s+/)[0] + ", y" : "Y"}ou've got a session booked`}
+          ? `${recipFirst ? recipFirst + ", t" : "T"}ienes una sesión reservada`
+          : `${recipFirst ? recipFirst + ", y" : "Y"}ou've got a session booked`}
       </H1>
       <P>
         {es(v)
@@ -378,6 +380,21 @@ export function giftBookingRecipientEmail(
       <Details rows={sessionRows(v, { code: true })} accent={accent.strong} />
       <CalendarButtons v={v} manage={false} />
       <WaiverNote v={v} />
+      {v.theme === "dj" ? (
+        <Panel bg={accent.soft}>
+          <H2>{es(v) ? "Antes de venir: 5 canciones por persona" : "Before you come: 5 songs each"}</H2>
+          <P>
+            {es(v)
+              ? "Cada participante prepara 5 canciones para su mezcla grabada personal."
+              : "Each participant prepares 5 songs for their personal recorded mix."}
+          </P>
+          <P>
+            {es(v)
+              ? "Para coordinarlo antes de la experiencia, responde a este correo con el nombre y los datos de contacto de cada participante, idealmente un número de teléfono."
+              : "So we can coordinate this before the experience, please reply to this email with each participant's name and contact information, ideally a phone number."}
+          </P>
+        </Panel>
+      ) : null}
       {v.includes.length ? (
         <>
           <H2>{es(v) ? "Qué incluye" : "What's included"}</H2>
@@ -456,6 +473,7 @@ export function bookingCancelledEmail(
   v: BookingView & {
     cardRefund: string | null;
     giftRefund: string | null;
+    offlineRefund?: string | null;
     paidSomething: boolean;
   },
 ): EmailOutput {
@@ -467,9 +485,13 @@ export function bookingCancelledEmail(
     ? es(v)
       ? `Te devolvimos ${v.cardRefund} a tu tarjeta.`
       : `${v.cardRefund} is on its way back to your card.`
-    : es(v)
-      ? "Tu reserva quedó cancelada."
-      : "Your booking has been cancelled.";
+    : v.offlineRefund
+      ? es(v)
+        ? `Alex te devolverá ${v.offlineRefund} directamente.`
+        : `Alex will refund your ${v.offlineRefund} directly.`
+      : es(v)
+        ? "Tu reserva quedó cancelada."
+        : "Your booking has been cancelled.";
   const element = (
     <Layout lang={v.lang} theme={v.theme} preview={preview}>
       <Eyebrow color={C.inkSoft}>
@@ -519,7 +541,20 @@ export function bookingCancelledEmail(
               )}
             </P>
           ) : null}
-          {!v.cardRefund && !v.giftRefund ? (
+          {v.offlineRefund ? (
+            <P small style={{ margin: "0 0 6px" }}>
+              {es(v) ? (
+                <>
+                  Alex gestionará tu reembolso de <strong>{v.offlineRefund}</strong> directamente por el mismo medio en que pagaste. Si prefieres otra forma, responde a este correo.
+                </>
+              ) : (
+                <>
+                  Alex will send your <strong>{v.offlineRefund}</strong> refund directly via your original payment method. Reply to this email if you need anything else.
+                </>
+              )}
+            </P>
+          ) : null}
+          {!v.cardRefund && !v.giftRefund && !v.offlineRefund ? (
             <P small style={{ margin: 0 }}>
               {v.paidSomething
                 ? es(v)
@@ -555,8 +590,9 @@ export function bookingReminderEmail(
 ): EmailOutput {
   const accent = accentFor(v.theme);
   const start = v.timeLabel.split(" – ")[0];
+  const esAt = /^1(?:[:\s]|a\.?m\.?|p\.?m\.?|$)/i.test(start) ? "a la" : "a las";
   const subject = es(v)
-    ? `${v.dayWord === "hoy" ? "Hoy" : "Mañana"}: ${v.experienceName} a las ${start}`
+    ? `${v.dayWord === "hoy" ? "Hoy" : "Mañana"}: ${v.experienceName} ${esAt} ${start}`
     : `${v.dayWord === "today" ? "Today" : "Tomorrow"}: ${v.experienceName} at ${start}`;
   const preview = es(v)
     ? "Dirección, cómo entrar y qué traer."
@@ -579,7 +615,7 @@ export function bookingReminderEmail(
       </H1>
       <P>
         {es(v)
-          ? `Tu ${v.experienceName.toLowerCase()} empieza ${v.dayWord} a las ${withDot(start)} Aquí va lo esencial para llegar sin estrés.`
+          ? `Tu ${v.experienceName.toLowerCase()} empieza ${v.dayWord} ${esAt} ${withDot(start)} Aquí va lo esencial para llegar sin estrés.`
           : `Your ${v.experienceName} starts ${v.dayWord} at ${start}. Here's the essentials so getting there is easy.`}
       </P>
       <Details
@@ -640,10 +676,10 @@ export function bookingReminderEmail(
 
 export function followupEmail(v: BookingView): EmailOutput {
   const accent = accentFor(v.theme);
-  const production = v.theme === "production";
+  const hasDeliverable = v.hasDeliverable ?? v.theme === "production";
   const subject = es(v)
     ? `Gracias por venir, ${v.guestFirstName}`
-    : production
+    : v.theme === "production"
       ? `Thanks for making music with us, ${v.guestFirstName}`
       : `Thanks for coming in, ${v.guestFirstName}`;
   const preview = es(v)
@@ -663,17 +699,29 @@ export function followupEmail(v: BookingView): EmailOutput {
           ? `Gracias por pasar tu tiempo en el estudio, ${v.guestFirstName}. Ojalá te hayas ido con algo de música en la cabeza (y una sonrisa).`
           : `Thanks for spending your time in the studio, ${v.guestFirstName}. Hope you left with music stuck in your head and a big grin.`}
       </P>
-      {production && !v.deliverableReady ? (
+      {hasDeliverable && !v.deliverableReady ? (
         <Panel bg={accent.soft}>
           <P style={{ margin: "0 0 4px", fontWeight: 700 }}>
-            {es(v)
-              ? "Tu canción va en camino 🎧"
-              : "Your track is on its way 🎧"}
+            {v.theme === "dj"
+              ? es(v)
+                ? "Tu mezcla va en camino 🎧"
+                : "Your mix is on its way 🎧"
+              : v.theme === "wellness"
+                ? es(v)
+                  ? "Tu grabación va en camino 🎧"
+                  : "Your recording is on its way 🎧"
+                : es(v)
+                  ? "Tu canción va en camino 🎧"
+                  : "Your track is on its way 🎧"}
           </P>
           <P small style={{ margin: 0 }}>
-            {es(v)
-              ? "Alex le está dando la mezcla final. Te llega un correo con el enlace de descarga en cuanto esté lista."
-              : "Alex is giving it a final mix. You'll get an email with a download link as soon as it's ready."}
+            {v.theme === "wellness"
+              ? es(v)
+                ? "Alex está preparando tu grabación. Te llega un correo con el enlace de descarga en cuanto esté lista."
+                : "Alex is getting your recording ready. You'll get an email with a download link as soon as it's up."
+              : es(v)
+                ? "Alex le está dando la mezcla final. Te llega un correo con el enlace de descarga en cuanto esté lista."
+                : "Alex is giving it a final mix. You'll get an email with a download link as soon as it's ready."}
           </P>
         </Panel>
       ) : null}
@@ -756,13 +804,28 @@ export function deliverableReadyEmail(
 ): EmailOutput {
   const accent = accentFor(v.theme);
   const thing =
-    v.theme === "dj" ? (es(v) ? "mezcla" : "mix") : es(v) ? "canción" : "track";
+    v.theme === "dj"
+      ? es(v)
+        ? "mezcla"
+        : "mix"
+      : v.theme === "wellness"
+        ? es(v)
+          ? "grabación"
+          : "recording"
+        : es(v)
+          ? "canción"
+          : "track";
   const subject = es(v)
     ? `Tu ${thing} está lista 🎧`
     : `Your ${thing} is ready 🎧`;
-  const preview = es(v)
-    ? "Descárgala, ponla a todo volumen y compártela."
-    : "Download it, play it loud, share it.";
+  const preview =
+    v.theme === "wellness"
+      ? es(v)
+        ? "Descárgala y escúchala cuando quieras."
+        : "Download it and listen back anytime."
+      : es(v)
+        ? "Descárgala, ponla a todo volumen y compártela."
+        : "Download it, play it loud, share it.";
   const element = (
     <Layout
       lang={v.lang}
@@ -775,9 +838,13 @@ export function deliverableReadyEmail(
       </Eyebrow>
       <H1>{es(v) ? `¡Tu ${thing} está lista!` : `Your ${thing} is ready!`}</H1>
       <P>
-        {es(v)
-          ? `Alex terminó la mezcla de lo que hicieron juntos el ${v.dateShort}. Descárgala, guárdala en algún lugar seguro y ponla a todo volumen.`
-          : `Alex has finished mixing what you made together on ${v.dateShort}. Download it, save it somewhere safe, and play it loud.`}
+        {v.theme === "wellness"
+          ? es(v)
+            ? `Alex preparó la grabación de tu sesión del ${v.dateShort}. Descárgala y guárdala para volver a ella cuando necesites un respiro.`
+            : `Alex has finished preparing the recording from your session on ${v.dateShort}. Download it and keep it handy whenever you want to revisit it.`
+          : es(v)
+            ? `Alex terminó la mezcla de lo que hicieron juntos el ${v.dateShort}. Descárgala, guárdala en algún lugar seguro y ponla a todo volumen.`
+            : `Alex has finished mixing what you made together on ${v.dateShort}. Download it, save it somewhere safe, and play it loud.`}
       </P>
       {v.deliverableUrl ? (
         <Actions>

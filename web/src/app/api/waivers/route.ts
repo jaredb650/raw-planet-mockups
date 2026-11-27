@@ -37,10 +37,28 @@ export async function POST(req: Request) {
   // Lock per booking so two guests signing at once can't slip past the signer limit.
   const r = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`rp:waiver:${booking.id}`}))`);
-    const existing = await tx.select({ signerName: waivers.signerName, minorName: waivers.minorName }).from(waivers).where(eq(waivers.bookingId, booking.id));
+    const existing = await tx
+      .select({ id: waivers.id, signerName: waivers.signerName, minorName: waivers.minorName, recordingConsent: waivers.recordingConsent })
+      .from(waivers)
+      .where(eq(waivers.bookingId, booking.id));
     const state = signingState(booking, existing.length);
     if (state === "closed") return { state, signed: existing.length };
-    if (alreadySigned(existing, signer)) return { state: "open" as const, signed: existing.length };
+    if (alreadySigned(existing, signer)) {
+      const match = existing.find((row) => alreadySigned([row], signer));
+      if (match && match.recordingConsent !== d.recording) {
+        await tx
+          .update(waivers)
+          .set({
+            recordingConsent: d.recording,
+            waiverVersion: waiverVersion(d.lang),
+            waiverText: waiverSnapshot(d.lang),
+            ip: clientIp(req.headers),
+            userAgent: req.headers.get("user-agent")?.slice(0, 500) ?? null,
+          })
+          .where(eq(waivers.id, match.id));
+      }
+      return { state: "open" as const, signed: existing.length };
+    }
     if (state === "full") return { state, signed: existing.length };
     await tx.insert(waivers).values({
       bookingId: booking.id,

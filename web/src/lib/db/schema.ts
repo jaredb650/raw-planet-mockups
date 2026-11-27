@@ -305,22 +305,30 @@ export const bookingEvents = pgTable(
   (t) => [index("booking_events_booking_idx").on(t.bookingId)],
 );
 
-export const refunds = pgTable("refunds", {
-  id: id(),
-  bookingId: text("booking_id")
-    .notNull()
-    .references(() => bookings.id, { onDelete: "cascade" }),
-  amountCents: integer("amount_cents").notNull(),
-  reason: text("reason").notNull().default(""),
-  stripeRefundId: text("stripe_refund_id"),
-  /** Part of the refund returned to a gift card balance instead of the card. */
-  giftCardCents: integer("gift_card_cents").notNull().default(0),
-  createdBy: text("created_by")
-    .$type<"customer" | "admin" | "system">()
-    .notNull()
-    .default("system"),
-  createdAt: createdAt(),
-});
+export const refunds = pgTable(
+  "refunds",
+  {
+    id: id(),
+    bookingId: text("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    amountCents: integer("amount_cents").notNull(),
+    reason: text("reason").notNull().default(""),
+    stripeRefundId: text("stripe_refund_id"),
+    /** Part of the refund returned to a gift card balance instead of the card. */
+    giftCardCents: integer("gift_card_cents").notNull().default(0),
+    createdBy: text("created_by")
+      .$type<"customer" | "admin" | "system">()
+      .notNull()
+      .default("system"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("refunds_stripe_id_uidx")
+      .on(t.stripeRefundId)
+      .where(sql`${t.stripeRefundId} is not null`),
+  ],
+);
 
 /* ------------------------------------------------------------------ */
 /* Availability: manual blocks + imported calendar feeds                */
@@ -360,7 +368,12 @@ export const blocks = pgTable(
     externalUid: text("external_uid"),
     createdAt: createdAt(),
   },
-  (t) => [index("blocks_range_idx").on(t.startAt, t.endAt)],
+  (t) => [
+    index("blocks_range_idx").on(t.startAt, t.endAt),
+    uniqueIndex("blocks_feed_ext_uidx")
+      .on(t.feedId, t.externalUid)
+      .where(sql`${t.feedId} is not null and ${t.externalUid} is not null`),
+  ],
 );
 
 /* ------------------------------------------------------------------ */

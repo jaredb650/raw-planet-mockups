@@ -11,7 +11,7 @@
 import "server-only";
 import { and, eq, gt, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { getDb, type Tx } from "@/lib/db";
-import { blocks, bookings, customers, experiences, type Booking } from "@/lib/db/schema";
+import { blocks, bookings, customers, experiences, promoCodes, type Booking } from "@/lib/db/schema";
 import { newBookingCode, newToken } from "@/lib/ids";
 import { fmtDateShort, fmtTimeRange, localDateKey } from "@/lib/time";
 import { logEvent, notifyWaitlistForDate } from "./service";
@@ -132,6 +132,12 @@ export async function applyCalCancellation(p: CalPayload): Promise<string> {
     .where(and(eq(bookings.id, b.id), eq(bookings.status, "confirmed")))
     .returning();
   if (!u) return "raced";
+  if (b.promoCodeId && new Date() < b.startAt) {
+    await db
+      .update(promoCodes)
+      .set({ redemptions: sql`greatest(0, ${promoCodes.redemptions} - 1)` })
+      .where(eq(promoCodes.id, b.promoCodeId));
+  }
   await logEvent(db, b.id, "cancelled", "Booking cancelled", { public: true, actor: "system" });
   await logEvent(db, b.id, "note", "Cancelled in Cal.com — review refund in admin", {
     data: { calUid: p.uid, reason, refund: "none", amountPaidCents: b.amountPaidCents, giftCardCents: b.giftCardCents },

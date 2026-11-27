@@ -20,6 +20,7 @@ import {
   setDeliverable,
   type RefundMode,
 } from "@/lib/booking/service";
+import { isSafeHttpUrl } from "@/app/api/_lib/http";
 import { adminAction, bool, cents, int, localDateTime, optStr, str } from "@/lib/admin/action";
 import { cleanPhone } from "@/lib/phone";
 import { formatMoney } from "@/lib/money";
@@ -123,7 +124,7 @@ export async function deliverableAction(_p: ActionResult, fd: FormData): Promise
   return adminAction(async () => {
     const status = z.enum(["none", "in_progress", "delivered"]).parse(str(fd, "status"));
     const url = optStr(fd, "url");
-    if (url) z.string().url("Paste a full link starting with https://").parse(url);
+    if (url && !isSafeHttpUrl(url)) throw new Error("Paste a full link starting with https://");
     if (status === "delivered" && !url) throw new Error("Paste the download link before marking it delivered.");
     const notify = bool(fd, "notify");
     await setDeliverable(id(fd), { status, url, notifyCustomer: notify });

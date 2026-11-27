@@ -281,10 +281,8 @@ export default async function CustomerPage({
                   <input type="hidden" name="sourceId" value={c.id} />
                   <div className={a.field}>
                     <label htmlFor="c-merge-target">Keep profile</label>
-                    <select id="c-merge-target" name="targetId" className={a.select} defaultValue="" required>
-                      <option value="" disabled>
-                        Choose customer to merge into…
-                      </option>
+                    <select id="c-merge-target" name="targetId" className={a.select} defaultValue="">
+                      <option value="">Choose customer to merge into…</option>
                       {otherCustomers.map((o) => {
                         const label = o.email.endsWith("@rawplanet.invalid") ? `${o.name} (no email)` : `${o.name} — ${o.email}`;
                         return (
@@ -294,6 +292,11 @@ export default async function CustomerPage({
                         );
                       })}
                     </select>
+                  </div>
+                  <div className={a.field}>
+                    <label htmlFor="c-merge-email">Or enter target email</label>
+                    <input id="c-merge-email" name="targetEmail" type="email" className={a.input} placeholder="guest@example.com" />
+                    <span className={a.hint}>Useful if you have more than 200 customers.</span>
                   </div>
                   <div className={a.formFoot}>
                     <ConfirmSubmit

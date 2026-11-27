@@ -5,7 +5,7 @@ import { getDb } from "@/lib/db";
 import { blocks, experiences } from "@/lib/db/schema";
 import { getCalendarItems, type CalItem } from "@/lib/admin/calendar";
 import { addMonthsKey, monthStartKey, weekStartKey } from "@/lib/admin/dashboard";
-import { addDaysKey, dateRange, fmt, fmtTime, fmtTimeRange, fromLocal, localDateKey, todayKey } from "@/lib/time";
+import { addDaysKey, dateRange, fmt, fmtTime, fmtTimeRange, fromLocal, isValidDateKey, localDateKey, todayKey } from "@/lib/time";
 import { PageHeader, Panel } from "@/components/admin/PageHeader";
 import { BlockForm } from "@/components/admin/BlockForm";
 import { ActionForm, ConfirmSubmit } from "@/components/admin/ActionForm";
@@ -40,7 +40,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const now = new Date();
   const today = todayKey(now);
   const view: View = (["week", "day", "month", "agenda"] as const).find((v) => v === one(sp.view)) ?? "week";
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(one(sp.date)) ? one(sp.date) : today;
+  const date = isValidDateKey(one(sp.date)) ? one(sp.date) : today;
   const sel = one(sp.sel);
 
   let fromKey: string;

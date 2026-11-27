@@ -6,6 +6,7 @@ import { eq, max } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { addons, experiences, type DurationOption, type WeeklySchedule } from "@/lib/db/schema";
+import { isSafeHttpUrl } from "@/app/api/_lib/http";
 import { adminAction, bool, cents, int, lines, optInt, optStr, str } from "@/lib/admin/action";
 import { parseDollars } from "@/lib/money";
 import type { ActionResult } from "@/components/admin/types";
@@ -150,7 +151,7 @@ export async function updateExperienceAction(_p: ActionResult, fd: FormData): Pr
     if (minGuests < 1 || maxGuests < minGuests) throw new Error("Guests: the maximum must be at least the minimum.");
     const pricingMode = z.enum(["per_person", "per_session"]).parse(str(fd, "pricingMode"));
     const airbnbUrl = optStr(fd, "airbnbUrl");
-    if (airbnbUrl) z.url("Airbnb link must be a full https:// link").parse(airbnbUrl);
+    if (airbnbUrl && !isSafeHttpUrl(airbnbUrl)) throw new Error("Airbnb link must be a full https:// link");
 
     const privateRaw = str(fd, "privateRate");
     let privateRateCents: number | null = null;

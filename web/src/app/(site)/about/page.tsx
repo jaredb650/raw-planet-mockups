@@ -8,6 +8,7 @@ import { breadcrumbJsonLd } from "@/components/site/schema";
 import { Stars } from "@/components/site/Stars";
 import { COHOSTS, HOST } from "@/content/site";
 import { BUSINESS, siteUrl } from "@/lib/config";
+import { isLocalAsset } from "@/lib/experience-meta";
 import { getActiveExperiences, getPublishedReviews, getRatingSummary } from "@/lib/queries/public";
 import { Breadcrumbs } from "@/components/site/PageHeader";
 import styles from "./about.module.css";
@@ -203,7 +204,12 @@ export default async function AboutPage() {
               return (
                 <Link key={e.slug} href={`/experiences/${e.slug}`} className={styles.room} data-theme={t}>
                   <div className={styles.roomImg}>
-                    <Image src={ph.src} alt="" fill sizes="(max-width: 900px) 92vw, 380px" className={styles.cover} />
+                    {isLocalAsset(ph.src) ? (
+                      <Image src={ph.src} alt="" fill sizes="(max-width: 900px) 92vw, 380px" className={styles.cover} />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={ph.src} alt="" className={styles.cover} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+                    )}
                   </div>
                   <strong>{e.name}</strong>
                   <span className="muted">

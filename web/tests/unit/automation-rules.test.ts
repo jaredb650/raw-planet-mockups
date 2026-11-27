@@ -8,6 +8,7 @@ import {
   inSendingHours,
   reminderDue,
   reviewNudgeDue,
+  weeklyReportDue,
 } from "@/lib/automation/rules";
 import { realAddress } from "@/emails/view";
 
@@ -30,9 +31,15 @@ describe("guestAutomationAllowed", () => {
 
 describe("reminderDue", () => {
   const b = { status: "confirmed", startAt: START, reminderSentAt: null, confirmedAt: new Date(START.getTime() - 5 * D), createdAt: new Date(START.getTime() - 5 * D) };
-  it("fires from 24h before until 1h before", () => {
-    expect(reminderDue(b, at(-25 * H))).toBe(false);
+  it("fires from 28h before (during daytime) until 1h before", () => {
+    expect(reminderDue(b, at(-29 * H))).toBe(false);
+    // -28h = Fri 10am EST (sending hours)
+    expect(reminderDue(b, at(-28 * H))).toBe(true);
+    // -24h = Fri 2pm EST
     expect(reminderDue(b, at(-24 * H))).toBe(true);
+    // -12h = Sat 2am EST (outside sending hours, >4h before session -> wait until morning)
+    expect(reminderDue(b, at(-12 * H))).toBe(false);
+    // -2h = Sat 12pm EST (and urgent <=4h always allowed)
     expect(reminderDue(b, at(-2 * H))).toBe(true);
     expect(reminderDue(b, at(-30 * 60_000))).toBe(false);
   });
@@ -80,13 +87,18 @@ describe("reviewNudgeDue", () => {
 });
 
 describe("abandonedDue", () => {
-  const expiredAt = new Date("2026-11-04T15:00:00Z");
+  const expiredAt = new Date("2026-11-04T15:00:00Z"); // 10am EST
   const b = { status: "expired", source: "direct", abandonedEmailSentAt: null, updatedAt: expiredAt, startAt: START };
   const ok = { rebooked: false, cancelledByGuest: false };
-  it("45 min to 24h after expiry", () => {
+  it("45 min to 48h after expiry during daytime sending hours", () => {
     expect(abandonedDue(b, new Date(expiredAt.getTime() + 30 * 60_000), ok)).toBe(false);
     expect(abandonedDue(b, new Date(expiredAt.getTime() + 45 * 60_000), ok)).toBe(true);
-    expect(abandonedDue(b, new Date(expiredAt.getTime() + 25 * H), ok)).toBe(false);
+    // 2am EST -> outside sending hours
+    expect(abandonedDue(b, new Date("2026-11-05T07:00:00Z"), ok)).toBe(false);
+    // 25h after expiry (11am EST next day) -> still within 48h window
+    expect(abandonedDue(b, new Date(expiredAt.getTime() + 25 * H), ok)).toBe(true);
+    // 49h after expiry -> past 48h window
+    expect(abandonedDue(b, new Date(expiredAt.getTime() + 49 * H), ok)).toBe(false);
   });
   it("not if they rebooked, cancelled themselves, or the session is under 24h away", () => {
     const now = new Date(expiredAt.getTime() + H);
@@ -99,20 +111,28 @@ describe("abandonedDue", () => {
 
 describe("giftCardDeliveryDue", () => {
   const c = { status: "active", recipientEmail: "r@x.com", deliverAt: new Date("2026-12-25T14:00:00Z"), deliveredAt: null };
-  it("on or after the delivery time, once", () => {
+  it("on or after the delivery time, or immediately when deliverAt is null, once", () => {
     expect(giftCardDeliveryDue(c, new Date("2026-12-25T13:59:00Z"))).toBe(false);
     expect(giftCardDeliveryDue(c, new Date("2026-12-25T14:00:00Z"))).toBe(true);
+    expect(giftCardDeliveryDue({ ...c, deliverAt: null }, new Date("2026-12-20T14:00:00Z"))).toBe(true);
     expect(giftCardDeliveryDue({ ...c, deliveredAt: new Date() }, new Date("2026-12-26T00:00:00Z"))).toBe(false);
     expect(giftCardDeliveryDue({ ...c, status: "void" }, new Date("2026-12-26T00:00:00Z"))).toBe(false);
   });
 });
 
-describe("digest + sending hours", () => {
+describe("digest, weekly report + sending hours", () => {
   it("digest once per NY day from 7am", () => {
     expect(digestDue(new Date("2026-11-14T11:30:00Z"), "2026-11-13", "2026-11-14")).toBe(false); // 6:30am EST
     expect(digestDue(new Date("2026-11-14T12:05:00Z"), "2026-11-13", "2026-11-14")).toBe(true); // 7:05am
     expect(digestDue(new Date("2026-11-14T12:05:00Z"), "2026-11-14", "2026-11-14")).toBe(false);
     expect(digestDue(new Date("2026-07-14T11:05:00Z"), null, "2026-07-14")).toBe(true); // 7:05am EDT
+  });
+  it("weekly report waits until 7am NY even on fallback days", () => {
+    expect(weeklyReportDue(new Date("2026-11-16T11:30:00Z"), "2026-11-09", "2026-11-16", "2026-11-16")).toBe(false); // Mon 6:30am EST
+    expect(weeklyReportDue(new Date("2026-11-16T12:05:00Z"), "2026-11-09", "2026-11-16", "2026-11-16")).toBe(true); // Mon 7:05am EST
+    expect(weeklyReportDue(new Date("2026-11-17T07:00:00Z"), "2026-11-09", "2026-11-16", "2026-11-17")).toBe(false); // Tue 2:00am EST
+    expect(weeklyReportDue(new Date("2026-11-17T12:05:00Z"), "2026-11-09", "2026-11-16", "2026-11-17")).toBe(true); // Tue 7:05am EST
+    expect(weeklyReportDue(new Date("2026-11-17T12:05:00Z"), "2026-11-16", "2026-11-16", "2026-11-17")).toBe(false); // already sent
   });
   it("sending hours follow New York, not the server", () => {
     expect(inSendingHours(new Date("2026-07-14T13:00:00Z"))).toBe(true); // 9am EDT

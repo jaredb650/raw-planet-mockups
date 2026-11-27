@@ -158,9 +158,9 @@ export function eventRsvpEmail(v: RsvpView): EmailOutput {
             <Panel bg={accent.soft}>
               <P small style={{ margin: 0 }}>
                 {es ? (
-                  <>Este encuentro también está en Meetup. <A href={v.meetupUrl}>Únete al grupo</A> para enterarte de las próximas fechas (cada dos semanas).</>
+                  <>Este encuentro también está en Meetup. <A href={v.meetupUrl}>Únete al grupo</A> para enterarte de las próximas fechas.</>
                 ) : (
-                  <>This meetup is on Meetup too. <A href={v.meetupUrl}>Join the group</A> to hear about the next ones (every two weeks).</>
+                  <>This meetup is on Meetup too. <A href={v.meetupUrl}>Join the group</A> to hear about upcoming dates.</>
                 )}
               </P>
             </Panel>

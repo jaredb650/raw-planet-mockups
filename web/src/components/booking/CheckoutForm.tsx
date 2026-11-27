@@ -60,7 +60,7 @@ export function CheckoutForm({
   const [promo, setPromo] = useState<string | null>(null);
   const [giftCode, setGiftCode] = useState<string | null>(null);
   const [isGift, setIsGift] = useState(false);
-  const [quote, setQuote] = useState<{ key: string; view: QuoteView; promoError: string | null; giftCardError: string | null } | null>(null);
+  const [quote, setQuote] = useState<{ key: string; view: QuoteView | null; promoError: string | null; giftCardError: string | null } | null>(null);
   const [fields, setFields] = useState<Fields>({});
   const [formError, setFormError] = useState<{ message: string; taken?: boolean } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -95,7 +95,7 @@ export function CheckoutForm({
         }
         setQuote((prev) => ({
           key: quoteKey,
-          view: prev?.view ?? { totalCents: 0, lines: [] },
+          view: prev?.view ?? null,
           promoError: promo ? (body.error ?? "Couldn't check this code. Try again.") : null,
           giftCardError: giftCode ? (body.error ?? "Couldn't check this gift card. Try again.") : null,
         }));
@@ -104,7 +104,7 @@ export function CheckoutForm({
         if (ctrl.signal.aborted) return;
         setQuote((prev) => ({
           key: quoteKey,
-          view: prev?.view ?? { totalCents: 0, lines: [] },
+          view: prev?.view ?? null,
           promoError: promo ? "Couldn't reach the server. Try again." : null,
           giftCardError: giftCode ? "Couldn't reach the server. Try again." : null,
         }));
@@ -464,11 +464,17 @@ export function CheckoutForm({
               ) : null}
 
               <Turnstile />
-              <button type="submit" className="btn btn--accent btn--block" data-theme={theme} disabled={submitting}>
-                {submitting ? "Holding your spot…" : total === 0 && view ? "Confirm booking" : `Continue to payment · ${formatMoney(total)}`}
+              <button type="submit" className="btn btn--accent btn--block" data-theme={theme} disabled={submitting || !fresh}>
+                {submitting
+                  ? "Holding your spot…"
+                  : !fresh
+                    ? "Updating price…"
+                    : total === 0 && view
+                      ? "Confirm booking"
+                      : `Continue to payment · ${formatMoney(total)}`}
               </button>
               <p className={styles.fine} style={{ textAlign: "center" }}>
-                {total === 0 && view
+                {fresh && total === 0 && view
                   ? "Nothing to pay. We'll confirm straight away."
                   : "We hold your time for 30 minutes while you pay securely with Stripe."}
               </p>

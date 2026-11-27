@@ -9,6 +9,21 @@ import { BUSINESS } from "./config";
 
 export const TZ = BUSINESS.timeZone;
 
+export const MIN_DATE_YEAR = 2020;
+export const MAX_DATE_YEAR = 2100;
+const DATE_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** True when `s` is a real YYYY-MM-DD calendar date within sane year bounds (2020–2100). */
+export function isValidDateKey(s: string | null | undefined): s is string {
+  if (!s) return false;
+  const m = DATE_KEY_RE.exec(s);
+  if (!m) return false;
+  const y = Number(m[1]);
+  if (y < MIN_DATE_YEAR || y > MAX_DATE_YEAR) return false;
+  const d = new Date(`${s}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
 /** "YYYY-MM-DD" for an instant, in business-local time. */
 export function localDateKey(d: Date): string {
   return format(new TZDate(d, TZ), "yyyy-MM-dd");
@@ -30,10 +45,16 @@ export function addDaysKey(dateKey: string, n: number): string {
   return localDateKey(addDays(fromLocal(dateKey, "12:00"), n));
 }
 
-/** Inclusive list of local date keys between two keys. */
-export function dateRange(fromKey: string, toKey: string): string[] {
+/** Inclusive list of local date keys between two keys (bounded against runaway ranges). */
+export function dateRange(fromKey: string, toKey: string, maxDays = 400): string[] {
+  const start = new Date(`${fromKey}T12:00:00Z`).getTime();
+  const end = new Date(`${toKey}T12:00:00Z`).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end) || start > end) return [];
+  const days = Math.min(Math.floor((end - start) / 86_400_000) + 1, maxDays);
   const out: string[] = [];
-  for (let k = fromKey; k <= toKey; k = addDaysKey(k, 1)) out.push(k);
+  for (let i = 0; i < days; i++) {
+    out.push(new Date(start + i * 86_400_000).toISOString().slice(0, 10));
+  }
   return out;
 }
 

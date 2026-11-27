@@ -63,4 +63,5 @@ export type BookingView = {
   hostWhatsapp: string | null;
   deliverableUrl: string | null;
   deliverableReady: boolean;
+  hasDeliverable?: boolean;
 };

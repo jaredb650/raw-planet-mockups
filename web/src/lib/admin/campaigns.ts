@@ -196,7 +196,15 @@ export async function sendCampaignBatch(id: string, budgetMs = SEND_BUDGET_MS): 
 
     const people = await db.select({ id: customers.id, language: customers.language }).from(customers).where(inArray(customers.id, claimed.map((r) => r.customerId!)));
     const langs = new Map(people.map((p) => [p.id, langOf(p.language)]));
-    for (const r of claimed) {
+    for (let i = 0; i < claimed.length; i++) {
+      if (Date.now() >= stop) {
+        const unattempted = claimed.slice(i).map((x) => x.id);
+        if (unattempted.length) {
+          await db.update(campaignRecipients).set({ sentAt: null }).where(and(inArray(campaignRecipients.id, unattempted), eq(campaignRecipients.status, "pending")));
+        }
+        break;
+      }
+      const r = claimed[i];
       const t0 = Date.now();
       const lang = langs.get(r.customerId!) ?? "en";
       const res = await sendMarketing({ to: r.email, customerId: r.customerId!, lang, template: "campaign", build: (url) => campaignOutput(c, lang, url, address) }).catch((err) => ({ ok: false, error: err instanceof Error ? err.message : String(err) }));
@@ -279,10 +287,22 @@ export async function sendWinBacks(now: Date, budgetMs: number) {
   return out;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** The link's whole job. marketingOptIn goes false too, so the customer screens and CSV agree. */
 export async function unsubscribeCustomer(customerId: string): Promise<void> {
+  // Test campaign links use customerId="test" — treat as a harmless no-op instead of throwing a Postgres UUID error.
+  if (!UUID_RE.test(customerId)) return;
   const db = await getDb();
-  await db.update(customers).set({ marketingOptIn: false, unsubscribedAt: new Date(), updatedAt: new Date() }).where(and(eq(customers.id, customerId), isNull(customers.unsubscribedAt)));
+  const now = new Date();
+  await db
+    .update(customers)
+    .set({
+      marketingOptIn: false,
+      unsubscribedAt: sql`coalesce(${customers.unsubscribedAt}, ${now})`,
+      updatedAt: now,
+    })
+    .where(eq(customers.id, customerId));
 }
 
 export type CampaignStats = { sent: number; failed: number; pending: number; testOnly: number; bookings: number; revenueCents: number };

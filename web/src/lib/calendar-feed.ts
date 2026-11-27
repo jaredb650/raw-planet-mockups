@@ -74,7 +74,7 @@ export async function buildCalendarFeed(now = new Date()): Promise<string> {
     .select({ b: bookings, e: { name: experiences.name, shortName: experiences.shortName, address: experiences.address, locationArea: experiences.locationArea } })
     .from(bookings)
     .innerJoin(experiences, eq(bookings.experienceId, experiences.id))
-    .where(and(inArray(bookings.status, ["confirmed", "completed", "no_show"]), lt(bookings.startAt, to), gt(bookings.endAt, from)))
+    .where(and(inArray(bookings.status, ["confirmed", "completed"]), lt(bookings.startAt, to), gt(bookings.endAt, from)))
     .orderBy(asc(bookings.startAt));
   const community = await db
     .select()
@@ -84,13 +84,12 @@ export async function buildCalendarFeed(now = new Date()): Promise<string> {
   const items: IcsEvent[] = rows.map(({ b, e }) => {
     const src = SOURCE_LABEL[b.source] ?? b.source;
     const description = [
-      `${b.code} · ${src}${b.externalRef ? ` (${b.externalRef})` : ""}`,
+      `${b.code} · ${src}${b.externalRef ? ` (${b.externalRef})` : ""}${b.isPrivate ? " · Private" : ""}`,
       `${b.contactName} · ${b.guests} guest${b.guests === 1 ? "" : "s"}${b.language === "es" ? " · Español" : ""}`,
       [b.contactPhone, b.contactEmail.endsWith(".invalid") ? null : b.contactEmail].filter(Boolean).join(" · ") || null,
       b.occasion ? `Occasion: ${b.occasion}` : null,
       b.isGift && b.giftRecipientName ? `Gift for ${b.giftRecipientName}` : null,
       b.customerNotes ? `Guest notes: ${b.customerNotes}` : null,
-      b.status === "no_show" ? "Marked no-show" : null,
       `Admin: ${siteUrl(`/admin/bookings/${b.id}`)}`,
     ]
       .filter(Boolean)
@@ -99,7 +98,8 @@ export async function buildCalendarFeed(now = new Date()): Promise<string> {
       uid: `${b.id}@rawplanetexperiences.com`,
       start: b.startAt,
       end: b.endAt,
-      summary: `${e.shortName} · ${b.contactName} (${b.guests})${b.source !== "direct" ? ` · ${src}` : ""}`,
+      dtstamp: b.updatedAt,
+      summary: `${e.shortName}${b.isPrivate ? " [Private]" : ""} · ${b.contactName} (${b.guests})${b.source !== "direct" ? ` · ${src}` : ""}`,
       description,
       location: e.address || e.locationArea,
       url: siteUrl(`/admin/bookings/${b.id}`),
@@ -112,6 +112,7 @@ export async function buildCalendarFeed(now = new Date()): Promise<string> {
       uid: `event-${ev.id}@rawplanetexperiences.com`,
       start: ev.startAt,
       end: ev.endAt,
+      dtstamp: ev.updatedAt,
       summary: `${ev.title} · Community`,
       description: [ev.summary, siteUrl(`/events/${ev.slug}`)].filter(Boolean).join("\n\n"),
       location: [ev.venue, ev.address].filter(Boolean).join(", ") || undefined,
@@ -120,5 +121,5 @@ export async function buildCalendarFeed(now = new Date()): Promise<string> {
       sequence: Math.floor(ev.updatedAt.getTime() / 1000) % 2_000_000_000,
     });
   }
-  return buildIcs(items, { name: `${BUSINESS.shortName} bookings` });
+  return buildIcs(items, { name: `${BUSINESS.shortName} bookings`, timeZone: BUSINESS.timeZone });
 }

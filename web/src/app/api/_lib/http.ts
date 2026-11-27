@@ -11,11 +11,15 @@ import "server-only";
 import { z } from "zod";
 import { BookingError } from "@/lib/booking/service";
 import { PricingError } from "@/lib/booking/pricing";
+import { isValidDateKey } from "@/lib/time";
 
 export function clientIp(headers: Headers): string {
-  const edge = headers.get("x-vercel-forwarded-for") ?? headers.get("cf-connecting-ip") ?? headers.get("x-real-ip");
-  if (edge) return edge.split(",")[0]!.trim();
-  const fwd = headers.get("x-forwarded-for");
+  // Only trust platform-injected IP headers when running on that platform so spoofed headers can't bypass limits.
+  if (process.env.VERCEL === "1" || process.env.VERCEL_ENV) {
+    const v = headers.get("x-vercel-forwarded-for");
+    if (v) return v.split(",")[0]!.trim();
+  }
+  const fwd = headers.get("x-forwarded-for") ?? headers.get("x-real-ip");
   if (fwd) return fwd.split(",")[0]!.trim();
   return "local";
 }
@@ -50,11 +54,14 @@ export function rateLimit(key: string, opts: { capacity: number; perMinute: numb
 export const LIMITS = {
   checkout: { capacity: 12, perMinute: 6 },
   quote: { capacity: 60, perMinute: 60 },
+  quoteCode: { capacity: 10, perMinute: 6 },
   availability: { capacity: 120, perMinute: 120 },
   waitlist: { capacity: 6, perMinute: 3 },
   giftCard: { capacity: 8, perMinute: 4 },
   balance: { capacity: 10, perMinute: 5 },
   manageLinks: { capacity: 5, perMinute: 2 },
+  manageAction: { capacity: 10, perMinute: 5 },
+  ics: { capacity: 30, perMinute: 20 },
   status: { capacity: 120, perMinute: 60 },
 } as const;
 
@@ -91,20 +98,31 @@ export function domainErrorResponse(err: unknown): Response {
   return jsonError(500, "Something went wrong on our side. Please try again in a moment.", { code: "server" });
 }
 
-/** Read a JSON body without throwing. */
-export async function readJson(req: Request): Promise<unknown> {
+/** Read a bounded JSON body without throwing (max 64 KB by default). */
+export async function readJson(req: Request, maxBytes = 64_000): Promise<unknown> {
   try {
-    return await req.json();
+    const len = Number(req.headers.get("content-length") ?? 0);
+    if (len > maxBytes) return null;
+    const text = await req.text();
+    if (text.length > maxBytes) return null;
+    return JSON.parse(text);
   } catch {
     return null;
   }
 }
 
-/** YYYY-MM-DD that is a real calendar date. */
+/** True only for valid http(s) URLs (blocks javascript:, data:, file:, etc.). */
+export function isSafeHttpUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+/** YYYY-MM-DD that is a real calendar date within sane year bounds (2020–2100). */
 export const dateKeySchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
-  .refine((s) => {
-    const d = new Date(`${s}T12:00:00Z`);
-    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
-  }, "Not a real date");
+  .refine((s) => isValidDateKey(s), "Not a real date");

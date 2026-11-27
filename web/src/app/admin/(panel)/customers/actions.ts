@@ -58,12 +58,20 @@ export async function updateCustomerAction(_p: ActionResult, fd: FormData): Prom
 export async function mergeCustomerAction(_p: ActionResult, fd: FormData): Promise<ActionResult> {
   return adminAction(async () => {
     const sourceId = z.string().min(1).parse(str(fd, "sourceId"));
-    const targetEmail = z.email("Pick or enter the target customer's email").parse(str(fd, "targetEmail").trim().toLowerCase());
+    const targetId = str(fd, "targetId").trim();
+    const rawEmail = str(fd, "targetEmail").trim().toLowerCase();
+    if (!targetId && !rawEmail) throw new Error("Choose a customer or enter their email to merge into.");
     const db = await getDb();
     const [source] = await db.select().from(customers).where(eq(customers.id, sourceId)).limit(1);
     if (!source) throw new Error("Customer not found.");
-    const [target] = await db.select().from(customers).where(eq(customers.email, targetEmail)).limit(1);
-    if (!target) throw new Error(`No customer found with email ${targetEmail}.`);
+    const [target] = rawEmail
+      ? await db
+          .select()
+          .from(customers)
+          .where(eq(customers.email, z.email("That email doesn't look right").parse(rawEmail)))
+          .limit(1)
+      : await db.select().from(customers).where(eq(customers.id, targetId)).limit(1);
+    if (!target) throw new Error(rawEmail ? `No customer found with email ${rawEmail}.` : "Target customer not found.");
     if (target.id === source.id) throw new Error("Pick a different customer profile to merge into.");
 
     await db.transaction(async (tx) => {

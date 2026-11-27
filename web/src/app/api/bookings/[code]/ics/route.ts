@@ -4,13 +4,15 @@
 import type { NextRequest } from "next/server";
 import { getBookingForCustomer } from "@/lib/booking/service";
 import { bookingCalendarEvent } from "@/components/booking/server/calendar-event";
-import { jsonError } from "../../../_lib/http";
+import { LIMITS, clientIp, jsonError, rateLimit, tooMany } from "../../../_lib/http";
 import { buildIcs } from "@/lib/ics";
+import { BUSINESS } from "@/lib/config";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { bookingEvents } from "@/lib/db/schema";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ code: string }> }) {
+  if (!rateLimit(`ics:${clientIp(req.headers)}`, LIMITS.ics)) return tooMany();
   const { code } = await ctx.params;
   const booking = await getBookingForCustomer(code, req.nextUrl.searchParams.get("t") ?? "");
   if (!booking) return jsonError(404, "We couldn't find that booking.");
@@ -25,12 +27,14 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
     .from(bookingEvents)
     .where(and(eq(bookingEvents.bookingId, booking.id), eq(bookingEvents.type, "rescheduled")));
   const sequence = Math.max(Number(moves?.n ?? 0), booking.rescheduleCount) + (booking.status === "cancelled" ? 10 : 0);
+  const method = booking.status === "cancelled" ? "CANCEL" : "PUBLISH";
   const ics = buildIcs(
     [
       {
         uid: `${booking.id}@rawplanetexperiences.com`,
         start: booking.startAt,
         end: booking.endAt,
+        dtstamp: booking.updatedAt,
         summary: event.summary,
         description: event.description,
         location: event.location,
@@ -39,11 +43,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ code: strin
         sequence,
       },
     ],
-    { name: "Raw Planet Experiences" },
+    { name: "Raw Planet Experiences", method, timeZone: BUSINESS.timeZone },
   );
   return new Response(ics, {
     headers: {
-      "Content-Type": "text/calendar; charset=utf-8",
+      "Content-Type": `text/calendar; charset=utf-8; method=${method}`,
       "Content-Disposition": `attachment; filename="raw-planet-${booking.code}.ics"`,
       "Cache-Control": "no-store",
     },

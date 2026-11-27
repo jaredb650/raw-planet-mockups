@@ -71,12 +71,23 @@ export default async function ManageBookingPage({ params, searchParams }: Props)
     amountRefundedCents: b.amountRefundedCents,
     giftCardCents: b.giftCardCents,
   });
+  const hasStripePayment = Boolean(b.stripePaymentIntentId);
   const refundParts = [
-    policy.cardCents > 0 ? `${formatMoney(policy.cardCents)} back to your card` : null,
+    policy.cardCents > 0
+      ? hasStripePayment
+        ? `${formatMoney(policy.cardCents)} back to your card`
+        : `${formatMoney(policy.cardCents)} to be refunded by ${BUSINESS.host.split(" ")[0]}`
+      : null,
     policy.giftCardCents > 0 ? `${formatMoney(policy.giftCardCents)} back on your gift card` : null,
   ].filter(Boolean);
   const refundText = refundParts.length
-    ? `You'll get ${refundParts.join(" and ")}. Card refunds take 5 to 10 days to show.`
+    ? `You'll get ${refundParts.join(" and ")}.${
+        policy.cardCents > 0 && hasStripePayment
+          ? " Card refunds take 5 to 10 days to show."
+          : policy.cardCents > 0
+            ? " We'll reach out to return your payment."
+            : ""
+      }`
     : "Nothing was charged for this booking, so there's nothing to refund.";
   const cal = b.status === "confirmed" || b.status === "completed" ? await bookingCalendarEvent(b, e) : null;
   const theme = themeOf(e);
